@@ -102,7 +102,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	size_t collected_delimiters = 0;
 
 	for(size_t i = 0;; ++i) {
-		if(str_view->length >= str_view->offset) {
+		if(str_view->offset + i >= str_view->length) {
 			return false;
 		}
 
