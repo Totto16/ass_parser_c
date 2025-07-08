@@ -17,6 +17,15 @@ project(
 deps = []
 compile_flags = ['-D_POSIX_C_SOURCE=200809L']
 
+deps += dependency(
+    'libutf8proc',
+    allow_fallback: true,
+    default_options: {
+        'tests': 'disabled',
+    },
+)
+
+
 src_files = []
 inc_dirs = []
 

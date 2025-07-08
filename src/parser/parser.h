@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "./sized_ptr.h"
+#include "../helper/sized_ptr.h"
 
 typedef enum {
 	AssSourceTypeFile,
@@ -17,10 +17,6 @@ typedef struct {
 	} data;
 
 } AssSource;
-
-typedef struct {
-	int todo;
-} ASSStyle;
 
 typedef struct AssParseResultImpl AssParseResult;
 
