@@ -2,6 +2,7 @@
 src_files += files(
     'io.c',
     'io.h',
+    'macros.h',
     'sized_ptr.c',
     'sized_ptr.h',
     'utf8_helper.c',

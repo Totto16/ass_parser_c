@@ -1,8 +1,8 @@
 
 
 #include "./utf8_string_view.h"
+#include "./macros.h"
 
-#include <assert.h>
 #include <string.h>
 #include <utf8proc.h>
 

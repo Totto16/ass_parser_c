@@ -2,10 +2,10 @@
 
 #include "./parser.h"
 #include "../helper/io.h"
+#include "../helper/macros.h"
 #include "../helper/utf8_helper.h"
 #include "../helper/utf8_string_view.h"
 
-#include <assert.h>
 #include <math.h>
 #include <stb/ds.h>
 #include <stdint.h>
@@ -741,7 +741,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		}
 
 		// skip the line
-		(void)line;
+		UNUSED(line);
 
 		if(str_view_is_eof(*data_view)) {
 			break;
@@ -846,7 +846,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 		}
 
 		// TODO: parse script info lines
-		(void)line;
+		UNUSED(line);
 
 		if(str_view_is_eof(data_view)) {
 			break;
