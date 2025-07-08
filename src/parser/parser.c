@@ -60,6 +60,7 @@ typedef enum {
 typedef size_t TODOOutline;
 
 typedef enum {
+	// bottom
 	AssAlignmentBL = 1,
 	AssAlignmentBC,
 	AssAlignmentBR,
@@ -271,15 +272,346 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return NULL;
 }
 
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstUtf8StrView value, const char** error_ptr) {
+	size_t result = 0;
+
+	for(size_t i = 0; i < value.length; ++i) {
+		int32_t current_codepoint = value.start[i];
+
+		if(current_codepoint < (unsigned char)'0' || current_codepoint > (unsigned char)'9') {
+			fprintf(stderr, "whole value: %s\n", get_normalized_string(value.start, value.length));
+			*error_ptr = "error, not a valid decimal number";
+			return 0;
+		}
+		result = (result * 10) + (current_codepoint - '0');
+	}
+
+	*error_ptr = NULL;
+	return result;
+}
+
+[[nodiscard]] bool parse_str_as_bool(ConstUtf8StrView value, const char** error_ptr) {
+
+	if(str_view_eq_ascii(value, "-1")) {
+		*error_ptr = NULL;
+		return true;
+	}
+
+	if(str_view_eq_ascii(value, "0")) {
+		*error_ptr = NULL;
+		return false;
+	}
+
+	*error_ptr = "error, not a valid bool";
+	return false;
+}
+
+[[nodiscard]] AssColor parse_str_as_color(ConstUtf8StrView value, const char** error_ptr) {
+
+	AssColor color = {};
+
+	if(value.length != 10) {
+		*error_ptr = "error, not a valid color, not correct length";
+		return color;
+	}
+
+	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+
+	if(!str_view_expect_ascii(&value_view, "&H")) {
+		*error_ptr = "error, not a valid color, invalid prefix";
+		return color;
+	}
+
+	for(size_t i = 0; i < 4; ++i) {
+
+		uint8_t component = 0;
+
+		for(size_t j = 0; j < 2; ++j) {
+
+			int32_t current_codepoint = value_view.start[value_view.offset + (i * 2) + j];
+
+			uint8_t current_value = 0;
+
+			if(current_codepoint >= (unsigned char)'0' && current_codepoint <= (unsigned char)'9') {
+				current_value = (current_codepoint - '0');
+			} else if(current_codepoint >= (unsigned char)'a' &&
+			          current_codepoint <= (unsigned char)'f') {
+				current_value = (current_codepoint - 'a') + 10;
+			} else if(current_codepoint >= (unsigned char)'A' &&
+			          current_codepoint <= (unsigned char)'F') {
+				current_value = (current_codepoint - 'A') + 10;
+			} else {
+				*error_ptr = "error, not a valid hex color number";
+				return color;
+			}
+			component = (component << 4) + current_value;
+		}
+
+		switch(i) {
+			case 0: {
+				color.a = component;
+				break;
+			}
+			case 1: {
+				color.b = component;
+				break;
+			}
+			case 2: {
+				color.g = component;
+				break;
+			}
+			case 3: {
+				color.r = component;
+				break;
+			}
+			default: {
+				*error_ptr = "error, not a valid color, implementation error";
+				return color;
+			}
+		}
+	}
+
+	*error_ptr = NULL;
+	return color;
+}
+
+[[nodiscard]] double parse_str_as_double(ConstUtf8StrView value, const char** error_ptr) {
+	*error_ptr = "TODO: parse double";
+	// TODO
+	(void)value;
+	return 0.0;
+}
+
+[[nodiscard]] BorderStyle parse_str_as_border_style(ConstUtf8StrView value,
+                                                    const char** error_ptr) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+
+	if(*error_ptr != NULL) {
+		return BorderStyleOutline;
+	}
+
+	switch(num) {
+		case 1: {
+			*error_ptr = NULL;
+			return BorderStyleOutline;
+		}
+		case 3: {
+			*error_ptr = NULL;
+			return BorderStyleOpaqueBox;
+		}
+		default: {
+			*error_ptr = "invalid border style value";
+			return BorderStyleOutline;
+		}
+	}
+}
+
+[[nodiscard]] TODOOutline parse_str_as_outline_todo(ConstUtf8StrView value,
+                                                    const char** error_ptr) {
+	// TODO
+	return parse_str_as_unsigned_number(value, error_ptr);
+}
+
+[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstUtf8StrView value,
+                                                        const char** error_ptr) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+
+	if(*error_ptr != NULL) {
+		return AssAlignmentBL;
+	}
+
+	switch(num) {
+		// bottom
+		case 1: {
+			*error_ptr = NULL;
+			return AssAlignmentBL;
+		}
+		case 2: {
+			*error_ptr = NULL;
+			return AssAlignmentBC;
+		}
+		case 3: {
+			*error_ptr = NULL;
+			return AssAlignmentBR;
+		}
+			// middle
+		case 4: {
+			*error_ptr = NULL;
+			return AssAlignmentML;
+		}
+		case 5: {
+			*error_ptr = NULL;
+			return AssAlignmentMC;
+		}
+		case 6: {
+			*error_ptr = NULL;
+			return AssAlignmentMR;
+		}
+			// top
+		case 7: {
+			*error_ptr = NULL;
+			return AssAlignmentTL;
+		}
+		case 8: {
+			*error_ptr = NULL;
+			return AssAlignmentTC;
+		}
+		case 9: {
+			*error_ptr = NULL;
+			return AssAlignmentTR;
+		}
+		default: {
+			*error_ptr = "invalid alignment value";
+			return AssAlignmentBL;
+		}
+	}
+}
+
 [[nodiscard]] static const char* parse_style_line_for_styles(Utf8StrView* line_view,
                                                              const STBDS_ARRAY(AssStyleFormat)
                                                                  const format_spec,
                                                              AssStyles* styles_result) {
 
-	(void)line_view;
-	(void)format_spec;
-	(void)styles_result;
-	return "TODO";
+	size_t field_size = stbds_arrlenu(format_spec);
+
+	AssStyleEntry entry = {};
+
+	if(!str_view_skip_optional_whitespace(line_view)) {
+		return "skip whitespace error";
+	}
+
+	size_t i = 0;
+	for(; !str_view_is_eof(*line_view); ++i) {
+
+		ConstUtf8StrView value = {};
+		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, true, ",")) {
+			if(!str_view_get_substring_until_eof(line_view, &value)) {
+
+				return "eof before comma in styles section style line";
+			}
+		}
+
+		if(value.length == 0) {
+			return "implementation error";
+		}
+
+		const char* error = NULL;
+
+		if(i >= field_size) {
+			return "error, too many fields in the style line, the format line specified less";
+		}
+
+		AssStyleFormat format = format_spec[i];
+
+		switch(format) {
+			case AssStyleFormatName: {
+				entry.name = value;
+				break;
+			}
+			case AssStyleFormatFontname: {
+				entry.fontname = value;
+				break;
+			}
+			case AssStyleFormatFontsize: {
+				entry.fontsize = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatPrimaryColour: {
+				entry.primary_colour = parse_str_as_color(value, &error);
+				break;
+			}
+			case AssStyleFormatSecondaryColour: {
+				entry.secondary_colour = parse_str_as_color(value, &error);
+				break;
+			}
+			case AssStyleFormatOutlineColour: {
+				entry.outline_colour = parse_str_as_color(value, &error);
+				break;
+			}
+			case AssStyleFormatBackColour: {
+				entry.back_colour = parse_str_as_color(value, &error);
+				break;
+			}
+			case AssStyleFormatBold: {
+				entry.bold = parse_str_as_bool(value, &error);
+				break;
+			}
+			case AssStyleFormatItalic: {
+				entry.italic = parse_str_as_bool(value, &error);
+				break;
+			}
+			case AssStyleFormatUnderline: {
+				entry.underline = parse_str_as_bool(value, &error);
+				break;
+			}
+			case AssStyleFormatStrikeOut: {
+				entry.strike_out = parse_str_as_bool(value, &error);
+				break;
+			}
+			case AssStyleFormatScaleX: {
+				entry.scale_x = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatScaleY: {
+				entry.scale_y = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatSpacing: {
+				entry.spacing = parse_str_as_double(value, &error);
+				break;
+			}
+			case AssStyleFormatAngle: {
+				entry.angle = parse_str_as_double(value, &error);
+				break;
+			}
+			case AssStyleFormatBorderStyle: {
+				entry.border_style = parse_str_as_border_style(value, &error);
+				break;
+			}
+			case AssStyleFormatOutline: {
+				entry.outline = parse_str_as_outline_todo(value, &error);
+				break;
+			}
+			case AssStyleFormatShadow: {
+				entry.shadow = parse_str_as_outline_todo(value, &error);
+				break;
+			}
+			case AssStyleFormatAlignment: {
+				entry.alignment = parse_str_as_style_alignment(value, &error);
+				break;
+			}
+			case AssStyleFormatMarginL: {
+				entry.margin_l = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatMarginR: {
+				entry.margin_r = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatMarginV: {
+				entry.margin_v = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssStyleFormatEncoding: {
+				entry.encoding = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+		}
+
+		if(error != NULL) {
+			fprintf(stderr, "While parsing value: %s\n",
+			        get_normalized_string(value.start, value.length));
+			return error;
+		}
+	}
+
+	if(i != field_size) {
+		return "error, too few fields in the style line, the format line specified more";
+	}
+
+	stbds_arrput(styles_result->entries, entry);
+
+	return NULL;
 }
 
 [[nodiscard]] static const char* parse_styles(AssStyles* ass_styles, Utf8StrView* data_view) {
@@ -362,6 +694,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return "eof before newline in skipping section";
 		}
 
+		// skip the line
 		(void)line;
 
 		if(str_view_is_eof(*data_view)) {
