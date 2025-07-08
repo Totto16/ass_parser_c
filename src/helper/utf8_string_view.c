@@ -114,6 +114,9 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 
 	for(size_t i = 0;; ++i) {
 		if(str_view->offset + i >= str_view->length) {
+			if(multiple && collected_delimiters != 0) {
+				break;
+			}
 			return false;
 		}
 

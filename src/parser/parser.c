@@ -110,13 +110,16 @@ typedef enum {
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		// TODO: parse style lines
 		ConstUtf8StrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			return "eof before newline";
+			return "eof before newline in parse styles";
 		}
 
+		// TODO: parse style lines
 		(void)line;
+		if(str_view_is_eof(*data_view)) {
+			break;
+		}
 	}
 
 	*ass_styles = styles;
@@ -130,10 +133,15 @@ typedef enum {
 
 		ConstUtf8StrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			return "eof before newline";
+			return "eof before newline in skipping section";
 		}
 
 		(void)line;
+
+
+		if(str_view_is_eof(*data_view)) {
+			break;
+		}
 	}
 
 	return NULL;
@@ -222,13 +230,17 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 
 	while(!str_view_starts_with_ascii(data_view, "[")) {
 
-		// TODO: parse script info lines
 		ConstUtf8StrView line = {};
 		if(!str_view_get_substring_by_delimiter(&data_view, &line, newline_delimiter, true, NULL)) {
-			RETURN_ERROR("eof before newline");
+			RETURN_ERROR("eof before newline in parse script info");
 		}
 
+		// TODO: parse script info lines
 		(void)line;
+
+		if(str_view_is_eof(data_view)) {
+			break;
+		}
 	}
 
 	// end of script info
