@@ -6,6 +6,7 @@
 #include "../helper/utf8_string_view.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stb/ds.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -376,10 +377,53 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 [[nodiscard]] double parse_str_as_double(ConstUtf8StrView value, const char** error_ptr) {
-	*error_ptr = "TODO: parse double";
-	// TODO
-	(void)value;
-	return 0.0;
+
+	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+
+	ConstUtf8StrView prefix = {};
+	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, true, ".")) {
+
+		size_t num = parse_str_as_unsigned_number(value, error_ptr);
+
+		if(*error_ptr != NULL) {
+			return 0.0;
+		}
+
+		*error_ptr = NULL;
+		return (double)num;
+	}
+
+	size_t prefix_num = parse_str_as_unsigned_number(prefix, error_ptr);
+
+	if(*error_ptr != NULL) {
+		return 0.0;
+	}
+
+	double final_value = (double)prefix_num;
+
+	if(str_view_is_eof(value_view)) {
+		*error_ptr = NULL;
+		return final_value;
+	}
+
+	ConstUtf8StrView suffix = {};
+	if(!str_view_get_substring_until_eof(&value_view, &suffix)) {
+		*error_ptr = "implementation error";
+		return 0.0;
+	}
+
+	size_t suffix_num = parse_str_as_unsigned_number(suffix, error_ptr);
+
+	if(*error_ptr != NULL) {
+		return 0.0;
+	}
+
+	size_t suffix_power_of_10 = suffix.length;
+
+	final_value = final_value + (double)suffix_num / (pow(10.0, (double)suffix_power_of_10));
+
+	*error_ptr = NULL;
+	return final_value;
 }
 
 [[nodiscard]] BorderStyle parse_str_as_border_style(ConstUtf8StrView value,
