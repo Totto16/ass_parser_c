@@ -22,16 +22,16 @@ inc_dirs = []
 
 subdir('src')
 
-lib_ass_parser_lib = library(
-    'lib_ass_parser',
+ass_parser_lib = library(
+    'ass_parser',
     src_files,
     dependencies: deps,
     include_directories: inc_dirs,
     c_args: compile_flags,
 )
 
-lib_ass_parser_dep = declare_dependency(
-    link_with: lib_ass_parser_lib,
+ass_parser_dep = declare_dependency(
+    link_with: ass_parser_lib,
     include_directories: inc_dirs,
     compile_args: compile_flags,
     dependencies: deps,
@@ -41,5 +41,5 @@ lib_ass_parser_dep = declare_dependency(
 executable(
     'ass_parser',
     files('src/main.c'),
-    dependencies: [lib_ass_parser_dep],
+    dependencies: [ass_parser_dep],
 )
