@@ -3,6 +3,7 @@
 #include "./parser.h"
 #include "./io.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef struct {
@@ -29,6 +30,39 @@ struct AssParseResultImpl {
 	}
 }
 
+typedef enum {
+	FileTypeUnknown,
+	FileTypeUtf8,
+	FileTypeUtf16BE,
+	FileTypeUtf16LE,
+	FileTypeUtf32BE,
+	FileTypeUtf32LE,
+} FileType;
+
+// see: https://en.wikipedia.org/wiki/Byte_order_mark
+[[nodiscard]] FileType determine_file_type(SizedPtr data) {
+
+	uint8_t* bom = (uint8_t*)data.data;
+
+	if(data.len < 4) {
+		return FileTypeUnknown;
+	}
+
+	if(bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) {
+		return FileTypeUtf8;
+	} else if(bom[0] == 0xFF && bom[1] == 0xFE && bom[2] == 0x00 && bom[3] == 0x00) {
+		return FileTypeUtf32LE;
+	} else if(bom[0] == 0x00 && bom[1] == 0x00 && bom[2] == 0xFE && bom[3] == 0xFF) {
+		return FileTypeUtf32BE;
+	} else if(bom[0] == 0xFF && bom[1] == 0xFE) {
+		return FileTypeUtf16LE;
+	} else if(bom[0] == 0xFE && bom[1] == 0xFF) {
+		return FileTypeUtf16BE;
+	} else {
+		return FileTypeUnknown;
+	}
+}
+
 [[nodiscard]] AssParseResult* parse_ass(AssSource source) {
 
 	AssParseResult* result = (AssParseResult*)malloc(sizeof(AssParseResult));
@@ -45,10 +79,20 @@ struct AssParseResultImpl {
 		return result;
 	}
 
+	FileType file_type = determine_file_type(data);
+
+	if(file_type == FileTypeUnknown) {
+		result->is_error = true;
+		result->data.error = "unrecognized file, no BOM present";
+		free_sized_ptr(data);
+		return result;
+	}
+
 	AssParsedState todo_data = { .todo = 0 };
 
 	result->is_error = false;
 	result->data.ok = todo_data;
+
 	return result;
 }
 

@@ -13,3 +13,5 @@ typedef struct {
 [[nodiscard]] SizedPtr ptr_error(const char* message);
 
 [[nodiscard]] const char* ptr_get_error(SizedPtr ptr);
+
+void free_sized_ptr(SizedPtr ptr);
