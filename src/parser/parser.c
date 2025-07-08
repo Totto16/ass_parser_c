@@ -335,6 +335,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 			} else {
+				fprintf(stderr, "Field: %s\n", get_normalized_string(field.start, field.length));
 				return "unexpected field in styles section";
 			}
 		}
@@ -399,6 +400,8 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 		return skip_section(data_view);
 	}
 
+	fprintf(stderr, "Section name: %s\n",
+	        get_normalized_string(section_name.start, section_name.length));
 	return "unrecognized section name";
 }
 
