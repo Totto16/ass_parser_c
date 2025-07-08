@@ -20,5 +20,6 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
+	printf("File is valid\n");
 	return EXIT_SUCCESS;
 }
