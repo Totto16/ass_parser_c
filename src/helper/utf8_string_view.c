@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <utf8proc.h>
 
 [[nodiscard]] Utf8StrView str_view_from_data(Utf8Data data) {
 	return (Utf8StrView){ .start = data.data, .offset = 0, .length = data.size };
@@ -165,6 +166,52 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 }
 
 [[nodiscard]] bool str_view_is_eof(Utf8StrView str_view) {
-	assert(str_view.offset <= str_view.length);
-	return str_view.offset == str_view.length;
+	return str_view.offset >= str_view.length;
+}
+
+[[nodiscard]] bool str_view_get_substring_until_eof(Utf8StrView* str_view,
+                                                    ConstUtf8StrView* result) {
+
+	if(str_view_is_eof(*str_view)) {
+		return false;
+	}
+
+	result->length = str_view->length - str_view->offset;
+	result->start = str_view->start + str_view->offset;
+
+	str_view->offset = str_view->length;
+
+	return true;
+}
+
+[[nodiscard]] bool str_view_skip_while(Utf8StrView* str_view, DelimiterFn delimit_fn,
+                                       void* data_ptr) {
+
+	while(true) {
+		if(str_view_is_eof(*str_view)) {
+			return true;
+		}
+
+		int32_t current_codepoint = str_view->start[str_view->offset];
+
+		if(!delimit_fn(current_codepoint, data_ptr)) {
+			return true;
+		}
+
+		str_view->offset++;
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool category_delimiter(int32_t code_point, void* data_ptr) {
+
+	return utf8proc_category(code_point) == (*(utf8proc_category_t*)data_ptr);
+}
+
+[[nodiscard]] bool str_view_skip_optional_whitespace(Utf8StrView* str_view) {
+
+	utf8proc_category_t cat = UTF8PROC_CATEGORY_ZS;
+
+	return str_view_skip_while(str_view, category_delimiter, (void*)&cat);
 }

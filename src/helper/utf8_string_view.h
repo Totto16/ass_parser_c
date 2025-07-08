@@ -41,3 +41,13 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 [[nodiscard]] bool str_view_eq_ascii(ConstUtf8StrView const_str_view, const char* ascii_str);
 
 [[nodiscard]] bool str_view_is_eof(Utf8StrView str_view);
+
+[[nodiscard]] bool str_view_get_substring_until_eof(Utf8StrView* str_view,
+                                                    ConstUtf8StrView* result);
+
+[[nodiscard]] bool str_view_skip_while(Utf8StrView* str_view, DelimiterFn delimit_fn,
+                                       void* data_ptr);
+
+[[nodiscard]] bool str_view_skip_optional_whitespace(Utf8StrView* str_view);
+
+[[nodiscard]] bool category_delimiter(int32_t code_point, void* data_ptr);

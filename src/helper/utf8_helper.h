@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
 	int32_t* data;
@@ -21,3 +21,5 @@ typedef struct {
 [[nodiscard]] Utf8DataResult get_utf8_string(const void* data, size_t size);
 
 void free_utf8_data(Utf8Data data);
+
+char* get_normalized_string(int32_t* data, size_t size);
