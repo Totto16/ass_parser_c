@@ -21,5 +21,6 @@ int main(int argc, char** argv) {
 	}
 
 	printf("File is valid\n");
+	free_parse_result(result);
 	return EXIT_SUCCESS;
 }

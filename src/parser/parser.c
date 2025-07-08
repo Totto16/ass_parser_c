@@ -907,3 +907,16 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 
 	return result->data.error;
 }
+
+static void free_ass_result(AssResult data) {
+	free_utf8_data(data.allocated_data);
+	stbds_arrfree(data.styles.entries);
+}
+
+void free_parse_result(AssParseResult* result) {
+	if(!result->is_error) {
+		free_ass_result(result->data.ok);
+	}
+
+	free(result);
+}
