@@ -61,7 +61,7 @@
 	if(data == NULL) {
 		return ptr_error("allocation error");
 	}
-	size_t actual_read = fread(data, fsize, 1, file);
+	size_t actual_read = fread(data, 1, fsize, file);
 
 	if((size_t)fsize != actual_read) {
 		free(data);
