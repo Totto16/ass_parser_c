@@ -57,9 +57,6 @@ typedef enum {
 	BorderStyleOpaqueBox = 3,
 } BorderStyle;
 
-// //TODO: spec says only 4 possible values, but aegisub uses floats ?
-typedef size_t TODOOutline;
-
 typedef enum {
 	// bottom
 	AssAlignmentBL = 1,
@@ -92,8 +89,8 @@ typedef struct {
 	double spacing;
 	double angle;
 	BorderStyle border_style;
-	TODOOutline outline;
-	TODOOutline shadow;
+	double outline;
+	double shadow;
 	AssAlignment alignment;
 	size_t margin_l;
 	size_t margin_r;
@@ -393,7 +390,8 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	ConstUtf8StrView prefix = {};
 	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, true, ".")) {
 
-		size_t num = parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
+		size_t num =
+		    parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
 
 		if(*error_ptr != NULL) {
 			return 0.0;
@@ -458,12 +456,6 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return BorderStyleOutline;
 		}
 	}
-}
-
-[[nodiscard]] TODOOutline parse_str_as_outline_todo(ConstUtf8StrView value,
-                                                    const char** error_ptr) {
-	// TODO
-	return parse_str_as_unsigned_number(value, error_ptr);
 }
 
 [[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstUtf8StrView value,
@@ -623,11 +615,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				break;
 			}
 			case AssStyleFormatOutline: {
-				entry.outline = parse_str_as_outline_todo(value, &error);
+				entry.outline = parse_str_as_double(value, &error);
 				break;
 			}
 			case AssStyleFormatShadow: {
-				entry.shadow = parse_str_as_outline_todo(value, &error);
+				entry.shadow = parse_str_as_double(value, &error);
 				break;
 			}
 			case AssStyleFormatAlignment: {
