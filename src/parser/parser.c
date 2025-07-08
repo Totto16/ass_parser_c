@@ -94,6 +94,78 @@ typedef enum {
 		return result; \
 	} while(false)
 
+[[nodiscard]] static bool str_view_starts_with_ascii_or_eof(Utf8StrView str_view,
+                                                            const char* ascii_str) {
+
+	if(str_view_starts_with_ascii(str_view, ascii_str)) {
+		return true;
+	}
+
+	return str_view_is_eof(str_view);
+}
+
+[[nodiscard]] static const char* parse_styles(AssStyles* ass_styles, Utf8StrView* data_view) {
+
+	AssStyles styles = {};
+
+	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
+
+		// TODO: parse style lines
+		ConstUtf8StrView line = {};
+		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+			return "eof before newline";
+		}
+
+		(void)line;
+	}
+
+	*ass_styles = styles;
+	return NULL;
+	// end of script info
+}
+
+[[nodiscard]] static const char* skip_section(Utf8StrView* data_view) {
+
+	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
+
+		ConstUtf8StrView line = {};
+		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+			return "eof before newline";
+		}
+
+		(void)line;
+	}
+
+	return NULL;
+	// end of script info
+}
+
+[[nodiscard]] static const char*
+get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8StrView* data_view) {
+
+	if(str_view_eq_ascii(section_name, "Aegisub Project Garbage")) {
+		return skip_section(data_view);
+	}
+
+	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
+		return parse_styles(&(ass_result->styles), data_view);
+	}
+
+	if(str_view_eq_ascii(section_name, "Events")) {
+		return skip_section(data_view);
+	}
+
+	if(str_view_eq_ascii(section_name, "Fonts")) {
+		return skip_section(data_view);
+	}
+
+	if(str_view_eq_ascii(section_name, "Graphics")) {
+		return skip_section(data_view);
+	}
+
+	return "unrecognized section name";
+}
+
 [[nodiscard]] AssParseResult* parse_ass(AssSource source) {
 
 	AssParseResult* result = (AssParseResult*)malloc(sizeof(AssParseResult));
@@ -151,8 +223,8 @@ typedef enum {
 	while(!str_view_starts_with_ascii(data_view, "[")) {
 
 		// TODO: parse script info lines
-		Utf8StrView line = {};
-		if(!str_view_get_substring_by_delimiter(&data_view, &line, newline_delimiter, true)) {
+		ConstUtf8StrView line = {};
+		if(!str_view_get_substring_by_delimiter(&data_view, &line, newline_delimiter, true, NULL)) {
 			RETURN_ERROR("eof before newline");
 		}
 
@@ -162,6 +234,36 @@ typedef enum {
 	// end of script info
 
 	AssResult ass_result = { .allocated_data = final_data, .script_info = script_info };
+
+	while(true) {
+
+		// classify section, and then parsing that section
+
+		if(!str_view_expect_ascii(&data_view, "[")) {
+			RETURN_ERROR("implementation error");
+		}
+
+		ConstUtf8StrView section_name = {};
+		if(!str_view_get_substring_by_delimiter(&data_view, &section_name, char_delimiter, false,
+		                                        "]")) {
+			RETURN_ERROR("script section not terminated by ']'");
+		}
+
+		if(!str_view_expect_newline(&data_view)) {
+			RETURN_ERROR("no newline after section name");
+		}
+
+		const char* section_parse_result =
+		    get_section_by_name(section_name, &ass_result, &data_view);
+
+		if(section_parse_result != NULL) {
+			RETURN_ERROR(section_parse_result);
+		}
+
+		if(str_view_is_eof(data_view)) {
+			break;
+		}
+	}
 
 	result->is_error = false;
 	result->data.ok = ass_result;

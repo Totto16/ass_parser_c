@@ -2,6 +2,7 @@
 
 #include "./utf8_string_view.h"
 
+#include <assert.h>
 #include <string.h>
 
 [[nodiscard]] Utf8StrView str_view_from_data(Utf8Data data) {
@@ -10,7 +11,7 @@
 
 [[nodiscard]] bool str_view_advance(Utf8StrView* str_view, size_t len) {
 
-	if(str_view->offset + len >= str_view->length) {
+	if(str_view->offset + len > str_view->length) {
 		return false;
 	}
 
@@ -25,12 +26,10 @@
 	return utf8_char == (unsigned char)ascii_char;
 }
 
-#include <stdio.h>
-
 [[nodiscard]] static bool
 str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, size_t ascii_length) {
 
-	if(ascii_length + str_view.offset >= str_view.length) {
+	if(ascii_length + str_view.offset > str_view.length) {
 		return false;
 	}
 
@@ -82,7 +81,8 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return false;
 }
 
-[[nodiscard]] bool newline_delimiter(int32_t code_point) {
+[[nodiscard]] bool newline_delimiter(int32_t code_point, void* data_ptr) {
+	assert(data_ptr == NULL);
 
 	if(is_utf8_char_eq_to_ascii_char(code_point, '\n')) {
 		return true;
@@ -95,8 +95,19 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return false;
 }
 
-[[nodiscard]] bool str_view_get_substring_by_delimiter(Utf8StrView* str_view, Utf8StrView* result,
-                                                       DelimiterFn delimit_fn, bool multiple) {
+[[nodiscard]] bool char_delimiter(int32_t code_point, void* data_ptr) {
+
+	const char* data = (const char*)data_ptr;
+
+	assert(strlen(data) == 1);
+
+	return is_utf8_char_eq_to_ascii_char(code_point, data[0]);
+}
+
+[[nodiscard]] bool str_view_get_substring_by_delimiter(Utf8StrView* str_view,
+                                                       ConstUtf8StrView* result,
+                                                       DelimiterFn delimit_fn, bool multiple,
+                                                       void* data_ptr) {
 
 	size_t size = 0;
 	size_t collected_delimiters = 0;
@@ -108,7 +119,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 
 		int32_t current_codepoint = str_view->start[str_view->offset + i];
 
-		if(delimit_fn(current_codepoint)) {
+		if(delimit_fn(current_codepoint, data_ptr)) {
 			if(collected_delimiters == 0) {
 				size = i;
 				if(!multiple) {
@@ -127,8 +138,30 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	}
 
 	result->length = size;
-	result->offset = 0;
 	result->start = str_view->start + str_view->offset;
 
 	return str_view_advance(str_view, size + collected_delimiters);
+}
+
+[[nodiscard]] Utf8StrView get_str_view_from_const_str_view(ConstUtf8StrView input) {
+
+	return (Utf8StrView){ .offset = 0, .length = input.length, .start = input.start };
+}
+
+[[nodiscard]] bool str_view_eq_ascii(ConstUtf8StrView const_str_view, const char* ascii_str) {
+
+	size_t ascii_length = strlen(ascii_str);
+
+	if(const_str_view.length != ascii_length) {
+		return false;
+	}
+
+	Utf8StrView str_view = get_str_view_from_const_str_view(const_str_view);
+
+	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
+}
+
+[[nodiscard]] bool str_view_is_eof(Utf8StrView str_view) {
+	assert(str_view.offset <= str_view.length);
+	return str_view.offset == str_view.length;
 }
