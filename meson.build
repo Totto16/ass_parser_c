@@ -15,7 +15,7 @@ project(
 )
 
 deps = []
-compile_flags = []
+compile_flags = ['-D_POSIX_C_SOURCE=200809L']
 
 src_files = []
 inc_dirs = []

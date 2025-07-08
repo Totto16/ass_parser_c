@@ -5,6 +5,25 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+
+[[nodiscard]] bool is_file_a_directory(FILE* file) {
+	if(!file) {
+		return false;
+	}
+
+	int file_descriptor = fileno(file);
+	if(file_descriptor < 0) {
+		return false;
+	}
+
+	struct stat stat_struct = {};
+	if(fstat(file_descriptor, &stat_struct) < 0) {
+		return false;
+	}
+
+	return S_ISDIR(stat_struct.st_mode);
+}
 
 [[nodiscard]] SizedPtr read_entire_file(char* file_name) {
 
@@ -14,10 +33,14 @@
 		if(errno == EACCES) {
 			return ptr_error("no permissions for file");
 		} else if(errno == ENOENT) {
-			return ptr_error("no such directory");
-		} else {
 			return ptr_error("no such file");
+		} else {
+			return ptr_error("unknown file error");
 		}
+	}
+
+	if(is_file_a_directory(file)) {
+		return ptr_error("can't open a directory");
 	}
 
 	int res = fseek(file, 0, SEEK_END);
