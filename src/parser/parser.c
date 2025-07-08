@@ -380,10 +380,20 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 	Utf8StrView value_view = get_str_view_from_const_str_view(value);
 
+	double final_value = 1.0F;
+
+	if(str_view_starts_with_ascii(value_view, "-")) {
+		final_value = 1.0F;
+		if(!str_view_expect_ascii(&value_view, "-")) {
+			*error_ptr = "implementation error";
+			return 0.0;
+		}
+	}
+
 	ConstUtf8StrView prefix = {};
 	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, true, ".")) {
 
-		size_t num = parse_str_as_unsigned_number(value, error_ptr);
+		size_t num = parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
 
 		if(*error_ptr != NULL) {
 			return 0.0;
@@ -399,7 +409,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		return 0.0;
 	}
 
-	double final_value = (double)prefix_num;
+	final_value = final_value * (double)prefix_num;
 
 	if(str_view_is_eof(value_view)) {
 		*error_ptr = NULL;

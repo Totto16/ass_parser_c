@@ -51,3 +51,5 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 [[nodiscard]] bool str_view_skip_optional_whitespace(Utf8StrView* str_view);
 
 [[nodiscard]] bool category_delimiter(int32_t code_point, void* data_ptr);
+
+[[nodiscard]] ConstUtf8StrView get_const_str_view_from_str_view(Utf8StrView input);

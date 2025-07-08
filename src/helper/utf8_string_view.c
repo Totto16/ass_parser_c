@@ -215,3 +215,9 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 
 	return str_view_skip_while(str_view, category_delimiter, (void*)&cat);
 }
+
+[[nodiscard]] ConstUtf8StrView get_const_str_view_from_str_view(Utf8StrView input) {
+
+	return (ConstUtf8StrView){ .start = input.start + input.offset,
+		                       .length = input.length - input.offset };
+}
