@@ -83,7 +83,9 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		source.data.file = file;
 	}
 
-	AssParseResult* result = parse_ass(source);
+	ParseSettings settings = {};
+
+	AssParseResult* result = parse_ass(source, settings);
 
 	if(parse_result_is_error(result)) {
 		fprintf(stderr, "Parse error: %s\n", parse_result_get_error(result));

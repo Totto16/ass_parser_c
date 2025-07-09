@@ -20,9 +20,13 @@ typedef struct {
 
 } AssSource;
 
+typedef struct {
+	bool strict;
+} ParseSettings;
+
 typedef struct AssParseResultImpl AssParseResult;
 
-[[nodiscard]] AssParseResult* parse_ass(AssSource source);
+[[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings);
 
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result);
 

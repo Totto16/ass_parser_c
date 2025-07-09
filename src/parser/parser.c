@@ -849,7 +849,8 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, Utf8StrView* data_view) {
+[[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, Utf8StrView* data_view,
+                                              ParseSettings settings) {
 
 	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -905,8 +906,15 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 			} else {
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: %s",
+				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: '%s'",
 				                      get_normalized_string(field));
+
+				if(!settings.strict) {
+					fprintf(stderr, "WARNING: %s\n", result_buffer);
+
+					free(result_buffer);
+					continue;
+				}
 
 				return DYNAMIC_ERROR(result_buffer);
 			}
@@ -971,7 +979,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
-                                                   Utf8StrView* data_view) {
+                                                   Utf8StrView* data_view, ParseSettings settings) {
 
 	AssScriptInfo script_info = {};
 
@@ -1048,8 +1056,16 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			} else {
 
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field %s in script info section",
+				FORMAT_STRING_DEFAULT(&result_buffer,
+				                      "unexpected field '%s' in script info section",
 				                      get_normalized_string(field));
+
+				if(!settings.strict) {
+					fprintf(stderr, "WARNING: %s\n", result_buffer);
+
+					free(result_buffer);
+					continue;
+				}
 
 				return DYNAMIC_ERROR(result_buffer);
 			}
@@ -1487,7 +1503,8 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, Utf8StrView* data_view) {
+[[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, Utf8StrView* data_view,
+                                              ParseSettings settings) {
 
 	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -1618,8 +1635,15 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 
 			} else {
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: %s",
+				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: '%s'",
 				                      get_normalized_string(field));
+
+				if(!settings.strict) {
+					fprintf(stderr, "WARNING: %s\n", result_buffer);
+
+					free(result_buffer);
+					continue;
+				}
 
 				return DYNAMIC_ERROR(result_buffer);
 			}
@@ -1638,11 +1662,12 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	// end of script info
 }
 
-[[nodiscard]] static ErrorStruct
-get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8StrView* data_view) {
+[[nodiscard]] static ErrorStruct get_section_by_name(ConstUtf8StrView section_name,
+                                                     AssResult* ass_result, Utf8StrView* data_view,
+                                                     ParseSettings settings) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
-		return parse_styles(&(ass_result->styles), data_view);
+		return parse_styles(&(ass_result->styles), data_view, settings);
 	}
 
 	if(str_view_eq_ascii(section_name, "V4 Styles")) {
@@ -1650,7 +1675,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	}
 
 	if(str_view_eq_ascii(section_name, "Events")) {
-		return parse_events(&(ass_result->events), data_view);
+		return parse_events(&(ass_result->events), data_view, settings);
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
@@ -1666,7 +1691,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	return NO_ERROR();
 }
 
-[[nodiscard]] AssParseResult* parse_ass(AssSource source) {
+[[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings) {
 
 	AssParseResult* result = (AssParseResult*)malloc(sizeof(AssParseResult));
 
@@ -1686,9 +1711,14 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 
 	switch(file_type) {
 		case FileTypeUnknown: {
-			fprintf(
-			    stderr,
-			    "warning: unrecognized file, no BOM present, assuming UTF-8 (ascii also works)\n");
+			const char* error =
+			    "unrecognized file, no BOM present, assuming UTF-8 (ascii also works)";
+
+			if(settings.strict) {
+				RETURN_ERROR(STATIC_ERROR(error));
+			}
+
+			fprintf(stderr, "WARNING: %s\n", error);
 			bom_size = 0;
 			break;
 		}
@@ -1734,7 +1764,8 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	AssResult ass_result = { .allocated_data = final_data,
 		                     .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY } };
 
-	ErrorStruct script_info_parse_result = parse_script_info(&(ass_result.script_info), &data_view);
+	ErrorStruct script_info_parse_result =
+	    parse_script_info(&(ass_result.script_info), &data_view, settings);
 
 	if(script_info_parse_result.message != NULL) {
 		RETURN_ERROR(script_info_parse_result);
@@ -1759,7 +1790,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 		}
 
 		ErrorStruct section_parse_result =
-		    get_section_by_name(section_name, &ass_result, &data_view);
+		    get_section_by_name(section_name, &ass_result, &data_view, settings);
 
 		if(section_parse_result.message != NULL) {
 			RETURN_ERROR(section_parse_result);
