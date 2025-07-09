@@ -359,7 +359,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		}
 
 		ConstUtf8StrView key = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, true, ",")) {
+		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &key)) {
 
 				return STATIC_ERROR("eof before comma in styles section format line");
@@ -571,7 +571,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 
 	ConstUtf8StrView prefix = {};
-	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, true, ".")) {
+	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, false, ".")) {
 
 		size_t num =
 		    parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
@@ -713,15 +713,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	for(; !str_view_is_eof(*line_view); ++i) {
 
 		ConstUtf8StrView value = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, true, ",")) {
+		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &value)) {
 
 				return STATIC_ERROR("eof before comma in styles section style line");
 			}
-		}
-
-		if(value.length == 0) {
-			return STATIC_ERROR("implementation error");
 		}
 
 		if(i >= field_size) {
@@ -1181,7 +1177,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		}
 
 		ConstUtf8StrView key = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, true, ",")) {
+		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &key)) {
 
 				return STATIC_ERROR("eof before comma in events section format line");
@@ -1385,26 +1381,43 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	size_t i = 0;
 	for(; !str_view_is_eof(*line_view); ++i) {
 
-		ConstUtf8StrView value = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, true, ",")) {
-			if(!str_view_get_substring_until_eof(line_view, &value)) {
+		if(i >= field_size) {
 
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      "error, too many fields in the event line, the format line "
+			                      "specified %lu, but we are already at %lu",
+			                      field_size, (i + 1));
+
+			return DYNAMIC_ERROR(result_buffer);
+		}
+
+		AssEventFormat format = format_spec[i];
+
+		// special handling fot the text field, as it may contain ","
+
+		ConstUtf8StrView value = {};
+
+		if(format == AssEventFormatText) {
+			if(i != field_size - 1) {
+				return STATIC_ERROR(
+				    "'Text' field of event lines may only occur at the last position!");
+			}
+
+			if(!str_view_get_substring_until_eof(line_view, &value)) {
 				return STATIC_ERROR("eof before comma in events section event line");
+			}
+
+		} else {
+			if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false,
+			                                        ",")) {
+				if(!str_view_get_substring_until_eof(line_view, &value)) {
+					return STATIC_ERROR("eof before comma in events section event line");
+				}
 			}
 		}
 
-		if(value.length == 0) {
-			return STATIC_ERROR("implementation error");
-		}
-
-		if(i >= field_size) {
-			return STATIC_ERROR(
-			    "error, too many fields in the event line, the format line specified less");
-		}
-
 		ErrorStruct error = NO_ERROR();
-
-		AssEventFormat format = format_spec[i];
 
 		switch(format) {
 			case AssEventFormatLayer: {
