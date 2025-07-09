@@ -26,6 +26,6 @@ typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result);
 
-[[nodiscard]] const char* parse_result_get_error(AssParseResult* result);
+[[nodiscard]] char* parse_result_get_error(AssParseResult* result);
 
 void free_parse_result(AssParseResult* result);
