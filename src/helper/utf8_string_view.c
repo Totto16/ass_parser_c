@@ -172,8 +172,14 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 [[nodiscard]] bool str_view_get_substring_until_eof(Utf8StrView* str_view,
                                                     ConstUtf8StrView* result) {
 
-	if(str_view_is_eof(*str_view)) {
+	if(str_view->offset > str_view->length) {
 		return false;
+	}
+
+	if(str_view->offset == str_view->length) {
+		result->length = 0;
+		result->start = str_view->start + str_view->offset;
+		return true;
 	}
 
 	result->length = str_view->length - str_view->offset;

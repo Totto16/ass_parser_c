@@ -1509,7 +1509,8 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	}
 
 	size_t i = 0;
-	for(; !str_view_is_eof(*line_view); ++i) {
+
+	for(bool are_at_end = false; !are_at_end; ++i) {
 
 		if(i >= field_size) {
 
@@ -1537,6 +1538,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 			if(!str_view_get_substring_until_eof(line_view, &value)) {
 				return STATIC_ERROR("eof before comma in events section event line");
 			}
+			are_at_end = true;
 
 		} else {
 			if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false,
@@ -1544,6 +1546,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 				if(!str_view_get_substring_until_eof(line_view, &value)) {
 					return STATIC_ERROR("eof before comma in events section event line");
 				}
+				are_at_end = true;
 			}
 		}
 
