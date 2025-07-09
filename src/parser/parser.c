@@ -1182,14 +1182,44 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	return result->data.error.message;
 }
 
+static void free_extra_section_entry(ExtraSectionEntry entry) {
+	size_t hm_length = stbds_shlenu(entry.fields);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		SectionFieldEntry hm_entry = entry.fields[i];
+
+		free(hm_entry.key);
+	}
+
+	stbds_shfree(entry.fields);
+}
+
+static void free_extra_sections(ExtraSections sections) {
+
+	size_t hm_length = stbds_shlenu(sections.entries);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		ExtraSectionHashMapEntry entry = sections.entries[i];
+
+		free_extra_section_entry(entry.value);
+		free(entry.key);
+	}
+
+	stbds_shfree(sections.entries);
+}
+
 static void free_ass_result(AssResult data) {
 	free_utf8_data(data.allocated_data);
 	stbds_arrfree(data.styles.entries);
+
+	free_extra_sections(data.extra_sections);
 }
 
 void free_parse_result(AssParseResult* result) {
 	if(!result->is_error) {
 		free_ass_result(result->data.ok);
+	} else {
+		free_error_struct(result->data.error);
 	}
 
 	free(result);
