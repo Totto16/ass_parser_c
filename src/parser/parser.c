@@ -312,11 +312,11 @@ typedef enum : uint8_t {
 [[nodiscard]] const char* get_file_type_name(FileType file_type) {
 	switch(file_type) {
 		case FileTypeUnknown: return "Unknown";
-		case FileTypeUtf8: return "Utf8";
-		case FileTypeUtf16BE: return "Utf16BE";
-		case FileTypeUtf16LE: return "Utf16LE";
-		case FileTypeUtf32BE: return "Utf32BE";
-		case FileTypeUtf32LE: return "Utf32LE";
+		case FileTypeUtf8: return "UTF-8";
+		case FileTypeUtf16BE: return "UTF-16 BE";
+		case FileTypeUtf16LE: return "UTF-16 LE";
+		case FileTypeUtf32BE: return "UTF-32 BE";
+		case FileTypeUtf32LE: return "UTF-32 LE";
 		default: return "<unknown>";
 	}
 }
