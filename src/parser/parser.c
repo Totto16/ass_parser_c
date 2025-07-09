@@ -1334,8 +1334,11 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		time.sec = (uint8_t)num;
 
 		if(!str_view_expect_ascii(&value_view, ":")) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
-			return time;
+			// note: specs defines ":" but in the wild we mostly get "."
+			if(!str_view_expect_ascii(&value_view, ".")) {
+				*error_ptr = STATIC_ERROR("error, not a valid time, missing ':' or '.' after secs");
+				return time;
+			}
 		}
 	}
 
