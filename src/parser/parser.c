@@ -37,11 +37,19 @@ typedef struct {
 	FinalStr update_details;
 	ScriptType script_type;
 	FinalStr collisions;
-	FinalStr play_res_y;
-	FinalStr play_res_x;
+	size_t play_res_y;
+	size_t play_res_x;
 	FinalStr play_depth;
 	FinalStr timer;
 	WrapStyle wrap_style;
+	// not documented, but present
+	bool scaled_border_and_shadow;
+	FinalStr last_style_storage;
+	FinalStr video_file;
+	size_t video_aspect_ratio;
+	size_t video_zoom;
+	size_t video_position;
+	FinalStr ycbcr_matrix;
 } AssScriptInfo;
 
 typedef enum : uint8_t {
@@ -327,6 +335,22 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 
 	*error_ptr = "error, not a valid bool";
+	return false;
+}
+
+[[nodiscard]] bool parse_str_as_str_bool(ConstUtf8StrView value, const char** error_ptr) {
+
+	if(str_view_eq_ascii(value, "yes")) {
+		*error_ptr = NULL;
+		return true;
+	}
+
+	if(str_view_eq_ascii(value, "no")) {
+		*error_ptr = NULL;
+		return false;
+	}
+
+	*error_ptr = "error, not a valid str bool";
 	return false;
 }
 
@@ -856,15 +880,31 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			} else if(str_view_eq_ascii(field, "Collisions")) {
 				script_info.collisions = value;
 			} else if(str_view_eq_ascii(field, "PlayResY")) {
-				script_info.play_res_y = value;
+				script_info.play_res_y = parse_str_as_unsigned_number(value, &error);
+				;
 			} else if(str_view_eq_ascii(field, "PlayResX")) {
-				script_info.play_res_x = value;
+				script_info.play_res_x = parse_str_as_unsigned_number(value, &error);
+				;
 			} else if(str_view_eq_ascii(field, "PlayDepth")) {
 				script_info.play_depth = value;
 			} else if(str_view_eq_ascii(field, "Timer")) {
 				script_info.timer = value;
 			} else if(str_view_eq_ascii(field, "WrapStyle")) {
 				script_info.wrap_style = parse_str_as_wrap_style(value, &error);
+			} else if(str_view_eq_ascii(field, "ScaledBorderAndShadow")) {
+				script_info.scaled_border_and_shadow = parse_str_as_str_bool(value, &error);
+			} else if(str_view_eq_ascii(field, "Last Style Storage")) {
+				script_info.last_style_storage = value;
+			} else if(str_view_eq_ascii(field, "Video File")) {
+				script_info.video_file = value;
+			} else if(str_view_eq_ascii(field, "Video Aspect Ratio")) {
+				script_info.video_aspect_ratio = parse_str_as_unsigned_number(value, &error);
+			} else if(str_view_eq_ascii(field, "Video Zoom")) {
+				script_info.video_zoom = parse_str_as_unsigned_number(value, &error);
+			} else if(str_view_eq_ascii(field, "Video Position")) {
+				script_info.video_position = parse_str_as_unsigned_number(value, &error);
+			} else if(str_view_eq_ascii(field, "YCbCr Matrix")) {
+				script_info.ycbcr_matrix = value;
 			} else {
 				fprintf(stderr, "Field: %s\n", get_normalized_string(field));
 				return "unexpected field in script info section";
