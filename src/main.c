@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
 
 	if(parse_result_is_error(result)) {
 		fprintf(stderr, "Parse error: %s\n", parse_result_get_error(result));
+		free_parse_result(result);
 		return EXIT_FAILURE;
 	}
 

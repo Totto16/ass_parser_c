@@ -931,8 +931,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return "only scrypt type v4+ is supported";
 		}
 
-		// initialize title and original script
-		// TODO:
+		// TODO: initialize title and original script
 		// <untitled>
 		// <unknown>
 	}
