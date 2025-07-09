@@ -1,4 +1,5 @@
 #include <helper/io.h>
+#include <helper/log.h>
 #include <parser/parser.h>
 
 #include <stdio.h>
@@ -26,6 +27,7 @@ static void print_check_usage(bool is_subcommand) {
 	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
 	printf(IDENT1 "options:\n");
 	printf(IDENT2 "-n, --non-strict: don't enable strict checking of the '.ass' file\n");
+	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -85,6 +87,14 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	ParseSettings settings = { .strict = true };
 
+	LogLevel log_level =
+#ifdef NDEBUG
+	    LogLevelError
+#else
+	    LogLevelTrace
+#endif
+	    ;
+
 	// the file
 	int processed_args = 1;
 
@@ -95,12 +105,37 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		if((strcmp(arg, "-n") == 0) || (strcmp(arg, "--non-strict") == 0)) {
 			settings.strict = false;
 			processed_args++;
+		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
+			if(processed_args + 2 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
+				print_usage(argv[0], UsageCommandCheck);
+				return EXIT_FAILURE;
+			}
+
+			int parsed_level = parse_log_level(argv[processed_args + 1]);
+
+			if(parsed_level < 0) {
+				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
+				        argv[processed_args + 1]);
+				print_usage(argv[0], UsageCommandCheck);
+				return EXIT_FAILURE;
+			}
+
+			log_level = parsed_level;
+
+			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
 			print_usage(argv[0], UsageCommandCheck);
 			return EXIT_FAILURE;
 		}
 	}
+
+	initialize_logger();
+
+	set_log_level(log_level);
+
+	set_thread_name("main thread");
 
 	AssParseResult* result = parse_ass(source, settings);
 
