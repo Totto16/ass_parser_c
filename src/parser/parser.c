@@ -1711,14 +1711,13 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 
 	switch(file_type) {
 		case FileTypeUnknown: {
-			const char* error =
-			    "unrecognized file, no BOM present, assuming UTF-8 (ascii also works)";
+			const char* error = "unrecognized file, no BOM present";
 
 			if(settings.strict) {
 				RETURN_ERROR(STATIC_ERROR(error));
 			}
 
-			fprintf(stderr, "WARNING: %s\n", error);
+			fprintf(stderr, "WARNING: %s, assuming UTF-8 (ascii also works)\n", error);
 			bom_size = 0;
 			break;
 		}
