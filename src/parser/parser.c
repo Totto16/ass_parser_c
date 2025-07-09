@@ -777,8 +777,14 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		}
 
 		if(i >= field_size) {
-			return STATIC_ERROR(
-			    "error, too many fields in the style line, the format line specified less");
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      "error, too many fields in the style line, the format line "
+			                      "specified %lu, but we are already at %lu",
+			                      field_size, (i + 1));
+
+			return DYNAMIC_ERROR(result_buffer);
 		}
 
 		ErrorStruct error = NO_ERROR();
@@ -903,8 +909,14 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 
 	if(i != field_size) {
-		return STATIC_ERROR(
-		    "error, too few fields in the style line, the format line specified more");
+
+		char* result_buffer = NULL;
+		FORMAT_STRING_DEFAULT(&result_buffer,
+		                      "error, too few fields in the style line, the format line "
+		                      "specified %lu, but we only have %lu",
+		                      field_size, i);
+
+		return DYNAMIC_ERROR(result_buffer);
 	}
 
 	stbds_arrput(styles_result->entries, entry);
@@ -1602,8 +1614,13 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	}
 
 	if(i != field_size) {
-		return STATIC_ERROR(
-		    "error, too few fields in the event line, the format line specified more");
+		char* result_buffer = NULL;
+		FORMAT_STRING_DEFAULT(&result_buffer,
+		                      "error, too few fields in the event line, the format line "
+		                      "specified %lu, but we only have %lu",
+		                      field_size, i);
+
+		return DYNAMIC_ERROR(result_buffer);
 	}
 
 	stbds_arrput(events_result->entries, entry);
