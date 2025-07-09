@@ -345,13 +345,6 @@ typedef enum : uint8_t {
 	}
 }
 
-#define RETURN_ERROR(err) \
-	do { \
-		result->is_error = true; \
-		result->data.error = err; \
-		return result; \
-	} while(false)
-
 [[nodiscard]] static bool str_view_starts_with_ascii_or_eof(StrView str_view,
                                                             const char* ascii_str) {
 
@@ -1835,6 +1828,18 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return NO_ERROR();
 }
 
+#define FREE_AT_END() \
+	do { \
+	} while(false)
+
+#define RETURN_ERROR(err) \
+	do { \
+		FREE_AT_END(); \
+		result->is_error = true; \
+		result->data.error = err; \
+		return result; \
+	} while(false)
+
 [[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings) {
 
 	AssParseResult* result = (AssParseResult*)malloc(sizeof(AssParseResult));
@@ -1913,6 +1918,12 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	Codepoints final_data = codepoints_result.data.result;
+
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_codepoints(final_data); \
+	} while(false)
 
 	StrView data_view = str_view_from_data(final_data);
 
