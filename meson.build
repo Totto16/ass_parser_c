@@ -45,6 +45,7 @@ ass_parser_lib = library(
     dependencies: deps,
     include_directories: inc_dirs,
     c_args: compile_flags,
+    install: true,
 )
 
 ass_parser_dep = declare_dependency(
@@ -59,4 +60,5 @@ executable(
     'ass_parser',
     files('src/main.c'),
     dependencies: [ass_parser_dep],
+    install: true,
 )
