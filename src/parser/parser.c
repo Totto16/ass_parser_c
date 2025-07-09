@@ -950,7 +950,6 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 				free(field_name);
-
 				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
@@ -1098,7 +1097,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 				char* result_buffer = NULL;
 				FORMAT_STRING_DEFAULT(&result_buffer,
-				                      "unexpected field '%s' in script info section", field_name);
+				                      "unexpected field in script info section: '%s'", field_name);
 
 				if(settings.strict_settings.allow_additional_fields) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);

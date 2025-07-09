@@ -21,10 +21,14 @@ typedef struct {
 } AssSource;
 
 typedef struct {
-	bool allow_additional_fields;
-	bool allow_missing_fields_in_script_info;
-	bool allow_number_rounding;
+	bool allow_missing_fields;
 	bool allow_duplicate_fields;
+} ScriptInfoStrictSettings;
+
+typedef struct {
+	ScriptInfoStrictSettings script_info;
+	bool allow_additional_fields;
+	bool allow_number_rounding;
 	bool allow_non_utf8;
 } StrictSettings;
 
