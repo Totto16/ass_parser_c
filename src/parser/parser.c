@@ -44,11 +44,8 @@ typedef struct {
 	WrapStyle wrap_style;
 	// not documented, but present
 	bool scaled_border_and_shadow;
-	FinalStr last_style_storage;
-	FinalStr video_file;
 	size_t video_aspect_ratio;
 	size_t video_zoom;
-	size_t video_position;
 	FinalStr ycbcr_matrix;
 } AssScriptInfo;
 
@@ -893,16 +890,10 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				script_info.wrap_style = parse_str_as_wrap_style(value, &error);
 			} else if(str_view_eq_ascii(field, "ScaledBorderAndShadow")) {
 				script_info.scaled_border_and_shadow = parse_str_as_str_bool(value, &error);
-			} else if(str_view_eq_ascii(field, "Last Style Storage")) {
-				script_info.last_style_storage = value;
-			} else if(str_view_eq_ascii(field, "Video File")) {
-				script_info.video_file = value;
 			} else if(str_view_eq_ascii(field, "Video Aspect Ratio")) {
 				script_info.video_aspect_ratio = parse_str_as_unsigned_number(value, &error);
 			} else if(str_view_eq_ascii(field, "Video Zoom")) {
 				script_info.video_zoom = parse_str_as_unsigned_number(value, &error);
-			} else if(str_view_eq_ascii(field, "Video Position")) {
-				script_info.video_position = parse_str_as_unsigned_number(value, &error);
 			} else if(str_view_eq_ascii(field, "YCbCr Matrix")) {
 				script_info.ycbcr_matrix = value;
 			} else {
