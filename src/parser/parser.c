@@ -420,10 +420,19 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		} else if(str_view_eq_ascii(key, "Encoding")) {
 			format = AssStyleFormatEncoding;
 		} else {
+
+			char* key_name = get_normalized_string(key);
+
+			if(!key_name) {
+				return STATIC_ERROR("allocation error");
+			}
+
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer,
 			                      "unrecognized format key %s in format line in styles section",
-			                      get_normalized_string(key));
+			                      key_name);
+
+			free(key_name);
 
 			return DYNAMIC_ERROR(result_buffer);
 		}
@@ -442,9 +451,18 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 		if(current_codepoint < (unsigned char)'0' || current_codepoint > (unsigned char)'9') {
 
+			char* value_name = get_normalized_string(value);
+
+			if(!value_name) {
+				*error_ptr = STATIC_ERROR("allocation error");
+				return 0;
+			}
+
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "error, not a valid decimal number: %s",
-			                      get_normalized_string(value));
+			                      value_name);
+
+			free(value_name);
 
 			*error_ptr = DYNAMIC_ERROR(result_buffer);
 			return 0;
@@ -830,11 +848,17 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 		if(error.message != NULL) {
 
+			char* value_name = get_normalized_string(value);
+
+			if(!value_name) {
+				return STATIC_ERROR("allocation error");
+			}
+
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
-			                      get_name_for_style_format(format), get_normalized_string(value),
-			                      error.message);
+			                      get_name_for_style_format(format), value_name, error.message);
 
+			free(value_name);
 			free_error_struct(error);
 			return DYNAMIC_ERROR(result_buffer);
 		}
@@ -906,16 +930,26 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 			} else {
+
+				char* field_name = get_normalized_string(field);
+
+				if(!field_name) {
+					return STATIC_ERROR("allocation error");
+				}
+
 				char* result_buffer = NULL;
 				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: '%s'",
-				                      get_normalized_string(field));
+				                      field_name);
 
 				if(!settings.strict) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
+					free(field_name);
 					continue;
 				}
+
+				free(field_name);
 
 				return DYNAMIC_ERROR(result_buffer);
 			}
@@ -1056,28 +1090,50 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				script_info.ycbcr_matrix = value;
 			} else {
 
+				char* field_name = get_normalized_string(field);
+
+				if(!field_name) {
+					return STATIC_ERROR("allocation error");
+				}
+
 				char* result_buffer = NULL;
 				FORMAT_STRING_DEFAULT(&result_buffer,
-				                      "unexpected field '%s' in script info section",
-				                      get_normalized_string(field));
+				                      "unexpected field '%s' in script info section", field_name);
 
 				if(!settings.strict) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
+					free(field_name);
 					continue;
 				}
 
+				free(field_name);
 				return DYNAMIC_ERROR(result_buffer);
 			}
 
 			if(error.message != NULL) {
+
+				char* field_name = get_normalized_string(field);
+
+				if(!field_name) {
+					return STATIC_ERROR("allocation error");
+				}
+
+				char* value_name = get_normalized_string(value);
+
+				if(!value_name) {
+					return STATIC_ERROR("allocation error");
+				}
+
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(
-				    &result_buffer, "While parsing field '%s' with value '%s': %s",
-				    get_normalized_string(field), get_normalized_string(value), error.message);
+				FORMAT_STRING_DEFAULT(&result_buffer,
+				                      "While parsing field '%s' with value '%s': %s", field_name,
+				                      value_name, error.message);
 
 				free_error_struct(error);
+				free(field_name);
+				free(value_name);
 				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
@@ -1228,11 +1284,19 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		} else if(str_view_eq_ascii(key, "Text")) {
 			format = AssEventFormatText;
 		} else {
+
+			char* key_name = get_normalized_string(key);
+
+			if(!key_name) {
+				return STATIC_ERROR("allocation error");
+			}
+
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer,
 			                      "unrecognized format key %s in format line in events section",
-			                      get_normalized_string(key));
+			                      key_name);
 
+			free(key_name);
 			return DYNAMIC_ERROR(result_buffer);
 		}
 
@@ -1484,12 +1548,18 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 
 		if(error.message != NULL) {
 
+			char* value_name = get_normalized_string(value);
+
+			if(!value_name) {
+				return STATIC_ERROR("allocation error");
+			}
+
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
-			                      get_name_for_event_format(format), get_normalized_string(value),
-			                      error.message);
+			                      get_name_for_event_format(format), value_name, error.message);
 
 			free_error_struct(error);
+			free(value_name);
 			return DYNAMIC_ERROR(result_buffer);
 		}
 	}
@@ -1635,17 +1705,26 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 				}
 
 			} else {
+
+				char* field_name = get_normalized_string(field);
+
+				if(!field_name) {
+					return STATIC_ERROR("allocation error");
+				}
+
 				char* result_buffer = NULL;
 				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: '%s'",
-				                      get_normalized_string(field));
+				                      field_name);
 
 				if(!settings.strict) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
+					free(field_name);
 					continue;
 				}
 
+				free(field_name);
 				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
