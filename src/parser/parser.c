@@ -1682,14 +1682,24 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 
 	FileType file_type = determine_file_type(data);
 
-	if(file_type == FileTypeUnknown) {
-		free_sized_ptr(data);
-		RETURN_ERROR(STATIC_ERROR("unrecognized file, no BOM present"));
-	}
+	size_t bom_size = 0;
 
-	if(file_type != FileTypeUtf8) {
-		free_sized_ptr(data);
-		RETURN_ERROR(STATIC_ERROR("only UTF-8 encoded files supported atm"));
+	switch(file_type) {
+		case FileTypeUnknown: {
+			fprintf(
+			    stderr,
+			    "warning: unrecognized file, no BOM present, assuming UTF-8 (ascii also works)\n");
+			bom_size = 0;
+			break;
+		}
+		case FileTypeUtf8: {
+			bom_size = 1;
+			break;
+		}
+		default: {
+			free_sized_ptr(data);
+			RETURN_ERROR(STATIC_ERROR("only UTF-8 encoded files supported atm"));
+		}
 	}
 
 	Utf8DataResult utf8_result = get_utf8_string(data.data, data.len);
@@ -1704,9 +1714,11 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 
 	Utf8StrView data_view = str_view_from_data(final_data);
 
-	// NOTE: the bom byte is always just one codepoint
-	if(!str_view_advance(&data_view, 1)) {
-		RETURN_ERROR(STATIC_ERROR("couldn't skip bom bytes"));
+	if(bom_size > 0) {
+		// NOTE: the bom byte is always just one codepoint
+		if(!str_view_advance(&data_view, bom_size)) {
+			RETURN_ERROR(STATIC_ERROR("couldn't skip bom bytes"));
+		}
 	}
 
 	// parse script info
