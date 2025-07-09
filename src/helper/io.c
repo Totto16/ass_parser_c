@@ -2,7 +2,10 @@
 
 #include "./io.h"
 
+// NOLINTBEGIN(readability-identifier-naming,bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 #define _POSIX_C_SOURCE 200809L
+// NOLINTEND(readability-identifier-naming,bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+
 #include <stdio.h>
 #undef _POSIX_C_SOURCE
 
