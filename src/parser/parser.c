@@ -309,6 +309,18 @@ typedef enum : uint8_t {
 	FileTypeUtf32LE,
 } FileType;
 
+[[nodiscard]] const char* get_file_type_name(FileType file_type) {
+	switch(file_type) {
+		case FileTypeUnknown: return "Unknown";
+		case FileTypeUtf8: return "Utf8";
+		case FileTypeUtf16BE: return "Utf16BE";
+		case FileTypeUtf16LE: return "Utf16LE";
+		case FileTypeUtf32BE: return "Utf32BE";
+		case FileTypeUtf32LE: return "Utf32LE";
+		default: return "<unknown>";
+	}
+}
+
 // see: https://en.wikipedia.org/wiki/Byte_order_mark
 [[nodiscard]] FileType determine_file_type(SizedPtr data) {
 
@@ -1864,7 +1876,13 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		}
 		default: {
 			free_sized_ptr(data);
-			RETURN_ERROR(STATIC_ERROR("only UTF-8 encoded files supported atm"));
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      "only UTF-8 encoded files supported atm, but got: %s",
+			                      get_file_type_name(file_type));
+
+			RETURN_ERROR(DYNAMIC_ERROR(result_buffer));
 		}
 	}
 
