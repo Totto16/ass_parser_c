@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "./sized_ptr.h"
+
 typedef struct {
 	int32_t* data;
 	uint64_t size;
@@ -18,7 +20,11 @@ typedef struct {
 	} data;
 } CodepointsResult;
 
-[[nodiscard]] CodepointsResult get_codepints_from_utf8(const void* data, size_t size);
+[[nodiscard]] CodepointsResult get_codepoints_from_utf8(SizedPtr ptr);
+
+[[nodiscard]] CodepointsResult get_codepoints_from_utf16(SizedPtr ptr, bool big_endian);
+
+[[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian);
 
 void free_codepoints(Codepoints data);
 

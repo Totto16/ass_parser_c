@@ -1865,14 +1865,35 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 			LOG_MESSAGE(LogLevelWarn, "%s, assuming UTF-8 (ascii also works with that)\n", error);
 			bom_size = 0;
-			codepoints_result = get_codepints_from_utf8(data.data, data.len);
+			codepoints_result = get_codepoints_from_utf8(data);
 			break;
 		}
 		case FileTypeUtf8: {
 			bom_size = 1;
-			codepoints_result = get_codepints_from_utf8(data.data, data.len);
+			codepoints_result = get_codepoints_from_utf8(data);
 			break;
 		}
+		case FileTypeUtf16BE: {
+			bom_size = 1;
+			codepoints_result = get_codepoints_from_utf16(data, true);
+			break;
+		}
+		case FileTypeUtf16LE: {
+			bom_size = 1;
+			codepoints_result = get_codepoints_from_utf16(data, false);
+			break;
+		}
+		case FileTypeUtf32BE: {
+			bom_size = 1;
+			codepoints_result = get_codepoints_from_utf32(data, true);
+			break;
+		}
+		case FileTypeUtf32LE: {
+			bom_size = 1;
+			codepoints_result = get_codepoints_from_utf32(data, false);
+			break;
+		}
+
 		default: {
 			free_sized_ptr(data);
 
