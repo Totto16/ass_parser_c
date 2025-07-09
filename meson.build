@@ -15,7 +15,7 @@ project(
 )
 
 deps = []
-compile_flags = ['-D_POSIX_C_SOURCE=200809L']
+compile_flags = []
 
 deps += dependency(
     'libutf8proc',
@@ -31,6 +31,8 @@ deps += cc.find_library(
     'm',
     required: false,
 )
+
+deps += dependency('threads')
 
 src_files = []
 inc_dirs = []
