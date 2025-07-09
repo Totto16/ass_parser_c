@@ -21,7 +21,15 @@ typedef struct {
 } AssSource;
 
 typedef struct {
-	bool strict;
+	bool allow_additional_fields;
+	bool allow_format_key_error;
+	bool allow_missing_fields_in_script_info;
+	bool allow_number_rounding;
+	bool allow_duplicate_fields;
+} StrictSettings;
+
+typedef struct {
+	StrictSettings strict_settings;
 } ParseSettings;
 
 typedef struct AssParseResultImpl AssParseResult;

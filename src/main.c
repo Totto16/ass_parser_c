@@ -14,8 +14,9 @@ typedef enum : uint8_t {
 // note: this usage printing is from the simple http server, that I wrote, so it might be overkill
 // in some sections
 
-#define IDENT1 "\t"
+#define IDENT1 "  "
 #define IDENT2 IDENT1 IDENT1
+#define IDENT3 IDENT2 IDENT1
 
 static void print_check_usage(bool is_subcommand) {
 	if(is_subcommand) {
@@ -26,8 +27,28 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
 	printf(IDENT1 "options:\n");
-	printf(IDENT2 "-n, --non-strict: don't enable strict checking of the '.ass' file\n");
-	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
+	printf(IDENT2 "common options:\n");
+
+	printf(IDENT3 "-l, --loglevel <loglevel>: Set the log level for the application\n");
+
+	printf(IDENT2 "common strictness options\n");
+
+	printf(IDENT3 "-n, --non-strict: don't enable strict checking of the '.ass' file, this "
+	              "disables all checks\n");
+	printf(IDENT3 "-s, --strict: don't enable strict checking of the '.ass' file, this "
+	              "enables all checks\n");
+	printf(IDENT2 "single strictness options\n");
+
+	printf(IDENT3 "--allow-additional-fields [value]: set this specific option, specifying no "
+	              "value is enabling it\n");
+	printf(IDENT3 "--allow-format-key-error [value]: set this specific option, specifying no value "
+	              "is enabling it\n");
+	printf(IDENT3 "--allow-missing-fields-in-script-info [value]: set this specific option, "
+	              "specifying no value is enabling it\n");
+	printf(IDENT3 "--allow-number-rounding [value]: set this specific option, specifying no value "
+	              "is enabling it\n");
+	printf(IDENT3 "--allow-duplicate-fields [value]: set this specific option, specifying no value "
+	              "is enabling it\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -65,6 +86,49 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	return false;
 }
 
+[[nodiscard]] static bool get_optional_bool_value(bool default_value, int* processed_args, int argc,
+                                                  char* argv[]) {
+
+	if(*processed_args + 1 > argc) {
+		// no more values to use
+		return default_value;
+	}
+
+	char* value = argv[*processed_args + 1];
+
+	size_t value_length = strlen(value);
+
+	if(value_length < 1) {
+		// an empty str value, not a bool
+		return default_value;
+	}
+
+	if(value[0] == '-') {
+		// starting a subcommand
+		return default_value;
+	}
+
+	if(strcmp(value, "0") == 0) {
+		return false;
+	}
+
+	if(strcmp(value, "1") == 0) {
+		return true;
+	}
+
+	if(strcmp(value, "false") == 0) {
+		return false;
+	}
+
+	if(strcmp(value, "true") == 0) {
+		return true;
+	}
+
+	fprintf(stderr, "Invalid bool argument: %s\n", value);
+	print_usage(argv[0], UsageCommandCheck);
+	exit(EXIT_FAILURE);
+}
+
 [[nodiscard]] static int subcommand_check(const char* program_name, int argc, char* argv[]) {
 
 	if(argc < 1) {
@@ -85,7 +149,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		source.data.file = file;
 	}
 
-	ParseSettings settings = { .strict = true };
+	ParseSettings settings = { .strict_settings =
+		                           (StrictSettings){ .allow_additional_fields = false,
+		                                             .allow_format_key_error = false,
+		                                             .allow_missing_fields_in_script_info = false,
+		                                             .allow_number_rounding = false,
+		                                             .allow_duplicate_fields = false } };
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -103,8 +172,56 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		const char* arg = argv[processed_args];
 
 		if((strcmp(arg, "-n") == 0) || (strcmp(arg, "--non-strict") == 0)) {
-			settings.strict = false;
+			settings.strict_settings.allow_additional_fields = true;
+			settings.strict_settings.allow_format_key_error = true;
+			settings.strict_settings.allow_missing_fields_in_script_info = true;
+			settings.strict_settings.allow_number_rounding = true;
+			settings.strict_settings.allow_duplicate_fields = true;
+
 			processed_args++;
+		} else if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--strict") == 0)) {
+			settings.strict_settings.allow_additional_fields = false;
+			settings.strict_settings.allow_format_key_error = false;
+			settings.strict_settings.allow_missing_fields_in_script_info = false;
+			settings.strict_settings.allow_number_rounding = false;
+			settings.strict_settings.allow_duplicate_fields = false;
+
+			processed_args++;
+		} else if((strcmp(arg, "--allow-additional-fields") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_additional_fields = value;
+
+		} else if((strcmp(arg, "--allow-format-key-error") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_format_key_error = value;
+
+		} else if((strcmp(arg, "--allow-missing-fields-in-script-info") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_missing_fields_in_script_info = value;
+
+		} else if((strcmp(arg, "--allow-number-rounding") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_number_rounding = value;
+
+		} else if((strcmp(arg, "--allow-duplicate-fields") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_duplicate_fields = value;
+
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
