@@ -342,8 +342,12 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		int32_t current_codepoint = value.start[i];
 
 		if(current_codepoint < (unsigned char)'0' || current_codepoint > (unsigned char)'9') {
-			fprintf(stderr, "whole value: %s\n", get_normalized_string(value));
-			*error_ptr = STATIC_ERROR("error, not a valid decimal number");
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "error, not a valid decimal number: %s",
+			                      get_normalized_string(value));
+
+			*error_ptr = DYNAMIC_ERROR(result_buffer);
 			return 0;
 		}
 		result = (result * 10) + (current_codepoint - '0');
@@ -802,8 +806,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 			} else {
-				fprintf(stderr, "Field: %s\n", get_normalized_string(field));
-				return STATIC_ERROR("unexpected field in styles section");
+				char* result_buffer = NULL;
+				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: %s",
+				                      get_normalized_string(field));
+
+				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
 
@@ -951,15 +958,12 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 			if(error.message != NULL) {
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "While parsing value '%s': %s",
-				                      get_normalized_string(field), error.message);
+				FORMAT_STRING_DEFAULT(
+				    &result_buffer, "While parsing value '%s' with value '%s': %s",
+				    get_normalized_string(field), get_normalized_string(value), error.message);
 
 				free_error_struct(error);
 				return DYNAMIC_ERROR(result_buffer);
-
-				fprintf(stderr, "While parsing field: %s with value: %s\n",
-				        get_normalized_string(field), get_normalized_string(value));
-				return error;
 			}
 		}
 
