@@ -2,6 +2,8 @@
 src_files += files(
     'io.c',
     'io.h',
+    'log.c',
+    'log.h',
     'macros.h',
     'sized_ptr.c',
     'sized_ptr.h',
