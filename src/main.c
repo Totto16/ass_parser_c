@@ -1,5 +1,6 @@
 #include <helper/io.h>
 #include <helper/log.h>
+#include <helper/macros.h>
 #include <parser/parser.h>
 
 #include <stdio.h>
@@ -86,6 +87,18 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	return false;
 }
 
+[[nodiscard]] static bool is_version_string(const char* str) {
+	if(strcmp(str, "--version") == 0) {
+		return true;
+	}
+
+	if(strcmp(str, "-v") == 0) {
+		return true;
+	}
+
+	return false;
+}
+
 [[nodiscard]] static bool get_optional_bool_value(bool default_value, int* processed_args, int argc,
                                                   char* argv[]) {
 
@@ -135,6 +148,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		fprintf(stderr, "missing <file>\n");
 		print_usage(program_name, UsageCommandCheck);
 		return EXIT_FAILURE;
+	}
+
+	if(is_help_string(argv[0])) {
+		printf("'check' command help menu:\n");
+		print_usage(program_name, UsageCommandCheck);
+		return EXIT_SUCCESS;
 	}
 
 	AssSource source = {};
@@ -285,6 +304,11 @@ int main(int argc, char** argv) {
 	if(is_help_string(command)) {
 		printf("General help menu:\n");
 		print_usage(argv[0], UsageCommandAll);
+		return EXIT_SUCCESS;
+	}
+
+	if(is_version_string(command)) {
+		printf(STRINGIFY(VERSION_STRING) "\n");
 		return EXIT_SUCCESS;
 	}
 

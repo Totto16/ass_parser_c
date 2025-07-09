@@ -15,7 +15,10 @@ project(
 )
 
 deps = []
-compile_flags = []
+compile_flags = [
+    '-DPROGRAM_NAME=' + meson.project_name(),
+    '-DVERSION_STRING=' + meson.project_version(),
+]
 
 deps += dependency(
     'libutf8proc',
