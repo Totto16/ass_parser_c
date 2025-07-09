@@ -76,6 +76,35 @@ typedef enum : uint8_t {
 	AssStyleFormatEncoding,
 } AssStyleFormat;
 
+[[nodiscard]] const char* get_name_for_style_format(AssStyleFormat format) {
+	switch(format) {
+		case AssStyleFormatName: return "Name";
+		case AssStyleFormatFontname: return "Fontname";
+		case AssStyleFormatFontsize: return "Fontsize";
+		case AssStyleFormatPrimaryColour: return "PrimaryColour";
+		case AssStyleFormatSecondaryColour: return "SecondaryColour";
+		case AssStyleFormatOutlineColour: return "OutlineColour";
+		case AssStyleFormatBackColour: return "BackColour";
+		case AssStyleFormatBold: return "Bold";
+		case AssStyleFormatItalic: return "Italic";
+		case AssStyleFormatUnderline: return "Underline";
+		case AssStyleFormatStrikeOut: return "StrikeOut";
+		case AssStyleFormatScaleX: return "ScaleX";
+		case AssStyleFormatScaleY: return "ScaleY";
+		case AssStyleFormatSpacing: return "Spacing";
+		case AssStyleFormatAngle: return "Angle";
+		case AssStyleFormatBorderStyle: return "BorderStyle";
+		case AssStyleFormatOutline: return "Outline";
+		case AssStyleFormatShadow: return "Shadow";
+		case AssStyleFormatAlignment: return "Alignment";
+		case AssStyleFormatMarginL: return "MarginL";
+		case AssStyleFormatMarginR: return "MarginR";
+		case AssStyleFormatMarginV: return "MarginV";
+		case AssStyleFormatEncoding: return "Encoding";
+		default: return "<unknown>";
+	}
+}
+
 typedef struct {
 	uint8_t r;
 	uint8_t g;
@@ -145,6 +174,22 @@ typedef enum : uint8_t {
 	AssEventFormatEffect,
 	AssEventFormatText,
 } AssEventFormat;
+
+[[nodiscard]] const char* get_name_for_event_format(AssEventFormat format) {
+	switch(format) {
+		case AssEventFormatLayer: return "Layer";
+		case AssEventFormatStart: return "Start";
+		case AssEventFormatEnd: return "End";
+		case AssEventFormatStyle: return "Style";
+		case AssEventFormatName: return "Name";
+		case AssEventFormatMarginL: return "MarginL";
+		case AssEventFormatMarginR: return "MarginR";
+		case AssEventFormatMarginV: return "MarginV";
+		case AssEventFormatEffect: return "Effect";
+		case AssEventFormatText: return "Text";
+		default: return "<unknown>";
+	}
+}
 
 typedef enum : uint8_t {
 	EventTypeDialogue,
@@ -789,8 +834,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		if(error.message != NULL) {
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing value '%s': %s",
-			                      get_normalized_string(value), error.message);
+			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
+			                      get_name_for_style_format(format), get_normalized_string(value),
+			                      error.message);
 
 			free_error_struct(error);
 			return DYNAMIC_ERROR(result_buffer);
@@ -1015,7 +1061,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			if(error.message != NULL) {
 				char* result_buffer = NULL;
 				FORMAT_STRING_DEFAULT(
-				    &result_buffer, "While parsing value '%s' with value '%s': %s",
+				    &result_buffer, "While parsing field '%s' with value '%s': %s",
 				    get_normalized_string(field), get_normalized_string(value), error.message);
 
 				free_error_struct(error);
@@ -1406,8 +1452,9 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		if(error.message != NULL) {
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing value '%s': %s",
-			                      get_normalized_string(value), error.message);
+			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
+			                      get_name_for_event_format(format), get_normalized_string(value),
+			                      error.message);
 
 			free_error_struct(error);
 			return DYNAMIC_ERROR(result_buffer);
