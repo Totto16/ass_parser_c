@@ -941,7 +941,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: '%s'",
 				                      field_name);
 
-				if(!settings.strict) {
+				if(settings.strict_settings.allow_additional_fields) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
@@ -1100,7 +1100,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				FORMAT_STRING_DEFAULT(&result_buffer,
 				                      "unexpected field '%s' in script info section", field_name);
 
-				if(!settings.strict) {
+				if(settings.strict_settings.allow_additional_fields) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
@@ -1716,7 +1716,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: '%s'",
 				                      field_name);
 
-				if(!settings.strict) {
+				if(settings.strict_settings.allow_additional_fields) {
 					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
@@ -1793,7 +1793,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		case FileTypeUnknown: {
 			const char* error = "unrecognized file, no BOM present";
 
-			if(settings.strict) {
+			if(!settings.strict_settings.allow_non_utf8) {
 				RETURN_ERROR(STATIC_ERROR(error));
 			}
 

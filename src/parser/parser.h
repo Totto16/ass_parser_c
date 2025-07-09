@@ -22,10 +22,10 @@ typedef struct {
 
 typedef struct {
 	bool allow_additional_fields;
-	bool allow_format_key_error;
 	bool allow_missing_fields_in_script_info;
 	bool allow_number_rounding;
 	bool allow_duplicate_fields;
+	bool allow_non_utf8;
 } StrictSettings;
 
 typedef struct {

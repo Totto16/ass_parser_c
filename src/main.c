@@ -42,13 +42,13 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT3 "--allow-additional-fields [value]: set this specific option, specifying no "
 	              "value is enabling it\n");
-	printf(IDENT3 "--allow-format-key-error [value]: set this specific option, specifying no value "
-	              "is enabling it\n");
 	printf(IDENT3 "--allow-missing-fields-in-script-info [value]: set this specific option, "
 	              "specifying no value is enabling it\n");
 	printf(IDENT3 "--allow-number-rounding [value]: set this specific option, specifying no value "
 	              "is enabling it\n");
 	printf(IDENT3 "--allow-duplicate-fields [value]: set this specific option, specifying no value "
+	              "is enabling it\n");
+	printf(IDENT3 "--allow-non-utf8 [value]: set this specific option, specifying no value "
 	              "is enabling it\n");
 }
 
@@ -170,10 +170,10 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	ParseSettings settings = { .strict_settings =
 		                           (StrictSettings){ .allow_additional_fields = false,
-		                                             .allow_format_key_error = false,
 		                                             .allow_missing_fields_in_script_info = false,
 		                                             .allow_number_rounding = false,
-		                                             .allow_duplicate_fields = false } };
+		                                             .allow_duplicate_fields = false,
+		                                             .allow_non_utf8 = false } };
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -192,18 +192,18 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 		if((strcmp(arg, "-n") == 0) || (strcmp(arg, "--non-strict") == 0)) {
 			settings.strict_settings.allow_additional_fields = true;
-			settings.strict_settings.allow_format_key_error = true;
 			settings.strict_settings.allow_missing_fields_in_script_info = true;
 			settings.strict_settings.allow_number_rounding = true;
 			settings.strict_settings.allow_duplicate_fields = true;
+			settings.strict_settings.allow_non_utf8 = true;
 
 			processed_args++;
 		} else if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--strict") == 0)) {
 			settings.strict_settings.allow_additional_fields = false;
-			settings.strict_settings.allow_format_key_error = false;
 			settings.strict_settings.allow_missing_fields_in_script_info = false;
 			settings.strict_settings.allow_number_rounding = false;
 			settings.strict_settings.allow_duplicate_fields = false;
+			settings.strict_settings.allow_non_utf8 = false;
 
 			processed_args++;
 		} else if((strcmp(arg, "--allow-additional-fields") == 0)) {
@@ -212,13 +212,6 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_additional_fields = value;
-
-		} else if((strcmp(arg, "--allow-format-key-error") == 0)) {
-			processed_args++;
-
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
-
-			settings.strict_settings.allow_format_key_error = value;
 
 		} else if((strcmp(arg, "--allow-missing-fields-in-script-info") == 0)) {
 			processed_args++;
@@ -240,6 +233,13 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_duplicate_fields = value;
+
+		} else if((strcmp(arg, "--allow-non-utf8") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_non_utf8 = value;
 
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
