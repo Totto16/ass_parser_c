@@ -4,6 +4,8 @@
 
 #include "../helper/sized_ptr.h"
 
+#include <stdint.h>
+
 typedef enum : uint8_t {
 	AssSourceTypeFile,
 	AssSourceTypeStr,
