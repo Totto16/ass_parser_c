@@ -1031,6 +1031,34 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return STATIC_ERROR("eof before newline in skipping section");
 		}
 
+		{
+
+			SectionFieldEntry field_entry = {};
+
+			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+
+			ConstUtf8StrView field = {};
+			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
+			                                        ":")) {
+				return STATIC_ERROR("end of line before ':' in line parsing in extra section");
+			}
+
+			if(!str_view_skip_optional_whitespace(&line_view)) {
+				return STATIC_ERROR("skip whitespace error");
+			}
+
+			ConstUtf8StrView key = {};
+
+			if(!str_view_get_substring_until_eof(&line_view, &key)) {
+				return STATIC_ERROR("eof error");
+			}
+
+			field_entry.key = get_normalized_string(field);
+			field_entry.value = key;
+
+			stbds_shputs(extra_section.value.fields, field_entry);
+		}
+
 		if(str_view_is_eof(*data_view)) {
 			break;
 		}
