@@ -89,7 +89,7 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 				result_ptr.data = new_buffer;
 				outbytesleft = CHUNK_SIZE_CONVERSION;
-				outbuf = (char*)result_ptr.data;
+				outbuf = new_buffer + result_ptr.len;
 				continue;
 
 			} else {
