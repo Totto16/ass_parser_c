@@ -1808,6 +1808,7 @@ static void free_extra_sections(ExtraSections sections) {
 static void free_ass_result(AssResult data) {
 	free_utf8_data(data.allocated_data);
 	stbds_arrfree(data.styles.entries);
+	stbds_arrfree(data.events.entries);
 
 	free_extra_sections(data.extra_sections);
 }
