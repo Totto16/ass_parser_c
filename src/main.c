@@ -77,7 +77,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	if(strcmp(file, "-") == 0) {
 		source.type = AssSourceTypeStr;
-		source.data.str = read_entire_file_raw(stdin);
+		source.data.str = read_entire_stdin();
 	} else {
 		source.type = AssSourceTypeFile;
 		source.data.file = file;
