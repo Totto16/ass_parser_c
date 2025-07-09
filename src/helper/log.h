@@ -5,11 +5,12 @@
 extern "C" {
 #endif
 
-#include "utils/utils.h"
+#include <stdint.h>
+
 /**
  * @enum value
  */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+typedef enum : uint8_t {
 	LogLevelTrace = 0x00,
 	LogLevelDebug = 0x01,
 	LogLevelInfo = 0x02,
@@ -22,27 +23,27 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 /**
  * @enum MASK / FLAGS
  */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+typedef enum : uint8_t {
 	LogPrintLocation = 0x08,
 } LogFlags;
 
 // only for internal use!!
 
-NODISCARD bool should_log(LogLevel level);
+[[nodiscard]] bool should_log(LogLevel level);
 
-NODISCARD bool should_log_to_stderr(LogLevel level);
+[[nodiscard]] bool should_log_to_stderr(LogLevel level);
 
-NODISCARD const char* get_level_name_internal(LogLevel level, bool color);
+[[nodiscard]] const char* get_level_name_internal(LogLevel level, bool color);
 
-NODISCARD const char* get_thread_name(void);
+[[nodiscard]] const char* get_thread_name(void);
 
 void log_lock_mutex(void);
 
 void log_unlock_mutex(void);
 
-NODISCARD bool log_should_use_color(void);
+[[nodiscard]] bool log_should_use_color(void);
 
-NODISCARD bool has_flag(int flags, LogFlags needle);
+[[nodiscard]] bool has_flag(int flags, LogFlags needle);
 
 typedef struct {
 	LogLevel level;
@@ -93,9 +94,9 @@ void set_thread_name(const char* name);
 void unset_thread_name(void);
 
 // IS thread safe
-NODISCARD int parse_log_level(const char* level);
+[[nodiscard]] int parse_log_level(const char* level);
 
-NODISCARD const char* get_level_name(LogLevel level);
+[[nodiscard]] const char* get_level_name(LogLevel level);
 
 #ifdef __cplusplus
 }

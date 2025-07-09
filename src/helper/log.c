@@ -3,9 +3,14 @@
 #include <pthread.h>
 #undef _GNU_SOURCE
 
-#include "log.h"
-#include "thread_helper.h"
-#include "utils/utils.h"
+#include "./log.h"
+#include "./thread_helper.h"
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define DEFAULT_LOG_LEVEL LogLevelInfo
 
@@ -163,8 +168,10 @@ void initialize_logger(void) {
 	g_global_value_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
 	int result = pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
-	CHECK_FOR_THREAD_ERROR(
-	    result, "An Error occurred while trying to initialize the mutex for the logger", return;);
+	if(result != 0) {
+		fprintf(stderr, "An Error occurred while trying to initialize the mutex for the logger\n");
+		return;
+	}
 }
 
 void set_log_level(LogLevel level) {

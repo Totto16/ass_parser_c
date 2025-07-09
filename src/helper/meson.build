@@ -7,6 +7,8 @@ src_files += files(
     'macros.h',
     'sized_ptr.c',
     'sized_ptr.h',
+    'thread_helper.c',
+    'thread_helper.h',
     'utf8_helper.c',
     'utf8_helper.h',
     'utf8_string_view.c',
