@@ -2,6 +2,7 @@
 
 #include "./parser.h"
 #include "../helper/io.h"
+#include "../helper/log.h"
 #include "../helper/macros.h"
 #include "../helper/utf8_helper.h"
 #include "../helper/utf8_string_view.h"
@@ -910,7 +911,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				                      get_normalized_string(field));
 
 				if(!settings.strict) {
-					fprintf(stderr, "WARNING: %s\n", result_buffer);
+					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
 					continue;
@@ -1061,7 +1062,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				                      get_normalized_string(field));
 
 				if(!settings.strict) {
-					fprintf(stderr, "WARNING: %s\n", result_buffer);
+					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
 					continue;
@@ -1639,7 +1640,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 				                      get_normalized_string(field));
 
 				if(!settings.strict) {
-					fprintf(stderr, "WARNING: %s\n", result_buffer);
+					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
 
 					free(result_buffer);
 					continue;
@@ -1717,7 +1718,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 				RETURN_ERROR(STATIC_ERROR(error));
 			}
 
-			fprintf(stderr, "WARNING: %s, assuming UTF-8 (ascii also works)\n", error);
+			LOG_MESSAGE(LogLevelWarn, "%s, assuming UTF-8 (ascii also works)\n", error);
 			bom_size = 0;
 			break;
 		}

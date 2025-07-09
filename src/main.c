@@ -140,12 +140,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	AssParseResult* result = parse_ass(source, settings);
 
 	if(parse_result_is_error(result)) {
-		fprintf(stderr, "Parse error: %s\n", parse_result_get_error(result));
+		LOG_MESSAGE(LogLevelError, "Parse error: %s\n", parse_result_get_error(result));
 		free_parse_result(result);
 		return EXIT_FAILURE;
 	}
 
-	printf("File is valid\n");
+	LOG_MESSAGE_SIMPLE(LogLevelInfo, "File is valid\n");
 	free_parse_result(result);
 	return EXIT_SUCCESS;
 }
