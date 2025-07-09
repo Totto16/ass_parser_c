@@ -24,8 +24,8 @@ static void print_check_usage(bool is_subcommand) {
 	}
 
 	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
-	// no options yet
 	printf(IDENT1 "options:\n");
+	printf(IDENT2 "-n, --non-strict: don't enable strict checking of the '.ass' file\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -83,7 +83,24 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		source.data.file = file;
 	}
 
-	ParseSettings settings = {};
+	ParseSettings settings = { .strict = true };
+
+	// the file
+	int processed_args = 1;
+
+	while(processed_args != argc) {
+
+		const char* arg = argv[processed_args];
+
+		if((strcmp(arg, "-n") == 0) || (strcmp(arg, "--non-strict") == 0)) {
+			settings.strict = false;
+			processed_args++;
+		} else {
+			fprintf(stderr, "Unrecognized option: %s\n", arg);
+			print_usage(argv[0], UsageCommandCheck);
+			return EXIT_FAILURE;
+		}
+	}
 
 	AssParseResult* result = parse_ass(source, settings);
 
