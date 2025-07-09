@@ -25,9 +25,14 @@
 	return S_ISDIR(stat_struct.st_mode);
 }
 
-[[nodiscard]] SizedPtr read_entire_file(char* file_name) {
+[[nodiscard]] SizedPtr read_entire_file(const char* file_name) {
 
 	FILE* file = fopen(file_name, "rb");
+
+	return read_entire_file_raw(file);
+}
+
+[[nodiscard]] SizedPtr read_entire_file_raw(FILE* file) {
 
 	if(file == NULL) {
 		if(errno == EACCES) {

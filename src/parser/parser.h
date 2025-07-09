@@ -14,7 +14,7 @@ typedef enum : uint8_t {
 typedef struct {
 	AssSourceType type;
 	union {
-		char* file;
+		const char* file;
 		SizedPtr str;
 	} data;
 
