@@ -225,3 +225,22 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 [[nodiscard]] char* get_normalized_string(ConstUtf8StrView str_view) {
 	return get_normalized_string_raw(str_view.start, str_view.length);
 }
+
+[[nodiscard]] bool str_view_get_substring_by_amount(Utf8StrView* str_view, ConstUtf8StrView* result,
+                                                    size_t amount) {
+
+	if(str_view_is_eof(*str_view)) {
+		return false;
+	}
+
+	if(str_view->offset + amount > str_view->length) {
+		return false;
+	}
+
+	result->length = amount;
+	result->start = str_view->start + str_view->offset;
+
+	str_view->offset = str_view->offset + amount;
+
+	return true;
+}

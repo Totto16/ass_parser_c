@@ -132,8 +132,61 @@ typedef struct {
 typedef struct {
 	STBDS_ARRAY(AssStyleEntry) entries;
 } AssStyles;
+
+typedef enum : uint8_t {
+	AssEventFormatLayer,
+	AssEventFormatStart,
+	AssEventFormatEnd,
+	AssEventFormatStyle,
+	AssEventFormatName,
+	AssEventFormatMarginL,
+	AssEventFormatMarginR,
+	AssEventFormatMarginV,
+	AssEventFormatEffect,
+	AssEventFormatText,
+} AssEventFormat;
+
+typedef enum : uint8_t {
+	EventTypeDialogue,
+	EventTypeComment,
+	EventTypePicture,
+	EventTypeSound,
+	EventTypeMovie,
+	EventTypeCommand
+} EventType;
+
 typedef struct {
-	int todo;
+	uint8_t hour;
+	uint8_t min;
+	uint8_t sec;
+	uint8_t hundred;
+} AssTime;
+
+typedef struct {
+	bool is_default;
+	union {
+		size_t value;
+	} data;
+} MarginValue;
+
+typedef struct {
+	// marks different event_types
+	EventType type;
+	// original fields
+	size_t layer;
+	AssTime start;
+	AssTime end;
+	FinalStr style;
+	FinalStr name;
+	MarginValue margin_l;
+	MarginValue margin_r;
+	MarginValue margin_v;
+	FinalStr effect;
+	FinalStr text;
+} AssEventEntry;
+
+typedef struct {
+	STBDS_ARRAY(AssEventEntry) entries;
 } AssEvents;
 typedef struct {
 	int todo;
@@ -728,6 +781,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				entry.encoding = parse_str_as_unsigned_number(value, &error);
 				break;
 			}
+			default: {
+				error = STATIC_ERROR("unreachable");
+			}
 		}
 
 		if(error.message != NULL) {
@@ -798,11 +854,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 					    "this is an error");
 				}
 
-				ErrorStruct format_line_error =
+				ErrorStruct style_parse_error =
 				    parse_style_line_for_styles(&line_view, style_format, &styles);
 
-				if(format_line_error.message != NULL) {
-					return format_line_error;
+				if(style_parse_error.message != NULL) {
+					return style_parse_error;
 				}
 
 			} else {
@@ -1070,6 +1126,456 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 [[nodiscard]] static ErrorStruct
+parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat) * format_result) {
+
+	while(!(str_view_is_eof(*line_view))) {
+
+		if(!str_view_skip_optional_whitespace(line_view)) {
+			return STATIC_ERROR("skip whitespace error");
+		}
+
+		ConstUtf8StrView key = {};
+		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, true, ",")) {
+			if(!str_view_get_substring_until_eof(line_view, &key)) {
+
+				return STATIC_ERROR("eof before comma in events section format line");
+			}
+		}
+
+		if(key.length == 0) {
+			return STATIC_ERROR("implementation error");
+		}
+
+		AssEventFormat format = 0;
+
+		if(str_view_eq_ascii(key, "Layer")) {
+			format = AssEventFormatLayer;
+		} else if(str_view_eq_ascii(key, "Start")) {
+			format = AssEventFormatStart;
+		} else if(str_view_eq_ascii(key, "End")) {
+			format = AssEventFormatEnd;
+		} else if(str_view_eq_ascii(key, "Style")) {
+			format = AssEventFormatStyle;
+		} else if(str_view_eq_ascii(key, "Name")) {
+			format = AssEventFormatName;
+		} else if(str_view_eq_ascii(key, "MarginL")) {
+			format = AssEventFormatMarginL;
+		} else if(str_view_eq_ascii(key, "MarginR")) {
+			format = AssEventFormatMarginR;
+		} else if(str_view_eq_ascii(key, "MarginV")) {
+			format = AssEventFormatMarginV;
+		} else if(str_view_eq_ascii(key, "Effect")) {
+			format = AssEventFormatEffect;
+		} else if(str_view_eq_ascii(key, "Text")) {
+			format = AssEventFormatText;
+		} else {
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      "unrecognized format key %s in format line in events section",
+			                      get_normalized_string(key));
+
+			return DYNAMIC_ERROR(result_buffer);
+		}
+
+		stbds_arrput(*format_result, format);
+	}
+
+	return NO_ERROR();
+}
+
+[[nodiscard]] MarginValue parse_str_as_margin_value(ConstUtf8StrView value,
+                                                    ErrorStruct* error_ptr) {
+	MarginValue result = { .is_default = true };
+
+	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
+	// margins defined by the style are used.
+
+	// TODO: 0000 is used in older ass files, but is "0" also the default?
+	if(str_view_eq_ascii(value, "0000")) {
+		result.is_default = true;
+		*error_ptr = NO_ERROR();
+
+		return result;
+	}
+
+	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+	if(error_ptr->message != NULL) {
+		return result;
+	}
+
+	result.is_default = false;
+	result.data.value = num;
+	*error_ptr = NO_ERROR();
+
+	return result;
+}
+
+[[nodiscard]] AssTime parse_str_as_time(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+
+	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
+	// for the hours!
+
+	AssTime time = {};
+
+	if(value.length != 10) {
+		*error_ptr = STATIC_ERROR("error, not a valid time, not correct length");
+		return time;
+	}
+
+	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+
+	{
+		// hour
+
+		ConstUtf8StrView hour_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &hour_str, 1)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get hour value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(hour_str, error_ptr);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.hour = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			return time;
+		}
+	}
+
+	{
+		// min
+
+		ConstUtf8StrView min_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &min_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get min value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(min_str, error_ptr);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.min = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			return time;
+		}
+	}
+
+	{
+		// sec
+
+		ConstUtf8StrView sec_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &sec_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get sec value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(sec_str, error_ptr);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.sec = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			return time;
+		}
+	}
+
+	{
+		// hundred
+
+		ConstUtf8StrView hundred_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &hundred_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get hundred value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(hundred_str, error_ptr);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.hundred = (uint8_t)num;
+
+		if(!str_view_is_eof(value_view)) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, more data then expected");
+			return time;
+		}
+	}
+
+	*error_ptr = NO_ERROR();
+	return time;
+}
+
+[[nodiscard]] static ErrorStruct parse_event_line_for_events(EventType type, Utf8StrView* line_view,
+                                                             const STBDS_ARRAY(AssEventFormat)
+                                                                 const format_spec,
+                                                             AssEvents* events_result) {
+
+	size_t field_size = stbds_arrlenu(format_spec);
+
+	AssEventEntry entry = { .type = type };
+
+	if(!str_view_skip_optional_whitespace(line_view)) {
+		return STATIC_ERROR("skip whitespace error");
+	}
+
+	size_t i = 0;
+	for(; !str_view_is_eof(*line_view); ++i) {
+
+		ConstUtf8StrView value = {};
+		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, true, ",")) {
+			if(!str_view_get_substring_until_eof(line_view, &value)) {
+
+				return STATIC_ERROR("eof before comma in events section event line");
+			}
+		}
+
+		if(value.length == 0) {
+			return STATIC_ERROR("implementation error");
+		}
+
+		if(i >= field_size) {
+			return STATIC_ERROR(
+			    "error, too many fields in the event line, the format line specified less");
+		}
+
+		ErrorStruct error = NO_ERROR();
+
+		AssEventFormat format = format_spec[i];
+
+		switch(format) {
+			case AssEventFormatLayer: {
+				entry.layer = parse_str_as_unsigned_number(value, &error);
+				break;
+			}
+			case AssEventFormatStart: {
+				entry.start = parse_str_as_time(value, &error);
+				break;
+			}
+			case AssEventFormatEnd: {
+				entry.end = parse_str_as_time(value, &error);
+				break;
+			}
+			case AssEventFormatStyle: {
+				entry.style = value;
+				break;
+			}
+			case AssEventFormatName: {
+				entry.name = value;
+				break;
+			}
+			case AssEventFormatMarginL: {
+				entry.margin_l = parse_str_as_margin_value(value, &error);
+				break;
+			}
+			case AssEventFormatMarginR: {
+				entry.margin_r = parse_str_as_margin_value(value, &error);
+				break;
+			}
+			case AssEventFormatMarginV: {
+				entry.margin_v = parse_str_as_margin_value(value, &error);
+				break;
+			}
+			case AssEventFormatEffect: {
+				entry.effect = value;
+				break;
+			}
+			case AssEventFormatText: {
+				entry.text = value;
+				break;
+			}
+			default: {
+				error = STATIC_ERROR("unreachable");
+			}
+		}
+
+		if(error.message != NULL) {
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing value '%s': %s",
+			                      get_normalized_string(value), error.message);
+
+			free_error_struct(error);
+			return DYNAMIC_ERROR(result_buffer);
+		}
+	}
+
+	if(i != field_size) {
+		return STATIC_ERROR(
+		    "error, too few fields in the event line, the format line specified more");
+	}
+
+	stbds_arrput(events_result->entries, entry);
+
+	return NO_ERROR();
+}
+
+[[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, Utf8StrView* data_view) {
+
+	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
+
+	STBDS_ARRAY(AssEventFormat) event_format = STBDS_ARRAY_EMPTY;
+
+	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
+
+		ConstUtf8StrView line = {};
+		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+			return STATIC_ERROR("eof before newline in parse events");
+		}
+
+		// parse line
+		{
+
+			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+
+			ConstUtf8StrView field = {};
+			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
+			                                        ":")) {
+				return STATIC_ERROR("end of line before ':' in line parsing in events section");
+			}
+
+			if(str_view_eq_ascii(field, "Format")) {
+
+				if(stbds_arrlenu(event_format) != 0) {
+					return STATIC_ERROR(
+					    "multiple format fields detected in the events section, this is not "
+					    "allowed");
+				}
+
+				ErrorStruct format_line_error =
+				    parse_format_line_for_events(&line_view, &event_format);
+
+				if(format_line_error.message != NULL) {
+					return format_line_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Dialogue")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypeDialogue, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Comment")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypeComment, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Picture")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypePicture, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Sound")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error =
+				    parse_event_line_for_events(EventTypeSound, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Movie")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error =
+				    parse_event_line_for_events(EventTypeMovie, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else if(str_view_eq_ascii(field, "Command")) {
+
+				if(stbds_arrlenu(event_format) == 0) {
+					return STATIC_ERROR(
+					    "no format line occurred before the style line in the events section, "
+					    "this is an error");
+				}
+
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypeCommand, &line_view, event_format, &events);
+
+				if(event_parse_error.message != NULL) {
+					return event_parse_error;
+				}
+
+			} else {
+				char* result_buffer = NULL;
+				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: %s",
+				                      get_normalized_string(field));
+
+				return DYNAMIC_ERROR(result_buffer);
+			}
+		}
+
+		// end of line parse
+
+		if(str_view_is_eof(*data_view)) {
+			break;
+		}
+	}
+
+	stbds_arrfree(event_format);
+	*ass_events = events;
+	return NO_ERROR();
+	// end of script info
+}
+
+[[nodiscard]] static ErrorStruct
 get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8StrView* data_view) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
@@ -1081,7 +1587,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	}
 
 	if(str_view_eq_ascii(section_name, "Events")) {
-		return skip_section(data_view);
+		return parse_events(&(ass_result->events), data_view);
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
