@@ -53,3 +53,6 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 [[nodiscard]] bool category_delimiter(int32_t code_point, void* data_ptr);
 
 [[nodiscard]] ConstUtf8StrView get_const_str_view_from_str_view(Utf8StrView input);
+
+[[nodiscard]] char* get_normalized_string(ConstUtf8StrView str_view);
+

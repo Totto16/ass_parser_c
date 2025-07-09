@@ -43,7 +43,7 @@ void free_utf8_data(Utf8Data data) {
 
 #define CHUNK_SIZE 256
 
-char* get_normalized_string(int32_t* data, size_t size) {
+char* get_normalized_string_raw(int32_t* data, size_t size) {
 
 	size_t buffer_size = CHUNK_SIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);

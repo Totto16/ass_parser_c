@@ -221,3 +221,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return (ConstUtf8StrView){ .start = input.start + input.offset,
 		                       .length = input.length - input.offset };
 }
+
+[[nodiscard]] char* get_normalized_string(ConstUtf8StrView str_view) {
+	return get_normalized_string_raw(str_view.start, str_view.length);
+}

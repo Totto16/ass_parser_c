@@ -14,8 +14,34 @@
 
 typedef ConstUtf8StrView FinalStr;
 
+typedef enum {
+	ScriptTypeV4,
+	ScriptTypeV4Plus,
+} ScriptType;
+
+typedef enum {
+	WrapStyleSmart = 0,
+	WrapStyleEOL,
+	WrapStyleNoWrap,
+	WrapStyleSmartLow,
+} WrapStyle;
+
 typedef struct {
-	int todo;
+	FinalStr title;
+	FinalStr original_script;
+	FinalStr original_translation;
+	FinalStr original_editing;
+	FinalStr original_timing;
+	FinalStr synch_point;
+	FinalStr script_updated_by;
+	FinalStr update_details;
+	ScriptType script_type;
+	FinalStr collisions;
+	FinalStr play_res_y;
+	FinalStr play_res_x;
+	FinalStr play_depth;
+	FinalStr timer;
+	WrapStyle wrap_style;
 } AssScriptInfo;
 
 typedef enum {
@@ -260,7 +286,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		} else if(str_view_eq_ascii(key, "Encoding")) {
 			format = AssStyleFormatEncoding;
 		} else {
-			fprintf(stderr, "Format key: %s\n", get_normalized_string(key.start, key.length));
+			fprintf(stderr, "Format key: %s\n", get_normalized_string(key));
 			return "unrecognized format key in format line in styles section";
 		}
 
@@ -277,7 +303,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		int32_t current_codepoint = value.start[i];
 
 		if(current_codepoint < (unsigned char)'0' || current_codepoint > (unsigned char)'9') {
-			fprintf(stderr, "whole value: %s\n", get_normalized_string(value.start, value.length));
+			fprintf(stderr, "whole value: %s\n", get_normalized_string(value));
 			*error_ptr = "error, not a valid decimal number";
 			return 0;
 		}
@@ -541,11 +567,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return "implementation error";
 		}
 
-		const char* error = NULL;
-
 		if(i >= field_size) {
 			return "error, too many fields in the style line, the format line specified less";
 		}
+
+		const char* error = NULL;
 
 		AssStyleFormat format = format_spec[i];
 
@@ -645,8 +671,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		}
 
 		if(error != NULL) {
-			fprintf(stderr, "While parsing value: %s\n",
-			        get_normalized_string(value.start, value.length));
+			fprintf(stderr, "While parsing value: %s\n", get_normalized_string(value));
 			return error;
 		}
 	}
@@ -713,7 +738,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 			} else {
-				fprintf(stderr, "Field: %s\n", get_normalized_string(field.start, field.length));
+				fprintf(stderr, "Field: %s\n", get_normalized_string(field));
 				return "unexpected field in styles section";
 			}
 		}
@@ -727,6 +752,152 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 	stbds_arrfree(style_format);
 	*ass_styles = styles;
+	return NULL;
+	// end of script info
+}
+
+[[nodiscard]] ScriptType parse_str_as_script_type(ConstUtf8StrView value, const char** error_ptr) {
+
+	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
+		*error_ptr = NULL;
+		return ScriptTypeV4;
+	} else if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
+		*error_ptr = NULL;
+		return ScriptTypeV4Plus;
+	} else {
+		*error_ptr = "invalid script type value";
+		return ScriptTypeV4;
+	}
+}
+
+[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstUtf8StrView value, const char** error_ptr) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+
+	if(*error_ptr != NULL) {
+		return WrapStyleSmart;
+	}
+
+	switch(num) {
+		case 0: {
+			*error_ptr = NULL;
+			return WrapStyleSmart;
+		}
+		case 1: {
+			*error_ptr = NULL;
+			return WrapStyleEOL;
+		}
+		case 2: {
+			*error_ptr = NULL;
+			return WrapStyleNoWrap;
+		}
+		case 3: {
+			*error_ptr = NULL;
+			return WrapStyleSmartLow;
+		}
+		default: {
+			*error_ptr = "invalid wrap style value";
+			return WrapStyleSmart;
+		}
+	}
+}
+
+[[nodiscard]] static const char* parse_script_info(AssScriptInfo* script_info_result,
+                                                   Utf8StrView* data_view) {
+
+	AssScriptInfo script_info = {};
+
+	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
+
+		ConstUtf8StrView line = {};
+		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+			return "eof before newline in parse script style";
+		}
+
+		// parse line
+		{
+
+			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+
+			if(str_view_starts_with_ascii(line_view, ";")) {
+				continue;
+			}
+
+			ConstUtf8StrView field = {};
+			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
+			                                        ":")) {
+				return "end of line before ':' in line parsing in script info section";
+			}
+
+			if(!str_view_skip_optional_whitespace(&line_view)) {
+				return "skip whitespace error";
+			}
+
+			ConstUtf8StrView value = get_const_str_view_from_str_view(line_view);
+
+			const char* error = NULL;
+
+			if(str_view_eq_ascii(field, "Title")) {
+				script_info.title = value;
+			} else if(str_view_eq_ascii(field, "Original Script")) {
+				script_info.original_script = value;
+			} else if(str_view_eq_ascii(field, "Original Translation")) {
+				script_info.original_translation = value;
+			} else if(str_view_eq_ascii(field, "Original Editing")) {
+				script_info.original_editing = value;
+			} else if(str_view_eq_ascii(field, "Original Timing")) {
+				script_info.original_timing = value;
+			} else if(str_view_eq_ascii(field, "Synch Point")) {
+				script_info.synch_point = value;
+			} else if(str_view_eq_ascii(field, "Update Details")) {
+				script_info.update_details = value;
+			} else if(str_view_eq_ascii(field, "ScriptType") ||
+			          str_view_eq_ascii(field, "Script Type")) {
+				script_info.script_type = parse_str_as_script_type(value, &error);
+			} else if(str_view_eq_ascii(field, "Collisions")) {
+				script_info.collisions = value;
+			} else if(str_view_eq_ascii(field, "PlayResY")) {
+				script_info.play_res_y = value;
+			} else if(str_view_eq_ascii(field, "PlayResX")) {
+				script_info.play_res_x = value;
+			} else if(str_view_eq_ascii(field, "PlayDepth")) {
+				script_info.play_depth = value;
+			} else if(str_view_eq_ascii(field, "Timer")) {
+				script_info.timer = value;
+			} else if(str_view_eq_ascii(field, "WrapStyle")) {
+				script_info.wrap_style = parse_str_as_wrap_style(value, &error);
+			} else {
+				fprintf(stderr, "Field: %s\n", get_normalized_string(field));
+				return "unexpected field in script info section";
+			}
+
+			if(error != NULL) {
+				fprintf(stderr, "While parsing field: %s with value: %s\n",
+				        get_normalized_string(field), get_normalized_string(value));
+				return error;
+			}
+		}
+
+		// end of line parse
+
+		if(str_view_is_eof(*data_view)) {
+			break;
+		}
+	}
+
+	// check script info
+	{
+
+		if(script_info.script_type != ScriptTypeV4Plus) {
+			return "only scrypt type v4+ is supported";
+		}
+
+		// initialize title and original script
+		// TODO:
+		// <untitled>
+		// <unknown>
+	}
+
+	*script_info_result = script_info;
 	return NULL;
 	// end of script info
 }
@@ -779,8 +950,7 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 		return skip_section(data_view);
 	}
 
-	fprintf(stderr, "Section name: %s\n",
-	        get_normalized_string(section_name.start, section_name.length));
+	fprintf(stderr, "Section name: %s\n", get_normalized_string(section_name));
 	return "unrecognized section name";
 }
 
@@ -828,7 +998,6 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 	}
 
 	// parse script info
-	AssScriptInfo script_info = { .todo = 0 };
 
 	if(!str_view_expect_ascii(&data_view, "[Script Info]")) {
 		RETURN_ERROR("first line must be the script info section");
@@ -838,24 +1007,13 @@ get_section_by_name(ConstUtf8StrView section_name, AssResult* ass_result, Utf8St
 		RETURN_ERROR("expected newline");
 	}
 
-	while(!str_view_starts_with_ascii(data_view, "[")) {
+	AssResult ass_result = { .allocated_data = final_data };
 
-		ConstUtf8StrView line = {};
-		if(!str_view_get_substring_by_delimiter(&data_view, &line, newline_delimiter, true, NULL)) {
-			RETURN_ERROR("eof before newline in parse script info");
-		}
+	const char* script_info_parse_result = parse_script_info(&(ass_result.script_info), &data_view);
 
-		// TODO: parse script info lines
-		UNUSED(line);
-
-		if(str_view_is_eof(data_view)) {
-			break;
-		}
+	if(script_info_parse_result != NULL) {
+		RETURN_ERROR(script_info_parse_result);
 	}
-
-	// end of script info
-
-	AssResult ass_result = { .allocated_data = final_data, .script_info = script_info };
 
 	while(true) {
 

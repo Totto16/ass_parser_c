@@ -22,4 +22,4 @@ typedef struct {
 
 void free_utf8_data(Utf8Data data);
 
-char* get_normalized_string(int32_t* data, size_t size);
+[[nodiscard]] char* get_normalized_string_raw(int32_t* data, size_t size);
