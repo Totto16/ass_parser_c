@@ -29,7 +29,7 @@ typedef struct {
 	ScriptInfoStrictSettings script_info;
 	bool allow_additional_fields;
 	bool allow_number_truncating;
-	bool allow_non_utf8;
+	bool allow_unrecognized_file_encoding;
 } StrictSettings;
 
 typedef struct {

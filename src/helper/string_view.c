@@ -1,16 +1,16 @@
 
 
-#include "./utf8_string_view.h"
+#include "./string_view.h"
 #include "./macros.h"
 
 #include <string.h>
 #include <utf8proc.h>
 
-[[nodiscard]] Utf8StrView str_view_from_data(Utf8Data data) {
-	return (Utf8StrView){ .start = data.data, .offset = 0, .length = data.size };
+[[nodiscard]] StrView str_view_from_data(Codepoints data) {
+	return (StrView){ .start = data.data, .offset = 0, .length = data.size };
 }
 
-[[nodiscard]] bool str_view_advance(Utf8StrView* str_view, size_t len) {
+[[nodiscard]] bool str_view_advance(StrView* str_view, size_t len) {
 
 	if(str_view->offset + len > str_view->length) {
 		return false;
@@ -27,8 +27,8 @@
 	return utf8_char == (unsigned char)ascii_char;
 }
 
-[[nodiscard]] static bool
-str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, size_t ascii_length) {
+[[nodiscard]] static bool str_view_starts_with_ascii_sized(StrView str_view, const char* ascii_str,
+                                                           size_t ascii_length) {
 
 	if(ascii_length + str_view.offset > str_view.length) {
 		return false;
@@ -44,14 +44,14 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return true;
 }
 
-[[nodiscard]] bool str_view_starts_with_ascii(Utf8StrView str_view, const char* ascii_str) {
+[[nodiscard]] bool str_view_starts_with_ascii(StrView str_view, const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
 	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
 }
 
-[[nodiscard]] bool str_view_expect_ascii(Utf8StrView* str_view, const char* ascii_str) {
+[[nodiscard]] bool str_view_expect_ascii(StrView* str_view, const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
@@ -66,7 +66,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return true;
 }
 
-[[nodiscard]] bool str_view_expect_newline(Utf8StrView* str_view) {
+[[nodiscard]] bool str_view_expect_newline(StrView* str_view) {
 	if(str_view_expect_ascii(str_view, "\n")) {
 		return true;
 	}
@@ -105,8 +105,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return is_utf8_char_eq_to_ascii_char(code_point, data[0]);
 }
 
-[[nodiscard]] bool str_view_get_substring_by_delimiter(Utf8StrView* str_view,
-                                                       ConstUtf8StrView* result,
+[[nodiscard]] bool str_view_get_substring_by_delimiter(StrView* str_view, ConstStrView* result,
                                                        DelimiterFn delimit_fn, bool multiple,
                                                        void* data_ptr) {
 
@@ -147,12 +146,12 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return str_view_advance(str_view, size + collected_delimiters);
 }
 
-[[nodiscard]] Utf8StrView get_str_view_from_const_str_view(ConstUtf8StrView input) {
+[[nodiscard]] StrView get_str_view_from_const_str_view(ConstStrView input) {
 
-	return (Utf8StrView){ .offset = 0, .length = input.length, .start = input.start };
+	return (StrView){ .offset = 0, .length = input.length, .start = input.start };
 }
 
-[[nodiscard]] bool str_view_eq_ascii(ConstUtf8StrView const_str_view, const char* ascii_str) {
+[[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
@@ -160,17 +159,16 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 		return false;
 	}
 
-	Utf8StrView str_view = get_str_view_from_const_str_view(const_str_view);
+	StrView str_view = get_str_view_from_const_str_view(const_str_view);
 
 	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
 }
 
-[[nodiscard]] bool str_view_is_eof(Utf8StrView str_view) {
+[[nodiscard]] bool str_view_is_eof(StrView str_view) {
 	return str_view.offset >= str_view.length;
 }
 
-[[nodiscard]] bool str_view_get_substring_until_eof(Utf8StrView* str_view,
-                                                    ConstUtf8StrView* result) {
+[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result) {
 
 	if(str_view->offset > str_view->length) {
 		return false;
@@ -190,8 +188,7 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return true;
 }
 
-[[nodiscard]] bool str_view_skip_while(Utf8StrView* str_view, DelimiterFn delimit_fn,
-                                       void* data_ptr) {
+[[nodiscard]] bool str_view_skip_while(StrView* str_view, DelimiterFn delimit_fn, void* data_ptr) {
 
 	while(true) {
 		if(str_view_is_eof(*str_view)) {
@@ -215,24 +212,25 @@ str_view_starts_with_ascii_sized(Utf8StrView str_view, const char* ascii_str, si
 	return utf8proc_category(code_point) == (*(utf8proc_category_t*)data_ptr);
 }
 
-[[nodiscard]] bool str_view_skip_optional_whitespace(Utf8StrView* str_view) {
+[[nodiscard]] bool str_view_skip_optional_whitespace(StrView* str_view) {
 
 	utf8proc_category_t cat = UTF8PROC_CATEGORY_ZS;
 
 	return str_view_skip_while(str_view, category_delimiter, (void*)&cat);
 }
 
-[[nodiscard]] ConstUtf8StrView get_const_str_view_from_str_view(Utf8StrView input) {
+[[nodiscard]] ConstStrView get_const_str_view_from_str_view(StrView input) {
 
-	return (ConstUtf8StrView){ .start = input.start + input.offset,
-		                       .length = input.length - input.offset };
+	return (ConstStrView){ .start = input.start + input.offset,
+		                   .length = input.length - input.offset };
 }
 
-[[nodiscard]] char* get_normalized_string(ConstUtf8StrView str_view) {
-	return get_normalized_string_raw(str_view.start, str_view.length);
+[[nodiscard]] char* get_normalized_string(ConstStrView str_view) {
+	return get_normalized_string_from_codepoints(
+	    (Codepoints){ .data = str_view.start, .size = str_view.length });
 }
 
-[[nodiscard]] bool str_view_get_substring_by_amount(Utf8StrView* str_view, ConstUtf8StrView* result,
+[[nodiscard]] bool str_view_get_substring_by_amount(StrView* str_view, ConstStrView* result,
                                                     size_t amount) {
 
 	if(str_view_is_eof(*str_view)) {

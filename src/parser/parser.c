@@ -4,8 +4,8 @@
 #include "../helper/io.h"
 #include "../helper/log.h"
 #include "../helper/macros.h"
-#include "../helper/utf8_helper.h"
-#include "../helper/utf8_string_view.h"
+#include "../helper/string_view.h"
+#include "../helper/utf_helper.h"
 
 #include <math.h>
 #include <stb/ds.h>
@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef ConstUtf8StrView FinalStr;
+typedef ConstStrView FinalStr;
 
 typedef enum : uint8_t {
 	ScriptTypeV4,
@@ -259,7 +259,7 @@ typedef struct {
 	AssEvents events;
 	AssFonts fonts;
 	AssGraphics graphics;
-	Utf8Data allocated_data;
+	Codepoints allocated_codepoints;
 	ExtraSections extra_sections;
 } AssResult;
 
@@ -352,7 +352,7 @@ typedef enum : uint8_t {
 		return result; \
 	} while(false)
 
-[[nodiscard]] static bool str_view_starts_with_ascii_or_eof(Utf8StrView str_view,
+[[nodiscard]] static bool str_view_starts_with_ascii_or_eof(StrView str_view,
                                                             const char* ascii_str) {
 
 	if(str_view_starts_with_ascii(str_view, ascii_str)) {
@@ -363,7 +363,7 @@ typedef enum : uint8_t {
 }
 
 [[nodiscard]] static ErrorStruct
-parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat) * format_result) {
+parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * format_result) {
 
 	while(!(str_view_is_eof(*line_view))) {
 
@@ -371,7 +371,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			return STATIC_ERROR("skip whitespace error");
 		}
 
-		ConstUtf8StrView key = {};
+		ConstStrView key = {};
 		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &key)) {
 
@@ -456,9 +456,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 // TODO: tuck this into a header file and seperate translation units
-[[nodiscard]] double parse_str_as_double(ConstUtf8StrView value, ErrorStruct* error_ptr);
+[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr);
 
-[[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstUtf8StrView value,
+[[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstStrView value,
                                                               ErrorStruct* error_ptr,
                                                               bool allow_number_truncating) {
 	size_t result = 0;
@@ -518,11 +518,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return result;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, ErrorStruct* error_ptr) {
 	return parse_str_as_unsigned_number_with_option(value, error_ptr, false);
 }
 
-[[nodiscard]] bool parse_str_as_bool(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] bool parse_str_as_bool(ConstStrView value, ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "-1")) {
 		*error_ptr = NO_ERROR();
@@ -538,7 +538,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return false;
 }
 
-[[nodiscard]] bool parse_str_as_str_bool(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] bool parse_str_as_str_bool(ConstStrView value, ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "yes")) {
 		*error_ptr = NO_ERROR();
@@ -554,7 +554,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return false;
 }
 
-[[nodiscard]] AssColor parse_str_as_color(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] AssColor parse_str_as_color(ConstStrView value, ErrorStruct* error_ptr) {
 
 	AssColor color = {};
 
@@ -563,7 +563,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		return color;
 	}
 
-	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+	StrView value_view = get_str_view_from_const_str_view(value);
 
 	if(!str_view_expect_ascii(&value_view, "&H")) {
 		*error_ptr = STATIC_ERROR("error, not a valid color, invalid prefix");
@@ -623,9 +623,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return color;
 }
 
-[[nodiscard]] double parse_str_as_double(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr) {
 
-	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+	StrView value_view = get_str_view_from_const_str_view(value);
 
 	double final_value = 1.0F;
 
@@ -637,7 +637,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		}
 	}
 
-	ConstUtf8StrView prefix = {};
+	ConstStrView prefix = {};
 	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, false, ".")) {
 
 		size_t num =
@@ -664,7 +664,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		return final_value;
 	}
 
-	ConstUtf8StrView suffix = {};
+	ConstStrView suffix = {};
 	if(!str_view_get_substring_until_eof(&value_view, &suffix)) {
 		*error_ptr = STATIC_ERROR("implementation error");
 		return 0.0;
@@ -684,8 +684,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return final_value;
 }
 
-[[nodiscard]] BorderStyle parse_str_as_border_style(ConstUtf8StrView value,
-                                                    ErrorStruct* error_ptr) {
+[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
 	if(error_ptr->message != NULL) {
@@ -708,7 +707,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 }
 
-[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstUtf8StrView value,
+[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value,
                                                         ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
@@ -763,11 +762,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 }
 
-[[nodiscard]] static ErrorStruct parse_style_line_for_styles(Utf8StrView* line_view,
-                                                             const STBDS_ARRAY(AssStyleFormat)
-                                                                 const format_spec,
-                                                             AssStyles* styles_result,
-                                                             ParseSettings settings) {
+[[nodiscard]] static ErrorStruct
+parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat) const format_spec,
+                            AssStyles* styles_result, ParseSettings settings) {
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
@@ -780,7 +777,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	size_t i = 0;
 	for(; !str_view_is_eof(*line_view); ++i) {
 
-		ConstUtf8StrView value = {};
+		ConstStrView value = {};
 		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &value)) {
 
@@ -936,7 +933,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, Utf8StrView* data_view,
+[[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, StrView* data_view,
                                               ParseSettings settings) {
 
 	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
@@ -945,7 +942,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		ConstUtf8StrView line = {};
+		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
 			return STATIC_ERROR("eof before newline in parse styles");
 		}
@@ -953,9 +950,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		// parse line
 		{
 
-			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+			StrView line_view = get_str_view_from_const_str_view(line);
 
-			ConstUtf8StrView field = {};
+			ConstStrView field = {};
 			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
 			                                        ":")) {
 				return STATIC_ERROR("end of line before ':' in line parsing in styles section");
@@ -1029,7 +1026,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	// end of script info
 }
 
-[[nodiscard]] ScriptType parse_str_as_script_type(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] ScriptType parse_str_as_script_type(ConstStrView value, ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
 		*error_ptr = NO_ERROR();
@@ -1043,7 +1040,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	}
 }
 
-[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
 	if(error_ptr->message != NULL) {
@@ -1075,13 +1072,13 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
-                                                   Utf8StrView* data_view, ParseSettings settings) {
+                                                   StrView* data_view, ParseSettings settings) {
 
 	AssScriptInfo script_info = {};
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		ConstUtf8StrView line = {};
+		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
 			return STATIC_ERROR("eof before newline in parse script style");
 		}
@@ -1089,13 +1086,13 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 		// parse line
 		{
 
-			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+			StrView line_view = get_str_view_from_const_str_view(line);
 
 			if(str_view_starts_with_ascii(line_view, ";")) {
 				continue;
 			}
 
-			ConstUtf8StrView field = {};
+			ConstStrView field = {};
 			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
 			                                        ":")) {
 				return STATIC_ERROR(
@@ -1106,7 +1103,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				return STATIC_ERROR("skip whitespace error");
 			}
 
-			ConstUtf8StrView value = get_const_str_view_from_str_view(line_view);
+			ConstStrView value = get_const_str_view_from_str_view(line_view);
 
 			ErrorStruct error = NO_ERROR();
 
@@ -1223,11 +1220,11 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	// end of script info
 }
 
-[[nodiscard]] static ErrorStruct skip_section(Utf8StrView* data_view) {
+[[nodiscard]] static ErrorStruct skip_section(StrView* data_view) {
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		ConstUtf8StrView line = {};
+		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
 			return STATIC_ERROR("eof before newline in skipping section");
 		}
@@ -1243,8 +1240,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] static ErrorStruct extra_section(ConstUtf8StrView section_name,
-                                               Utf8StrView* data_view,
+[[nodiscard]] static ErrorStruct extra_section(ConstStrView section_name, StrView* data_view,
                                                ExtraSections* extra_sections) {
 
 	char* section_name_str = get_normalized_string(section_name);
@@ -1258,7 +1254,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		ConstUtf8StrView line = {};
+		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
 			return STATIC_ERROR("eof before newline in skipping section");
 		}
@@ -1267,9 +1263,9 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 			SectionFieldEntry field_entry = {};
 
-			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+			StrView line_view = get_str_view_from_const_str_view(line);
 
-			ConstUtf8StrView field = {};
+			ConstStrView field = {};
 			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
 			                                        ":")) {
 				return STATIC_ERROR("end of line before ':' in line parsing in extra section");
@@ -1279,7 +1275,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				return STATIC_ERROR("skip whitespace error");
 			}
 
-			ConstUtf8StrView key = {};
+			ConstStrView key = {};
 
 			if(!str_view_get_substring_until_eof(&line_view, &key)) {
 				return STATIC_ERROR("eof error");
@@ -1302,7 +1298,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 }
 
 [[nodiscard]] static ErrorStruct
-parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat) * format_result) {
+parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * format_result) {
 
 	while(!(str_view_is_eof(*line_view))) {
 
@@ -1310,7 +1306,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 			return STATIC_ERROR("skip whitespace error");
 		}
 
-		ConstUtf8StrView key = {};
+		ConstStrView key = {};
 		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &key)) {
 
@@ -1367,8 +1363,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] MarginValue parse_str_as_margin_value(ConstUtf8StrView value,
-                                                    ErrorStruct* error_ptr) {
+[[nodiscard]] MarginValue parse_str_as_margin_value(ConstStrView value, ErrorStruct* error_ptr) {
 	MarginValue result = { .is_default = true };
 
 	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
@@ -1394,7 +1389,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	return result;
 }
 
-[[nodiscard]] AssTime parse_str_as_time(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr) {
 
 	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
 	// for the hours!
@@ -1406,12 +1401,12 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		return time;
 	}
 
-	Utf8StrView value_view = get_str_view_from_const_str_view(value);
+	StrView value_view = get_str_view_from_const_str_view(value);
 
 	{
 		// hour
 
-		ConstUtf8StrView hour_str = {};
+		ConstStrView hour_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &hour_str, 1)) {
 			*error_ptr = STATIC_ERROR("error, couldn't get hour value");
 			return time;
@@ -1434,7 +1429,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	{
 		// min
 
-		ConstUtf8StrView min_str = {};
+		ConstStrView min_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &min_str, 2)) {
 			*error_ptr = STATIC_ERROR("error, couldn't get min value");
 			return time;
@@ -1457,7 +1452,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	{
 		// sec
 
-		ConstUtf8StrView sec_str = {};
+		ConstStrView sec_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &sec_str, 2)) {
 			*error_ptr = STATIC_ERROR("error, couldn't get sec value");
 			return time;
@@ -1483,7 +1478,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	{
 		// hundred
 
-		ConstUtf8StrView hundred_str = {};
+		ConstStrView hundred_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &hundred_str, 2)) {
 			*error_ptr = STATIC_ERROR("error, couldn't get hundred value");
 			return time;
@@ -1507,7 +1502,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	return time;
 }
 
-[[nodiscard]] static ErrorStruct parse_event_line_for_events(EventType type, Utf8StrView* line_view,
+[[nodiscard]] static ErrorStruct parse_event_line_for_events(EventType type, StrView* line_view,
                                                              const STBDS_ARRAY(AssEventFormat)
                                                                  const format_spec,
                                                              AssEvents* events_result) {
@@ -1539,7 +1534,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 
 		// special handling fot the text field, as it may contain ","
 
-		ConstUtf8StrView value = {};
+		ConstStrView value = {};
 
 		if(format == AssEventFormatText) {
 			if(i != field_size - 1) {
@@ -1643,7 +1638,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, Utf8StrView* data_view,
+[[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, StrView* data_view,
                                               ParseSettings settings) {
 
 	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
@@ -1652,7 +1647,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
-		ConstUtf8StrView line = {};
+		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
 			return STATIC_ERROR("eof before newline in parse events");
 		}
@@ -1660,9 +1655,9 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		// parse line
 		{
 
-			Utf8StrView line_view = get_str_view_from_const_str_view(line);
+			StrView line_view = get_str_view_from_const_str_view(line);
 
-			ConstUtf8StrView field = {};
+			ConstStrView field = {};
 			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
 			                                        ":")) {
 				return STATIC_ERROR("end of line before ':' in line parsing in events section");
@@ -1811,8 +1806,8 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	// end of script info
 }
 
-[[nodiscard]] static ErrorStruct get_section_by_name(ConstUtf8StrView section_name,
-                                                     AssResult* ass_result, Utf8StrView* data_view,
+[[nodiscard]] static ErrorStruct get_section_by_name(ConstStrView section_name,
+                                                     AssResult* ass_result, StrView* data_view,
                                                      ParseSettings settings) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
@@ -1857,21 +1852,25 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 	FileType file_type = determine_file_type(data);
 
 	size_t bom_size = 0;
+	CodepointsResult codepoints_result = { .has_error = true,
+		                                   .data = { .error = "implementation error" } };
 
 	switch(file_type) {
 		case FileTypeUnknown: {
 			const char* error = "unrecognized file, no BOM present";
 
-			if(!settings.strict_settings.allow_non_utf8) {
+			if(!settings.strict_settings.allow_unrecognized_file_encoding) {
 				RETURN_ERROR(STATIC_ERROR(error));
 			}
 
-			LOG_MESSAGE(LogLevelWarn, "%s, assuming UTF-8 (ascii also works)\n", error);
+			LOG_MESSAGE(LogLevelWarn, "%s, assuming UTF-8 (ascii also works with that)\n", error);
 			bom_size = 0;
+			codepoints_result = get_codepints_from_utf8(data.data, data.len);
 			break;
 		}
 		case FileTypeUtf8: {
 			bom_size = 1;
+			codepoints_result = get_codepints_from_utf8(data.data, data.len);
 			break;
 		}
 		default: {
@@ -1886,17 +1885,15 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		}
 	}
 
-	Utf8DataResult utf8_result = get_utf8_string(data.data, data.len);
-
 	free_sized_ptr(data);
 
-	if(utf8_result.has_error) {
-		RETURN_ERROR(STATIC_ERROR(utf8_result.data.error));
+	if(codepoints_result.has_error) {
+		RETURN_ERROR(STATIC_ERROR(codepoints_result.data.error));
 	}
 
-	Utf8Data final_data = utf8_result.data.result;
+	Codepoints final_data = codepoints_result.data.result;
 
-	Utf8StrView data_view = str_view_from_data(final_data);
+	StrView data_view = str_view_from_data(final_data);
 
 	if(bom_size > 0) {
 		// NOTE: the bom byte is always just one codepoint
@@ -1915,7 +1912,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 		RETURN_ERROR(STATIC_ERROR("expected newline"));
 	}
 
-	AssResult ass_result = { .allocated_data = final_data,
+	AssResult ass_result = { .allocated_codepoints = final_data,
 		                     .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY } };
 
 	ErrorStruct script_info_parse_result =
@@ -1933,7 +1930,7 @@ parse_format_line_for_events(Utf8StrView* line_view, STBDS_ARRAY(AssEventFormat)
 			RETURN_ERROR(STATIC_ERROR("implementation error"));
 		}
 
-		ConstUtf8StrView section_name = {};
+		ConstStrView section_name = {};
 		if(!str_view_get_substring_by_delimiter(&data_view, &section_name, char_delimiter, false,
 		                                        "]")) {
 			RETURN_ERROR(STATIC_ERROR("script section not terminated by ']'"));
@@ -2003,7 +2000,7 @@ static void free_extra_sections(ExtraSections sections) {
 }
 
 static void free_ass_result(AssResult data) {
-	free_utf8_data(data.allocated_data);
+	free_codepoints(data.allocated_codepoints);
 	stbds_arrfree(data.styles.entries);
 	stbds_arrfree(data.events.entries);
 

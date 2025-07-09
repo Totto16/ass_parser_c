@@ -9,8 +9,8 @@ src_files += files(
     'sized_ptr.h',
     'thread_helper.c',
     'thread_helper.h',
-    'utf8_helper.c',
-    'utf8_helper.h',
-    'utf8_string_view.c',
-    'utf8_string_view.h',
+    'utf_helper.c',
+    'utf_helper.h',
+    'string_view.c',
+    'string_view.h',
 )

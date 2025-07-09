@@ -1,15 +1,15 @@
 
 
-#include "./utf8_helper.h"
+#include "./utf_helper.h"
 
 #include <utf8proc.h>
 
-Utf8DataResult get_utf8_string(const void* data, size_t size) {
+CodepointsResult get_codepints_from_utf8(const void* data, size_t size) {
 
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * size);
 
 	if(!buffer) {
-		return (Utf8DataResult){ .has_error = true, .data = { .error = "failed malloc" } };
+		return (CodepointsResult){ .has_error = true, .data = { .error = "failed malloc" } };
 	}
 
 	utf8proc_ssize_t result = utf8proc_decompose(
@@ -18,7 +18,8 @@ Utf8DataResult get_utf8_string(const void* data, size_t size) {
 
 	if(result < 0) {
 		free(buffer);
-		return (Utf8DataResult){ .has_error = true, .data = { .error = utf8proc_errmsg(result) } };
+		return (CodepointsResult){ .has_error = true,
+			                       .data = { .error = utf8proc_errmsg(result) } };
 	}
 
 	if((size_t)result != size) {
@@ -27,23 +28,23 @@ Utf8DataResult get_utf8_string(const void* data, size_t size) {
 
 		if(!new_buffer) {
 			free(buffer);
-			return (Utf8DataResult){ .has_error = true, .data = { .error = "failed realloc" } };
+			return (CodepointsResult){ .has_error = true, .data = { .error = "failed realloc" } };
 		}
 		buffer = new_buffer;
 	}
 
-	Utf8Data utf8_data = { .size = result, .data = buffer };
+	Codepoints utf8_data = { .size = result, .data = buffer };
 
-	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
+	return (CodepointsResult){ .has_error = false, .data = { .result = utf8_data } };
 }
 
-void free_utf8_data(Utf8Data data) {
+void free_codepoints(Codepoints data) {
 	free(data.data);
 }
 
 #define CHUNK_SIZE 256
 
-char* get_normalized_string_raw(int32_t* data, size_t size) {
+char* get_normalized_string_from_codepoints(Codepoints codepoints) {
 
 	size_t buffer_size = CHUNK_SIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);
@@ -55,7 +56,7 @@ char* get_normalized_string_raw(int32_t* data, size_t size) {
 		return NULL;
 	}
 
-	for(size_t i = 0; i < size; ++i) {
+	for(size_t i = 0; i < codepoints.size; ++i) {
 
 		if(buffer_size - current_size < 4) {
 			buffer_size = buffer_size + CHUNK_SIZE;
@@ -67,7 +68,7 @@ char* get_normalized_string_raw(int32_t* data, size_t size) {
 			}
 		}
 
-		long result = utf8proc_encode_char(data[i], current_buffer);
+		long result = utf8proc_encode_char(codepoints.data[i], current_buffer);
 
 		if(result <= 0) {
 			free(buffer);

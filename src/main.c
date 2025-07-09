@@ -52,8 +52,10 @@ static void print_check_usage(bool is_subcommand) {
 	       "--allow-number-truncating [value]: set this specific option, specifying no value "
 	       "is enabling it\n");
 
-	printf(IDENT3 "--allow-non-utf8 [value]: set this specific option, specifying no value "
-	              "is enabling it\n");
+	printf(
+	    IDENT3
+	    "--allow-unrecognized-file-encoding [value]: set this specific option, specifying no value "
+	    "is enabling it\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -180,7 +182,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 		                                             .allow_additional_fields = false,
 		                                             .allow_number_truncating = false,
-		                                             .allow_non_utf8 = false } };
+		                                             .allow_unrecognized_file_encoding = false } };
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -202,7 +204,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.script_info.allow_duplicate_fields = true;
 			settings.strict_settings.allow_additional_fields = true;
 			settings.strict_settings.allow_number_truncating = true;
-			settings.strict_settings.allow_non_utf8 = true;
+			settings.strict_settings.allow_unrecognized_file_encoding = true;
 
 			processed_args++;
 		} else if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--strict") == 0)) {
@@ -210,7 +212,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.script_info.allow_duplicate_fields = false;
 			settings.strict_settings.allow_additional_fields = false;
 			settings.strict_settings.allow_number_truncating = false;
-			settings.strict_settings.allow_non_utf8 = false;
+			settings.strict_settings.allow_unrecognized_file_encoding = false;
 
 			processed_args++;
 		} else if((strcmp(arg, "--allow-missing-fields-in-script-info") == 0)) {
@@ -241,12 +243,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 			settings.strict_settings.allow_number_truncating = value;
 
-		} else if((strcmp(arg, "--allow-non-utf8") == 0)) {
+		} else if((strcmp(arg, "--allow-unrecognized-file-encoding") == 0)) {
 			processed_args++;
 
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
-			settings.strict_settings.allow_non_utf8 = value;
+			settings.strict_settings.allow_unrecognized_file_encoding = value;
 
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
