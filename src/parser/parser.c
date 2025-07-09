@@ -443,7 +443,12 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 	return NO_ERROR();
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+// TODO: tuck this into a header file and seperate translation units
+[[nodiscard]] double parse_str_as_double(ConstUtf8StrView value, ErrorStruct* error_ptr);
+
+[[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstUtf8StrView value,
+                                                              ErrorStruct* error_ptr,
+                                                              bool allow_number_truncating) {
 	size_t result = 0;
 
 	for(size_t i = 0; i < value.length; ++i) {
@@ -462,6 +467,33 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 			FORMAT_STRING_DEFAULT(&result_buffer, "error, not a valid decimal number: %s",
 			                      value_name);
 
+			if(allow_number_truncating) {
+				// check if the number is not empty
+				if(i > 0) {
+
+					// check if its a double
+
+					ErrorStruct local_error = NO_ERROR();
+
+					double _unused = parse_str_as_double(value, &local_error);
+					UNUSED(_unused);
+
+					if(local_error.message == NULL) {
+
+						LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+						free(result_buffer);
+						free_error_struct(local_error);
+
+						// return the truncated number
+						*error_ptr = NO_ERROR();
+						return result;
+					}
+
+					free_error_struct(local_error);
+				}
+			}
+
 			free(value_name);
 
 			*error_ptr = DYNAMIC_ERROR(result_buffer);
@@ -472,6 +504,10 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 
 	*error_ptr = NO_ERROR();
 	return result;
+}
+
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstUtf8StrView value, ErrorStruct* error_ptr) {
+	return parse_str_as_unsigned_number_with_option(value, error_ptr, false);
 }
 
 [[nodiscard]] bool parse_str_as_bool(ConstUtf8StrView value, ErrorStruct* error_ptr) {
@@ -718,7 +754,8 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 [[nodiscard]] static ErrorStruct parse_style_line_for_styles(Utf8StrView* line_view,
                                                              const STBDS_ARRAY(AssStyleFormat)
                                                                  const format_spec,
-                                                             AssStyles* styles_result) {
+                                                             AssStyles* styles_result,
+                                                             ParseSettings settings) {
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
@@ -758,7 +795,8 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				break;
 			}
 			case AssStyleFormatFontsize: {
-				entry.fontsize = parse_str_as_unsigned_number(value, &error);
+				entry.fontsize = parse_str_as_unsigned_number_with_option(
+				    value, &error, settings.strict_settings.allow_number_truncating);
 				break;
 			}
 			case AssStyleFormatPrimaryColour: {
@@ -923,7 +961,7 @@ parse_format_line_for_styles(Utf8StrView* line_view, STBDS_ARRAY(AssStyleFormat)
 				}
 
 				ErrorStruct style_parse_error =
-				    parse_style_line_for_styles(&line_view, style_format, &styles);
+				    parse_style_line_for_styles(&line_view, style_format, &styles, settings);
 
 				if(style_parse_error.message != NULL) {
 					return style_parse_error;

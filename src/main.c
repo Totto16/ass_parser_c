@@ -48,8 +48,9 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT3 "--allow-additional-fields [value]: set this specific option, specifying no "
 	              "value is enabling it\n");
-	printf(IDENT3 "--allow-number-rounding [value]: set this specific option, specifying no value "
-	              "is enabling it\n");
+	printf(IDENT3
+	       "--allow-number-truncating [value]: set this specific option, specifying no value "
+	       "is enabling it\n");
 
 	printf(IDENT3 "--allow-non-utf8 [value]: set this specific option, specifying no value "
 	              "is enabling it\n");
@@ -178,7 +179,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		                                                     .allow_duplicate_fields = false },
 
 		                                             .allow_additional_fields = false,
-		                                             .allow_number_rounding = false,
+		                                             .allow_number_truncating = false,
 		                                             .allow_non_utf8 = false } };
 
 	LogLevel log_level =
@@ -200,7 +201,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.script_info.allow_missing_fields = true;
 			settings.strict_settings.script_info.allow_duplicate_fields = true;
 			settings.strict_settings.allow_additional_fields = true;
-			settings.strict_settings.allow_number_rounding = true;
+			settings.strict_settings.allow_number_truncating = true;
 			settings.strict_settings.allow_non_utf8 = true;
 
 			processed_args++;
@@ -208,7 +209,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.script_info.allow_missing_fields = false;
 			settings.strict_settings.script_info.allow_duplicate_fields = false;
 			settings.strict_settings.allow_additional_fields = false;
-			settings.strict_settings.allow_number_rounding = false;
+			settings.strict_settings.allow_number_truncating = false;
 			settings.strict_settings.allow_non_utf8 = false;
 
 			processed_args++;
@@ -233,12 +234,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 			settings.strict_settings.allow_additional_fields = value;
 
-		} else if((strcmp(arg, "--allow-number-rounding") == 0)) {
+		} else if((strcmp(arg, "--allow-number-truncating") == 0)) {
 			processed_args++;
 
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
-			settings.strict_settings.allow_number_rounding = value;
+			settings.strict_settings.allow_number_truncating = value;
 
 		} else if((strcmp(arg, "--allow-non-utf8") == 0)) {
 			processed_args++;
