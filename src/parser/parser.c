@@ -14,12 +14,12 @@
 
 typedef ConstUtf8StrView FinalStr;
 
-typedef enum {
+typedef enum : uint8_t {
 	ScriptTypeV4,
 	ScriptTypeV4Plus,
 } ScriptType;
 
-typedef enum {
+typedef enum : uint8_t {
 	WrapStyleSmart = 0,
 	WrapStyleEOL,
 	WrapStyleNoWrap,
@@ -44,7 +44,7 @@ typedef struct {
 	WrapStyle wrap_style;
 } AssScriptInfo;
 
-typedef enum {
+typedef enum : uint8_t {
 	AssStyleFormatName,
 	AssStyleFormatFontname,
 	AssStyleFormatFontsize,
@@ -78,12 +78,12 @@ typedef struct {
 	uint8_t a;
 } AssColor;
 
-typedef enum {
+typedef enum : uint8_t {
 	BorderStyleOutline = 1,
 	BorderStyleOpaqueBox = 3,
 } BorderStyle;
 
-typedef enum {
+typedef enum : uint8_t {
 	// bottom
 	AssAlignmentBL = 1,
 	AssAlignmentBC,
@@ -166,7 +166,7 @@ struct AssParseResultImpl {
 	}
 }
 
-typedef enum {
+typedef enum : uint8_t {
 	FileTypeUnknown,
 	FileTypeUtf8,
 	FileTypeUtf16BE,
