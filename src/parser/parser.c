@@ -489,6 +489,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 
 						free(result_buffer);
 						free_error_struct(local_error);
+						free(value_name);
 
 						// return the truncated number
 						*error_ptr = NO_ERROR();
@@ -937,6 +938,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+
 			return STATIC_ERROR("eof before newline in parse styles");
 		}
 
@@ -1638,10 +1640,17 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 	STBDS_ARRAY(AssEventFormat) event_format = STBDS_ARRAY_EMPTY;
 
+#define FREE_AT_END() \
+	do { \
+		stbds_arrfree(events.entries); \
+		stbds_arrfree(event_format); \
+	} while(false)
+
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
+			FREE_AT_END();
 			return STATIC_ERROR("eof before newline in parse events");
 		}
 
@@ -1653,12 +1662,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
 			                                        ":")) {
+				FREE_AT_END();
 				return STATIC_ERROR("end of line before ':' in line parsing in events section");
 			}
 
 			if(str_view_eq_ascii(field, "Format")) {
 
 				if(stbds_arrlenu(event_format) != 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "multiple format fields detected in the events section, this is not "
 					    "allowed");
@@ -1668,12 +1679,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    parse_format_line_for_events(&line_view, &event_format);
 
 				if(format_line_error.message != NULL) {
+					FREE_AT_END();
 					return format_line_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Dialogue")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1683,12 +1696,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    EventTypeDialogue, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Comment")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1698,12 +1713,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    EventTypeComment, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Picture")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1713,12 +1730,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    EventTypePicture, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Sound")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1728,12 +1747,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    parse_event_line_for_events(EventTypeSound, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Movie")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1743,12 +1764,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    parse_event_line_for_events(EventTypeMovie, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
 			} else if(str_view_eq_ascii(field, "Command")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
+					FREE_AT_END();
 					return STATIC_ERROR(
 					    "no format line occurred before the style line in the events section, "
 					    "this is an error");
@@ -1758,6 +1781,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    EventTypeCommand, &line_view, event_format, &events);
 
 				if(event_parse_error.message != NULL) {
+					FREE_AT_END();
 					return event_parse_error;
 				}
 
@@ -1766,6 +1790,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				char* field_name = get_normalized_string(field);
 
 				if(!field_name) {
+					FREE_AT_END();
 					return STATIC_ERROR("allocation error");
 				}
 
@@ -1782,6 +1807,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				}
 
 				free(field_name);
+				FREE_AT_END();
 				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
@@ -1798,6 +1824,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return NO_ERROR();
 	// end of script info
 }
+
+#undef FREE_AT_END
 
 [[nodiscard]] static ErrorStruct get_section_by_name(ConstStrView section_name,
                                                      AssResult* ass_result, StrView* data_view,
@@ -1826,6 +1854,40 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return extra_section(section_name, data_view, &(ass_result->extra_sections));
 
 	return NO_ERROR();
+}
+
+static void free_extra_section_entry(ExtraSectionEntry entry) {
+	size_t hm_length = stbds_shlenu(entry.fields);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		SectionFieldEntry hm_entry = entry.fields[i];
+
+		free(hm_entry.key);
+	}
+
+	stbds_shfree(entry.fields);
+}
+
+static void free_extra_sections(ExtraSections sections) {
+
+	size_t hm_length = stbds_shlenu(sections.entries);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		ExtraSectionHashMapEntry entry = sections.entries[i];
+
+		free_extra_section_entry(entry.value);
+		free(entry.key);
+	}
+
+	stbds_shfree(sections.entries);
+}
+
+static void free_ass_result(AssResult data) {
+	free_codepoints(data.allocated_codepoints);
+	stbds_arrfree(data.styles.entries);
+	stbds_arrfree(data.events.entries);
+
+	free_extra_sections(data.extra_sections);
 }
 
 #define FREE_AT_END() \
@@ -1947,6 +2009,12 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	AssResult ass_result = { .allocated_codepoints = final_data,
 		                     .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY } };
 
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_ass_result(ass_result); \
+	} while(false)
+
 	ErrorStruct script_info_parse_result =
 	    parse_script_info(&(ass_result.script_info), &data_view, settings);
 
@@ -1989,6 +2057,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return result;
 }
 
+#undef FREE_AT_END
+
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result) {
 	if(!result) {
 		return true;
@@ -2003,40 +2073,6 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	return result->data.error.message;
-}
-
-static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_length = stbds_shlenu(entry.fields);
-
-	for(size_t i = 0; i < hm_length; ++i) {
-		SectionFieldEntry hm_entry = entry.fields[i];
-
-		free(hm_entry.key);
-	}
-
-	stbds_shfree(entry.fields);
-}
-
-static void free_extra_sections(ExtraSections sections) {
-
-	size_t hm_length = stbds_shlenu(sections.entries);
-
-	for(size_t i = 0; i < hm_length; ++i) {
-		ExtraSectionHashMapEntry entry = sections.entries[i];
-
-		free_extra_section_entry(entry.value);
-		free(entry.key);
-	}
-
-	stbds_shfree(sections.entries);
-}
-
-static void free_ass_result(AssResult data) {
-	free_codepoints(data.allocated_codepoints);
-	stbds_arrfree(data.styles.entries);
-	stbds_arrfree(data.events.entries);
-
-	free_extra_sections(data.extra_sections);
 }
 
 void free_parse_result(AssParseResult* result) {
