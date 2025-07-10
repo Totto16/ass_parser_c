@@ -15,10 +15,22 @@
 
 typedef ConstStrView FinalStr;
 
+#define STATIC_CONST_STR(str) (FinalStr){ .start = (void*)(str), .length = sizeof(str) - 1 }
+
 typedef enum : uint8_t {
+	ScriptTypeUnknown,
 	ScriptTypeV4,
 	ScriptTypeV4Plus,
 } ScriptType;
+
+[[nodiscard]] static const char* get_script_type_name(ScriptType script_type) {
+	switch(script_type) {
+		case ScriptTypeUnknown: return "Unknown";
+		case ScriptTypeV4: return "V4";
+		case ScriptTypeV4Plus: return "V4+";
+		default: return "<unknown>";
+	}
+}
 
 typedef enum : uint8_t {
 	WrapStyleSmart = 0,
@@ -1068,7 +1080,11 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
                                                    StrView* data_view, ParseSettings settings) {
 
-	AssScriptInfo script_info = {};
+	AssScriptInfo script_info = { .script_type = ScriptTypeUnknown,
+		                          .title = { .start = NULL, .length = 0 },
+		                          .original_script = { .start = NULL, .length = 0 } };
+
+	STBDS_ARRAY(FinalStr) field_names = STBDS_ARRAY_EMPTY;
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -1091,6 +1107,42 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			                                        ":")) {
 				return STATIC_ERROR(
 				    "end of line before ':' in line parsing in script info section");
+			}
+
+			// check for duplicate fields
+			bool found_field = false;
+			for(size_t i = 0; i < stbds_arrlenu(field_names); ++i) {
+				FinalStr field_str = field_names[i];
+
+				if(str_view_eq(field_str, field)) {
+					found_field = true;
+
+					char* field_name = get_normalized_string(field);
+
+					if(!field_name) {
+						return STATIC_ERROR("allocation error");
+					}
+
+					char* result_buffer = NULL;
+					FORMAT_STRING_DEFAULT(
+					    &result_buffer, "duplicate field in script info section: '%s'", field_name);
+
+					if(settings.strict_settings.script_info.allow_duplicate_fields) {
+						LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+						free(result_buffer);
+						free(field_name);
+						break;
+					}
+
+					stbds_arrfree(field_names);
+					free(field_name);
+					return DYNAMIC_ERROR(result_buffer);
+				}
+			}
+
+			if(!found_field) {
+				stbds_arrput(field_names, field);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
@@ -1200,13 +1252,34 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	// check script info
 	{
 
-		if(script_info.script_type != ScriptTypeV4Plus) {
-			return STATIC_ERROR("only scrypt type v4+ is supported");
+		if(script_info.script_type == ScriptTypeUnknown) {
+			const char* error = "missing script type in script info section";
+
+			if(settings.strict_settings.script_info.allow_missing_script_type) {
+				LOG_MESSAGE(LogLevelWarn, "%s\n", error);
+			} else {
+				return STATIC_ERROR(error);
+			}
 		}
 
-		// TODO: initialize title and original script
-		// <untitled>
-		// <unknown>
+		if(script_info.script_type != ScriptTypeV4Plus) {
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "only scrypt type v4+ is supported but got: %s",
+			                      get_script_type_name(script_info.script_type));
+
+			return DYNAMIC_ERROR(result_buffer);
+		}
+
+		if(script_info.title.start == NULL) {
+#define DEFAULT_ASS_TITLE "<untitled>"
+			script_info.title = STATIC_CONST_STR(DEFAULT_ASS_TITLE);
+		}
+
+		if(script_info.original_script.start == NULL) {
+#define DEFAULT_ASS_SCRIPT_NAME "<unknown>"
+			script_info.original_script = STATIC_CONST_STR(DEFAULT_ASS_SCRIPT_NAME);
+		}
 	}
 
 	*script_info_result = script_info;

@@ -21,8 +21,8 @@ typedef struct {
 } AssSource;
 
 typedef struct {
-	bool allow_missing_fields;
 	bool allow_duplicate_fields;
+	bool allow_missing_script_type;
 } ScriptInfoStrictSettings;
 
 typedef struct {

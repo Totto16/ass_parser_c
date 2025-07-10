@@ -40,7 +40,7 @@ static void print_check_usage(bool is_subcommand) {
 	              "enables all checks\n");
 	printf(IDENT2 "single strictness options\n");
 
-	printf(IDENT3 "--allow-missing-fields-in-script-info [value]: set this specific option, "
+	printf(IDENT3 "--allow-missing-script-type-in-script-info [value]: set this specific option, "
 	              "specifying no value is enabling it\n");
 	printf(IDENT3 "--allow-duplicate-fields-in-script-info [value]: set this specific option, "
 	              "specifying no value "
@@ -177,8 +177,9 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	ParseSettings settings = { .strict_settings =
 		                           (StrictSettings){ .script_info =
 		                                                 (ScriptInfoStrictSettings){
-		                                                     .allow_missing_fields = false,
-		                                                     .allow_duplicate_fields = false },
+		                                                     .allow_duplicate_fields = false,
+		                                                     .allow_missing_script_type = false,
+		                                                 },
 
 		                                             .allow_additional_fields = false,
 		                                             .allow_number_truncating = false,
@@ -200,34 +201,34 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		const char* arg = argv[processed_args];
 
 		if((strcmp(arg, "-n") == 0) || (strcmp(arg, "--non-strict") == 0)) {
-			settings.strict_settings.script_info.allow_missing_fields = true;
 			settings.strict_settings.script_info.allow_duplicate_fields = true;
+			settings.strict_settings.script_info.allow_missing_script_type = true;
 			settings.strict_settings.allow_additional_fields = true;
 			settings.strict_settings.allow_number_truncating = true;
 			settings.strict_settings.allow_unrecognized_file_encoding = true;
 
 			processed_args++;
 		} else if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--strict") == 0)) {
-			settings.strict_settings.script_info.allow_missing_fields = false;
 			settings.strict_settings.script_info.allow_duplicate_fields = false;
+			settings.strict_settings.script_info.allow_missing_script_type = false;
 			settings.strict_settings.allow_additional_fields = false;
 			settings.strict_settings.allow_number_truncating = false;
 			settings.strict_settings.allow_unrecognized_file_encoding = false;
 
 			processed_args++;
-		} else if((strcmp(arg, "--allow-missing-fields-in-script-info") == 0)) {
-			processed_args++;
-
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
-
-			settings.strict_settings.script_info.allow_missing_fields = value;
-
 		} else if((strcmp(arg, "--allow-duplicate-fields-in-script-info") == 0)) {
 			processed_args++;
 
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
 			settings.strict_settings.script_info.allow_duplicate_fields = value;
+
+		} else if((strcmp(arg, "--allow-missing-script-type-in-script-info") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.script_info.allow_missing_script_type = value;
 
 		} else if((strcmp(arg, "--allow-additional-fields") == 0)) {
 			processed_args++;

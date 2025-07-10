@@ -164,6 +164,22 @@
 	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
 }
 
+[[nodiscard]] bool str_view_eq(ConstStrView const_str_view1, ConstStrView const_str_view2) {
+
+	if(const_str_view1.length != const_str_view2.length) {
+		return false;
+	}
+
+	for(size_t i = 0; i < const_str_view1.length; ++i) {
+
+		if(const_str_view1.start[i] != const_str_view2.start[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 [[nodiscard]] bool str_view_is_eof(StrView str_view) {
 	return str_view.offset >= str_view.length;
 }
