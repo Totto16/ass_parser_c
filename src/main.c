@@ -186,7 +186,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	LogLevel log_level =
 #ifdef NDEBUG
-	    LogLevelError
+	    LogLevelInfo
 #else
 	    LogLevelTrace
 #endif
