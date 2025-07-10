@@ -367,7 +367,6 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 		ConstStrView key = {};
 		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
 			if(!str_view_get_substring_until_eof(line_view, &key)) {
-
 				return STATIC_ERROR("eof before comma in styles section format line");
 			}
 		}
@@ -1650,8 +1649,11 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			FREE_AT_END();
-			return STATIC_ERROR("eof before newline in parse events");
+
+			if(!str_view_get_substring_until_eof(data_view, &line)) {
+				FREE_AT_END();
+				return STATIC_ERROR("eof before newline in parse events");
+			}
 		}
 
 		// parse line
