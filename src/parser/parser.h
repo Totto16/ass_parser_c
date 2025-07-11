@@ -225,6 +225,8 @@ typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] char* parse_result_get_error(AssParseResult* result);
 
+[[nodiscard]] AssResult parse_result_get_value(AssParseResult* result);
+
 void free_parse_result(AssParseResult* result);
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type);

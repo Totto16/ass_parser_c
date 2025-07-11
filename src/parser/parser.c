@@ -1984,6 +1984,10 @@ static void free_ass_result_impl(AssResultImpl data) {
 	return result->data.error.message;
 }
 
+[[nodiscard]] AssResult parse_result_get_value(AssParseResult* result) {
+	return result->data.ok.public_struct;
+}
+
 void free_parse_result(AssParseResult* result) {
 	if(!result->is_error) {
 		free_ass_result_impl(result->data.ok);
