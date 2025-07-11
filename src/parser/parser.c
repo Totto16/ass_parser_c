@@ -13,7 +13,7 @@
 
 #define STATIC_CONST_STR(str) (FinalStr){ .start = (void*)(str), .length = sizeof(str) - 1 }
 
-[[nodiscard]] static const char* get_script_type_name(ScriptType script_type) {
+[[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
 		case ScriptTypeUnknown: return "Unknown";
 		case ScriptTypeV4: return "V4";
@@ -162,7 +162,7 @@ struct AssParseResultImpl {
 }
 
 // see: https://en.wikipedia.org/wiki/Byte_order_mark
-[[nodiscard]] FileType determine_file_type(SizedPtr data) {
+[[nodiscard]] static FileType determine_file_type(SizedPtr data) {
 
 	uint8_t* bom = (uint8_t*)data.data;
 
@@ -286,7 +286,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 }
 
 // TODO: tuck this into a header file and seperate translation units
-[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr);
+[[nodiscard]] static double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr);
 
 [[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstStrView value,
                                                               ErrorStruct* error_ptr,
@@ -349,11 +349,12 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	return result;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static size_t parse_str_as_unsigned_number(ConstStrView value,
+                                                         ErrorStruct* error_ptr) {
 	return parse_str_as_unsigned_number_with_option(value, error_ptr, false);
 }
 
-[[nodiscard]] bool parse_str_as_bool(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static bool parse_str_as_bool(ConstStrView value, ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "-1")) {
 		*error_ptr = NO_ERROR();
@@ -369,7 +370,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	return false;
 }
 
-[[nodiscard]] bool parse_str_as_str_bool(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static bool parse_str_as_str_bool(ConstStrView value, ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "yes")) {
 		*error_ptr = NO_ERROR();
@@ -385,7 +386,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	return false;
 }
 
-[[nodiscard]] AssColor parse_str_as_color(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static AssColor parse_str_as_color(ConstStrView value, ErrorStruct* error_ptr) {
 
 	AssColor color = {};
 
@@ -454,7 +455,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	return color;
 }
 
-[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr) {
 
 	StrView value_view = get_str_view_from_const_str_view(value);
 
@@ -515,7 +516,8 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	return final_value;
 }
 
-[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static BorderStyle parse_str_as_border_style(ConstStrView value,
+                                                           ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
 	if(error_ptr->message != NULL) {
@@ -538,8 +540,8 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	}
 }
 
-[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value,
-                                                        ErrorStruct* error_ptr) {
+[[nodiscard]] static AssAlignment parse_str_as_style_alignment(ConstStrView value,
+                                                               ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
 	if(error_ptr->message != NULL) {
@@ -853,7 +855,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	// end of script info
 }
 
-[[nodiscard]] ScriptType parse_str_as_script_type(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static ScriptType parse_str_as_script_type(ConstStrView value,
+                                                         ErrorStruct* error_ptr) {
 
 	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
 		*error_ptr = NO_ERROR();
@@ -867,7 +870,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	}
 }
 
-[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr) {
 	size_t num = parse_str_as_unsigned_number(value, error_ptr);
 
 	if(error_ptr->message != NULL) {
@@ -1245,7 +1248,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return NO_ERROR();
 }
 
-[[nodiscard]] MarginValue parse_str_as_margin_value(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static MarginValue parse_str_as_margin_value(ConstStrView value,
+                                                           ErrorStruct* error_ptr) {
 	MarginValue result = { .is_default = true };
 
 	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
@@ -1271,7 +1275,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return result;
 }
 
-[[nodiscard]] AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] static AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr) {
 
 	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
 	// for the hours!
