@@ -1529,5 +1529,7 @@ void free_parse_result(AssParseResult* result) {
 		free_error_struct(result->data.error);
 	}
 
+	free_warnings(result->warnings);
+
 	free(result);
 }

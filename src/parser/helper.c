@@ -6,12 +6,6 @@
 #include <math.h>
 #include <stdio.h>
 
-void free_error_struct(ErrorStruct error) {
-	if(error.dynamic) {
-		free(error.message);
-	}
-}
-
 [[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
                                          Warnings* warnings) {
 
