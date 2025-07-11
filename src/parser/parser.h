@@ -4,6 +4,7 @@
 
 #include "../helper/sized_ptr.h"
 #include "../helper/string_view.h"
+#include "./warnings.h"
 
 #include <stb/ds.h>
 #include <stdint.h>
@@ -36,8 +37,6 @@ typedef struct {
 typedef struct {
 	StrictSettings strict_settings;
 } ParseSettings;
-
-typedef ConstStrView FinalStr;
 
 typedef enum : uint8_t {
 	WrapStyleSmart = 0,
@@ -220,6 +219,8 @@ typedef struct {
 typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings);
+
+[[nodiscard]] Warnings get_warnings_from_result(AssParseResult* result);
 
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result);
 

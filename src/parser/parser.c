@@ -1505,6 +1505,10 @@ static void free_ass_result_impl(AssResultImpl data) {
 
 #undef FREE_AT_END
 
+[[nodiscard]] Warnings get_warnings_from_result(AssParseResult* result) {
+	return result->warnings;
+}
+
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result) {
 	if(!result) {
 		return true;

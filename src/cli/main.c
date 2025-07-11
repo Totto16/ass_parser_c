@@ -286,6 +286,27 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	AssParseResult* result = parse_ass(source, settings);
 
+	if(result == NULL) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Allocation error\n");
+		return EXIT_FAILURE;
+	}
+
+	{
+		// log warnings
+
+		Warnings warnings = get_warnings_from_result(result);
+
+		for(size_t i = 0; i < stbds_arrlenu(warnings.entries); ++i) {
+			WarningEntry entry = warnings.entries[i];
+
+			ErrorStruct message = get_warnings_message_from_entry(entry);
+
+			LOG_MESSAGE(LogLevelWarn, "%s\n", (char*)message.message);
+
+			free_error_struct(message);
+		}
+	}
+
 	if(parse_result_is_error(result)) {
 		LOG_MESSAGE(LogLevelError, "Parse error: %s\n", parse_result_get_error(result));
 		free_parse_result(result);

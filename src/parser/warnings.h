@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "./parser.h"
+#include "../helper/string_view.h"
+
+#include <stb/ds.h>
+#include <stdint.h>
+
+typedef ConstStrView FinalStr;
 
 typedef struct {
 	char* message;
