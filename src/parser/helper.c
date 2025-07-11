@@ -1,7 +1,11 @@
 
-#include "./helper.h"
 
+#define ASS_PARSER_C_INTERNAL_USAGE
+
+#include "./helper.h"
 #include "../helper/macros.h"
+
+#undef ASS_PARSER_C_INTERNAL_USAGE
 
 #include <math.h>
 #include <stdio.h>

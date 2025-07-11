@@ -2,9 +2,12 @@
 
 #pragma once
 
+#ifndef ASS_PARSER_C_INTERNAL_USAGE
+#error "This header is reserved for internal usage only"
+#endif
+
 #include "./parser.h"
 #include "./warnings.h"
-
 
 [[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
                                          Warnings* warnings);

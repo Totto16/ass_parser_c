@@ -1,10 +1,13 @@
 
+#define ASS_PARSER_C_INTERNAL_USAGE
 
 #include "./parser.h"
 #include "../helper/io.h"
 #include "../helper/macros.h"
 #include "../helper/utf_helper.h"
 #include "./helper.h"
+
+#undef ASS_PARSER_C_INTERNAL_USAGE
 
 #include <stdint.h>
 #include <stdio.h>
