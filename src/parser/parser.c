@@ -1260,9 +1260,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			} else {
 				return STATIC_ERROR(error);
 			}
-		}
-
-		if(script_info.script_type != ScriptTypeV4Plus) {
+		} else if(script_info.script_type != ScriptTypeV4Plus) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "only scrypt type v4+ is supported but got: %s",
