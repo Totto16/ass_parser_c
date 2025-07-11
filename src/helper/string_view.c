@@ -3,6 +3,7 @@
 #include "./string_view.h"
 #include "./macros.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <utf8proc.h>
 
@@ -66,55 +67,45 @@
 	return true;
 }
 
-[[nodiscard]] bool str_view_expect_newline(StrView* str_view) {
-	if(str_view_expect_ascii(str_view, "\n")) {
-		return true;
-	}
+#define LINE_ENDING_CRLF "\r\n"
 
-	if(str_view_expect_ascii(str_view, "\r\n")) {
-		return true;
+[[nodiscard]] static const char* get_str_for_linetype(LineType line_type) {
+	switch(line_type) {
+		case LineTypeCrLf: return LINE_ENDING_CRLF;
+		case LineTypeLf: return "\n";
+		case LineTypeCr: return "\r";
+		default: assert("UNREACHABLE");
 	}
-
-	if(str_view_expect_ascii(str_view, "\r")) {
-		return true;
-	}
-
-	return false;
 }
 
-[[nodiscard]] bool newline_delimiter(int32_t code_point, void* data_ptr) {
-	assert(data_ptr == NULL);
+[[nodiscard]] bool str_view_expect_newline(StrView* str_view, LineType line_type) {
 
-	if(is_utf8_char_eq_to_ascii_char(code_point, '\n')) {
-		return true;
-	}
+	const char* to_compare = get_str_for_linetype(line_type);
 
-	if(is_utf8_char_eq_to_ascii_char(code_point, '\r')) {
-		return true;
-	}
-
-	return false;
+	return str_view_expect_ascii(str_view, to_compare);
 }
 
-[[nodiscard]] bool char_delimiter(int32_t code_point, void* data_ptr) {
+[[nodiscard]] static bool char_delimiter(int32_t code_point, void* data_ptr) {
 
-	const char* data = (const char*)data_ptr;
+	char* data = (char*)data_ptr;
 
-	assert(strlen(data) == 1);
-
-	return is_utf8_char_eq_to_ascii_char(code_point, data[0]);
+	return is_utf8_char_eq_to_ascii_char(code_point, *data);
 }
 
-[[nodiscard]] bool str_view_get_substring_by_delimiter(StrView* str_view, ConstStrView* result,
-                                                       DelimiterFn delimit_fn, bool multiple,
-                                                       void* data_ptr) {
+typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
+
+[[nodiscard]] static bool str_view_get_substring_by_delimiter(StrView* str_view,
+                                                              ConstStrView* result,
+                                                              DelimiterFn delimit_fn,
+                                                              void* data_ptr, bool allow_eof) {
 
 	size_t size = 0;
-	size_t collected_delimiters = 0;
+	bool got_delimter = false;
 
 	for(size_t i = 0;; ++i) {
 		if(str_view->offset + i >= str_view->length) {
-			if(multiple && collected_delimiters != 0) {
+			if(allow_eof) {
+				size = i;
 				break;
 			}
 			return false;
@@ -123,19 +114,8 @@
 		int32_t current_codepoint = str_view->start[str_view->offset + i];
 
 		if(delimit_fn(current_codepoint, data_ptr)) {
-			if(collected_delimiters == 0) {
-				size = i;
-				if(!multiple) {
-					collected_delimiters = 1;
-					break;
-				}
-			}
-
-			collected_delimiters++;
-			continue;
-		}
-
-		if(collected_delimiters != 0) {
+			size = i;
+			got_delimter = true;
 			break;
 		}
 	}
@@ -143,7 +123,7 @@
 	result->length = size;
 	result->start = str_view->start + str_view->offset;
 
-	return str_view_advance(str_view, size + collected_delimiters);
+	return str_view_advance(str_view, size + (got_delimter ? 1 : 0));
 }
 
 [[nodiscard]] StrView get_str_view_from_const_str_view(ConstStrView input) {
@@ -164,7 +144,8 @@
 	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
 }
 
-[[nodiscard]] bool str_view_eq(ConstStrView const_str_view1, ConstStrView const_str_view2) {
+[[nodiscard]] bool str_view_eq_str_view(ConstStrView const_str_view1,
+                                        ConstStrView const_str_view2) {
 
 	if(const_str_view1.length != const_str_view2.length) {
 		return false;
@@ -204,7 +185,8 @@
 	return true;
 }
 
-[[nodiscard]] bool str_view_skip_while(StrView* str_view, DelimiterFn delimit_fn, void* data_ptr) {
+[[nodiscard]] bool static str_view_skip_while(StrView* str_view, DelimiterFn delimit_fn,
+                                              void* data_ptr) {
 
 	while(true) {
 		if(str_view_is_eof(*str_view)) {
@@ -263,4 +245,145 @@
 	str_view->offset = str_view->offset + amount;
 
 	return true;
+}
+
+[[nodiscard]] bool str_view_get_substring_by_char_delimiter(StrView* str_view, ConstStrView* result,
+                                                            char delimiter, bool allow_eof) {
+
+	char local_char = delimiter;
+
+	return str_view_get_substring_by_delimiter(str_view, result, char_delimiter, &local_char,
+	                                           allow_eof);
+}
+
+[[nodiscard]] bool str_view_get_substring_until_eol(StrView* str_view, ConstStrView* result,
+                                                    LineType line_type, bool allow_eof) {
+
+	if(line_type == LineTypeCr || line_type == LineTypeLf) {
+
+		char char_delimiter = line_type == LineTypeCr ? '\r' : '\n';
+
+		return str_view_get_substring_by_char_delimiter(str_view, result, char_delimiter,
+		                                                allow_eof);
+	}
+
+	assert(line_type == LineTypeCrLf);
+
+#define LINE_CHARACTER_SIZE 2
+
+	const char line_characters[LINE_CHARACTER_SIZE] = LINE_ENDING_CRLF;
+
+	size_t size = 0;
+	bool got_delimter = false;
+
+	for(size_t i = 0;; ++i) {
+		if(str_view->offset + i >= str_view->length) {
+			if(allow_eof) {
+				size = i;
+				break;
+			}
+			return false;
+		}
+
+		int32_t current_codepoint = str_view->start[str_view->offset + i];
+
+		if(is_utf8_char_eq_to_ascii_char(current_codepoint, line_characters[0])) {
+			size = i;
+
+			if(str_view->offset + i + 1 >= str_view->length) {
+				// ended in the middle of the separator
+				return false;
+			}
+
+			int32_t next_codepoint = str_view->start[str_view->offset + i + 1];
+
+			if(!is_utf8_char_eq_to_ascii_char(next_codepoint, line_characters[1])) {
+				// invalid next byte to separator
+				return false;
+			}
+
+			got_delimter = true;
+			break;
+		}
+	}
+
+	result->length = size;
+	result->start = str_view->start + str_view->offset;
+
+	return str_view_advance(str_view, size + (got_delimter ? LINE_CHARACTER_SIZE : 0));
+}
+
+[[nodiscard]] LineType get_line_type(ConstStrView str_view, char** error_ptr) {
+
+#define LINETYPE_CRLF_INDEX 0
+#define LINETYPE_LF_INDEX 1
+#define LINETYPE_CR_INDEX 2
+
+	size_t counters[3] = { 0, 0, 0 };
+
+	for(size_t i = 0; i < str_view.length; ++i) {
+		int32_t codepoint = str_view.start[i];
+
+		if(is_utf8_char_eq_to_ascii_char(codepoint, '\r')) {
+
+			if(i + 1 >= str_view.length) {
+				counters[LINETYPE_CR_INDEX]++;
+				continue;
+			}
+
+			int32_t next_codepoint = str_view.start[i + 1];
+
+			if(is_utf8_char_eq_to_ascii_char(next_codepoint, '\n')) {
+				counters[LINETYPE_CRLF_INDEX]++;
+				++i;
+			} else {
+				counters[LINETYPE_CR_INDEX]++;
+			}
+		}
+
+		if(is_utf8_char_eq_to_ascii_char(codepoint, '\n')) {
+			counters[LINETYPE_LF_INDEX]++;
+		}
+	}
+
+	size_t sum = counters[0] + counters[1] + counters[2];
+
+	if(counters[LINETYPE_CRLF_INDEX] != 0) {
+		if(sum != counters[LINETYPE_CRLF_INDEX]) {
+			goto error_cond;
+		}
+
+		return LineTypeCrLf;
+	}
+
+	if(counters[LINETYPE_LF_INDEX] != 0) {
+		if(sum != counters[LINETYPE_LF_INDEX]) {
+			goto error_cond;
+		}
+
+		return LineTypeLf;
+	}
+
+	if(counters[LINETYPE_CR_INDEX] != 0) {
+		if(sum != counters[LINETYPE_CR_INDEX]) {
+			goto error_cond;
+		}
+
+		return LineTypeCr;
+	}
+
+	*error_ptr = strdup("Unreachable");
+	return LineTypeCrLf;
+
+error_cond:
+
+	char* result_buffer = NULL;
+	FORMAT_STRING_DEFAULT(
+	    &result_buffer,
+	    "got multiple line endings in file: total: %zu, \\r\\n: %zu, \\r: %zu, \\n: %zu\n", sum,
+	    counters[LINETYPE_CRLF_INDEX], counters[LINETYPE_CR_INDEX], counters[LINETYPE_LF_INDEX]);
+
+	*error_ptr = result_buffer;
+
+	return LineTypeCrLf;
 }

@@ -377,10 +377,8 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 		}
 
 		ConstStrView key = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
-			if(!str_view_get_substring_until_eof(line_view, &key)) {
-				return STATIC_ERROR("eof before comma in styles section format line");
-			}
+		if(!str_view_get_substring_by_char_delimiter(line_view, &key, ',', true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		if(key.length == 0) {
@@ -643,7 +641,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 	}
 
 	ConstStrView prefix = {};
-	if(!str_view_get_substring_by_delimiter(&value_view, &prefix, char_delimiter, false, ".")) {
+	if(!str_view_get_substring_by_char_delimiter(&value_view, &prefix, '.', false)) {
 
 		size_t num =
 		    parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
@@ -783,11 +781,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	for(; !str_view_is_eof(*line_view); ++i) {
 
 		ConstStrView value = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false, ",")) {
-			if(!str_view_get_substring_until_eof(line_view, &value)) {
-
-				return STATIC_ERROR("eof before comma in styles section style line");
-			}
+		if(!str_view_get_substring_by_char_delimiter(line_view, &value, ',', true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		if(i >= field_size) {
@@ -939,7 +934,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 }
 
 [[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, StrView* data_view,
-                                              ParseSettings settings) {
+                                              ParseSettings settings, LineType line_type) {
 
 	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -948,9 +943,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
-		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-
-			return STATIC_ERROR("eof before newline in parse styles");
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		// parse line
@@ -959,8 +953,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			StrView line_view = get_str_view_from_const_str_view(line);
 
 			ConstStrView field = {};
-			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
-			                                        ":")) {
+			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 				return STATIC_ERROR("end of line before ':' in line parsing in styles section");
 			}
 
@@ -1078,7 +1071,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 }
 
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
-                                                   StrView* data_view, ParseSettings settings) {
+                                                   StrView* data_view, ParseSettings settings,
+                                                   LineType line_type) {
 
 	AssScriptInfo script_info = { .script_type = ScriptTypeUnknown,
 		                          .title = { .start = NULL, .length = 0 },
@@ -1089,8 +1083,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
-		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			return STATIC_ERROR("eof before newline in parse script style");
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		// parse line
@@ -1103,8 +1097,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			}
 
 			ConstStrView field = {};
-			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
-			                                        ":")) {
+			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 				return STATIC_ERROR(
 				    "end of line before ':' in line parsing in script info section");
 			}
@@ -1114,7 +1107,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			for(size_t i = 0; i < stbds_arrlenu(field_names); ++i) {
 				FinalStr field_str = field_names[i];
 
-				if(str_view_eq(field_str, field)) {
+				if(str_view_eq_str_view(field_str, field)) {
 					found_field = true;
 
 					char* field_name = get_normalized_string(field);
@@ -1285,13 +1278,13 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	// end of script info
 }
 
-[[nodiscard]] static ErrorStruct skip_section(StrView* data_view) {
+[[nodiscard]] static ErrorStruct skip_section(StrView* data_view, LineType line_type) {
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
-		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			return STATIC_ERROR("eof before newline in skipping section");
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		// skip the line
@@ -1306,7 +1299,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 }
 
 [[nodiscard]] static ErrorStruct extra_section(ConstStrView section_name, StrView* data_view,
-                                               ExtraSections* extra_sections) {
+                                               ExtraSections* extra_sections, LineType line_type) {
 
 	char* section_name_str = get_normalized_string(section_name);
 
@@ -1320,8 +1313,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
-		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-			return STATIC_ERROR("eof before newline in skipping section");
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		{
@@ -1331,8 +1324,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			StrView line_view = get_str_view_from_const_str_view(line);
 
 			ConstStrView field = {};
-			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
-			                                        ":")) {
+			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 				return STATIC_ERROR("end of line before ':' in line parsing in extra section");
 			}
 
@@ -1372,11 +1364,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 		}
 
 		ConstStrView key = {};
-		if(!str_view_get_substring_by_delimiter(line_view, &key, char_delimiter, false, ",")) {
-			if(!str_view_get_substring_until_eof(line_view, &key)) {
-
-				return STATIC_ERROR("eof before comma in events section format line");
-			}
+		if(!str_view_get_substring_by_char_delimiter(line_view, &key, ',', true)) {
+			return STATIC_ERROR("implementation error");
 		}
 
 		if(key.length == 0) {
@@ -1612,12 +1601,13 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			}
 			are_at_end = true;
 
+			// TODO: check and parse text value, for invalid escape sequences, and invald values
+			// insed {}, like eg {bogus}, or {\j} etc, or not closed {} blocks
+
 		} else {
-			if(!str_view_get_substring_by_delimiter(line_view, &value, char_delimiter, false,
-			                                        ",")) {
-				if(!str_view_get_substring_until_eof(line_view, &value)) {
-					return STATIC_ERROR("eof before comma in events section event line");
-				}
+			if(!str_view_get_substring_by_char_delimiter(line_view, &value, ',', true)) {
+				return STATIC_ERROR("implementation error");
+
 				are_at_end = true;
 			}
 		}
@@ -1704,7 +1694,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 }
 
 [[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, StrView* data_view,
-                                              ParseSettings settings) {
+                                              ParseSettings settings, LineType line_type) {
 
 	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -1719,12 +1709,9 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
-		if(!str_view_get_substring_by_delimiter(data_view, &line, newline_delimiter, true, NULL)) {
-
-			if(!str_view_get_substring_until_eof(data_view, &line)) {
-				FREE_AT_END();
-				return STATIC_ERROR("eof before newline in parse events");
-			}
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			FREE_AT_END();
+			return STATIC_ERROR("implementation error");
 		}
 
 		// parse line
@@ -1733,8 +1720,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			StrView line_view = get_str_view_from_const_str_view(line);
 
 			ConstStrView field = {};
-			if(!str_view_get_substring_by_delimiter(&line_view, &field, char_delimiter, false,
-			                                        ":")) {
+			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 				FREE_AT_END();
 				return STATIC_ERROR("end of line before ':' in line parsing in events section");
 			}
@@ -1902,10 +1888,10 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 [[nodiscard]] static ErrorStruct get_section_by_name(ConstStrView section_name,
                                                      AssResult* ass_result, StrView* data_view,
-                                                     ParseSettings settings) {
+                                                     ParseSettings settings, LineType line_type) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
-		return parse_styles(&(ass_result->styles), data_view, settings);
+		return parse_styles(&(ass_result->styles), data_view, settings, line_type);
 	}
 
 	if(str_view_eq_ascii(section_name, "V4 Styles")) {
@@ -1913,18 +1899,18 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	if(str_view_eq_ascii(section_name, "Events")) {
-		return parse_events(&(ass_result->events), data_view, settings);
+		return parse_events(&(ass_result->events), data_view, settings, line_type);
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
-		return skip_section(data_view);
+		return skip_section(data_view, line_type);
 	}
 
 	if(str_view_eq_ascii(section_name, "Graphics")) {
-		return skip_section(data_view);
+		return skip_section(data_view, line_type);
 	}
 
-	return extra_section(section_name, data_view, &(ass_result->extra_sections));
+	return extra_section(section_name, data_view, &(ass_result->extra_sections), line_type);
 
 	return NO_ERROR();
 }
@@ -2069,13 +2055,24 @@ static void free_ass_result(AssResult data) {
 		}
 	}
 
+	// get line type
+	char* line_type_error = NULL;
+
+	ConstStrView line_type_view = get_const_str_view_from_str_view(data_view);
+
+	LineType line_type = get_line_type(line_type_view, &line_type_error);
+
+	if(line_type_error != NULL) {
+		RETURN_ERROR(DYNAMIC_ERROR(line_type_error));
+	}
+
 	// parse script info
 
 	if(!str_view_expect_ascii(&data_view, "[Script Info]")) {
 		RETURN_ERROR(STATIC_ERROR("first line must be the script info section"));
 	}
 
-	if(!str_view_expect_newline(&data_view)) {
+	if(!str_view_expect_newline(&data_view, line_type)) {
 		RETURN_ERROR(STATIC_ERROR("expected newline"));
 	}
 
@@ -2089,7 +2086,7 @@ static void free_ass_result(AssResult data) {
 	} while(false)
 
 	ErrorStruct script_info_parse_result =
-	    parse_script_info(&(ass_result.script_info), &data_view, settings);
+	    parse_script_info(&(ass_result.script_info), &data_view, settings, line_type);
 
 	if(script_info_parse_result.message != NULL) {
 		RETURN_ERROR(script_info_parse_result);
@@ -2104,17 +2101,16 @@ static void free_ass_result(AssResult data) {
 		}
 
 		ConstStrView section_name = {};
-		if(!str_view_get_substring_by_delimiter(&data_view, &section_name, char_delimiter, false,
-		                                        "]")) {
+		if(!str_view_get_substring_by_char_delimiter(&data_view, &section_name, ']', false)) {
 			RETURN_ERROR(STATIC_ERROR("script section not terminated by ']'"));
 		}
 
-		if(!str_view_expect_newline(&data_view)) {
+		if(!str_view_expect_newline(&data_view, line_type)) {
 			RETURN_ERROR(STATIC_ERROR("no newline after section name"));
 		}
 
 		ErrorStruct section_parse_result =
-		    get_section_by_name(section_name, &ass_result, &data_view, settings);
+		    get_section_by_name(section_name, &ass_result, &data_view, settings, line_type);
 
 		if(section_parse_result.message != NULL) {
 			RETURN_ERROR(section_parse_result);
