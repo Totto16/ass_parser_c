@@ -1,7 +1,8 @@
 #include <helper/io.h>
-#include <helper/log.h>
 #include <helper/macros.h>
 #include <parser/parser.h>
+
+#include "./log.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,7 +1,6 @@
 
 #include "./helper.h"
 
-#include "../helper/log.h"
 #include "../helper/macros.h"
 
 #include <math.h>
@@ -13,7 +12,8 @@ void free_error_struct(ErrorStruct error) {
 	}
 }
 
-[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
+                                         Warnings* warnings) {
 
 	StrView value_view = get_str_view_from_const_str_view(value);
 
@@ -30,8 +30,8 @@ void free_error_struct(ErrorStruct error) {
 	ConstStrView prefix = {};
 	if(!str_view_get_substring_by_char_delimiter(&value_view, &prefix, '.', false)) {
 
-		size_t num =
-		    parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view), error_ptr);
+		size_t num = parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view),
+		                                          error_ptr, warnings);
 
 		if(error_ptr->message != NULL) {
 			return 0.0;
@@ -41,7 +41,7 @@ void free_error_struct(ErrorStruct error) {
 		return (double)num;
 	}
 
-	size_t prefix_num = parse_str_as_unsigned_number(prefix, error_ptr);
+	size_t prefix_num = parse_str_as_unsigned_number(prefix, error_ptr, warnings);
 
 	if(error_ptr->message != NULL) {
 		return 0.0;
@@ -60,7 +60,7 @@ void free_error_struct(ErrorStruct error) {
 		return 0.0;
 	}
 
-	size_t suffix_num = parse_str_as_unsigned_number(suffix, error_ptr);
+	size_t suffix_num = parse_str_as_unsigned_number(suffix, error_ptr, warnings);
 
 	if(error_ptr->message != NULL) {
 		return 0.0;
@@ -76,7 +76,8 @@ void free_error_struct(ErrorStruct error) {
 
 [[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstStrView value,
                                                               ErrorStruct* error_ptr,
-                                                              bool allow_number_truncating) {
+                                                              bool allow_number_truncating,
+                                                              Warnings* warnings) {
 	size_t result = 0;
 
 	for(size_t i = 0; i < value.length; ++i) {
@@ -96,6 +97,7 @@ void free_error_struct(ErrorStruct error) {
 			                      value_name);
 
 			if(allow_number_truncating) {
+				assert(warnings != NULL);
 				// check if the number is not empty
 				if(i > 0) {
 
@@ -103,14 +105,16 @@ void free_error_struct(ErrorStruct error) {
 
 					ErrorStruct local_error = NO_ERROR();
 
-					double _unused = parse_str_as_double(value, &local_error);
+					double _unused = parse_str_as_double(value, &local_error, warnings);
 					UNUSED(_unused);
 
 					if(local_error.message == NULL) {
 
-						LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+						WarningEntry warning = { .type = WarningTypeSimple,
+							                     .data = { .simple = result_buffer } };
 
-						free(result_buffer);
+						stbds_arrput(warnings->entries, warning);
+
 						free_error_struct(local_error);
 						free(value_name);
 
@@ -135,8 +139,9 @@ void free_error_struct(ErrorStruct error) {
 	return result;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, ErrorStruct* error_ptr) {
-	return parse_str_as_unsigned_number_with_option(value, error_ptr, false);
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, ErrorStruct* error_ptr,
+                                                  Warnings* warnings) {
+	return parse_str_as_unsigned_number_with_option(value, error_ptr, false, warnings);
 }
 
 [[nodiscard]] bool parse_str_as_bool(ConstStrView value, ErrorStruct* error_ptr) {
@@ -240,8 +245,9 @@ void free_error_struct(ErrorStruct error) {
 	return color;
 }
 
-[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, ErrorStruct* error_ptr) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, ErrorStruct* error_ptr,
+                                                    Warnings* warnings) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
 
 	if(error_ptr->message != NULL) {
 		return BorderStyleOutline;
@@ -263,9 +269,9 @@ void free_error_struct(ErrorStruct error) {
 	}
 }
 
-[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value,
-                                                        ErrorStruct* error_ptr) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr);
+[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value, ErrorStruct* error_ptr,
+                                                        Warnings* warnings) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
 
 	if(error_ptr->message != NULL) {
 		return AssAlignmentBL;
@@ -314,6 +320,193 @@ void free_error_struct(ErrorStruct error) {
 		default: {
 			*error_ptr = STATIC_ERROR("invalid alignment value");
 			return AssAlignmentBL;
+		}
+	}
+}
+
+[[nodiscard]] MarginValue parse_str_as_margin_value(ConstStrView value, ErrorStruct* error_ptr,
+                                                    Warnings* warnings) {
+	MarginValue result = { .is_default = true };
+
+	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
+	// margins defined by the style are used.
+
+	// TODO: 0000 is used in older ass files, but is "0" also the default?
+	if(str_view_eq_ascii(value, "0000")) {
+		result.is_default = true;
+		*error_ptr = NO_ERROR();
+
+		return result;
+	}
+
+	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
+	if(error_ptr->message != NULL) {
+		return result;
+	}
+
+	result.is_default = false;
+	result.data.value = num;
+	*error_ptr = NO_ERROR();
+
+	return result;
+}
+
+[[nodiscard]] AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr,
+                                        Warnings* warnings) {
+
+	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
+	// for the hours!
+
+	AssTime time = {};
+
+	if(value.length != 10) {
+		*error_ptr = STATIC_ERROR("error, not a valid time, not correct length");
+		return time;
+	}
+
+	StrView value_view = get_str_view_from_const_str_view(value);
+
+	{
+		// hour
+
+		ConstStrView hour_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &hour_str, 1)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get hour value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(hour_str, error_ptr, warnings);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.hour = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			return time;
+		}
+	}
+
+	{
+		// min
+
+		ConstStrView min_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &min_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get min value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(min_str, error_ptr, warnings);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.min = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			return time;
+		}
+	}
+
+	{
+		// sec
+
+		ConstStrView sec_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &sec_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get sec value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(sec_str, error_ptr, warnings);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.sec = (uint8_t)num;
+
+		if(!str_view_expect_ascii(&value_view, ":")) {
+			// note: specs defines ":" but in the wild we mostly get "."
+			if(!str_view_expect_ascii(&value_view, ".")) {
+				*error_ptr = STATIC_ERROR("error, not a valid time, missing ':' or '.' after secs");
+				return time;
+			}
+		}
+	}
+
+	{
+		// hundred
+
+		ConstStrView hundred_str = {};
+		if(!str_view_get_substring_by_amount(&value_view, &hundred_str, 2)) {
+			*error_ptr = STATIC_ERROR("error, couldn't get hundred value");
+			return time;
+		}
+
+		size_t num = parse_str_as_unsigned_number(hundred_str, error_ptr, warnings);
+
+		if(error_ptr->message != NULL) {
+			return time;
+		}
+
+		time.hundred = (uint8_t)num;
+
+		if(!str_view_is_eof(value_view)) {
+			*error_ptr = STATIC_ERROR("error, not a valid time, more data then expected");
+			return time;
+		}
+	}
+
+	*error_ptr = NO_ERROR();
+	return time;
+}
+
+[[nodiscard]] ScriptType parse_str_as_script_type(ConstStrView value, ErrorStruct* error_ptr) {
+
+	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
+		*error_ptr = NO_ERROR();
+		return ScriptTypeV4;
+	} else if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
+		*error_ptr = NO_ERROR();
+		return ScriptTypeV4Plus;
+	} else {
+		*error_ptr = STATIC_ERROR("invalid script type value");
+		return ScriptTypeV4;
+	}
+}
+
+[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr,
+                                                Warnings* warnings) {
+	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
+
+	if(error_ptr->message != NULL) {
+		return WrapStyleSmart;
+	}
+
+	switch(num) {
+		case 0: {
+			*error_ptr = NO_ERROR();
+			return WrapStyleSmart;
+		}
+		case 1: {
+			*error_ptr = NO_ERROR();
+			return WrapStyleEOL;
+		}
+		case 2: {
+			*error_ptr = NO_ERROR();
+			return WrapStyleNoWrap;
+		}
+		case 3: {
+			*error_ptr = NO_ERROR();
+			return WrapStyleSmartLow;
+		}
+		default: {
+			*error_ptr = STATIC_ERROR("invalid wrap style value");
+			return WrapStyleSmart;
 		}
 	}
 }

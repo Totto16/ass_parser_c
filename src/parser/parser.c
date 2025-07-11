@@ -2,7 +2,6 @@
 
 #include "./parser.h"
 #include "../helper/io.h"
-#include "../helper/log.h"
 #include "../helper/macros.h"
 #include "../helper/utf_helper.h"
 #include "./helper.h"
@@ -118,6 +117,7 @@ struct AssParseResultImpl {
 		ErrorStruct error;
 		AssResultImpl ok;
 	} data;
+	Warnings warnings;
 };
 
 [[nodiscard]] static SizedPtr get_data_from_source(AssSource source) {
@@ -270,7 +270,7 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 
 [[nodiscard]] static ErrorStruct
 parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat) const format_spec,
-                            AssStyles* styles_result, ParseSettings settings) {
+                            AssStyles* styles_result, ParseSettings settings, Warnings* warnings) {
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
@@ -314,7 +314,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			}
 			case AssStyleFormatFontsize: {
 				entry.fontsize = parse_str_as_unsigned_number_with_option(
-				    value, &error, settings.strict_settings.allow_number_truncating);
+				    value, &error, settings.strict_settings.allow_number_truncating, warnings);
 				break;
 			}
 			case AssStyleFormatPrimaryColour: {
@@ -350,51 +350,51 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 				break;
 			}
 			case AssStyleFormatScaleX: {
-				entry.scale_x = parse_str_as_unsigned_number(value, &error);
+				entry.scale_x = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatScaleY: {
-				entry.scale_y = parse_str_as_unsigned_number(value, &error);
+				entry.scale_y = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatSpacing: {
-				entry.spacing = parse_str_as_double(value, &error);
+				entry.spacing = parse_str_as_double(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatAngle: {
-				entry.angle = parse_str_as_double(value, &error);
+				entry.angle = parse_str_as_double(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatBorderStyle: {
-				entry.border_style = parse_str_as_border_style(value, &error);
+				entry.border_style = parse_str_as_border_style(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatOutline: {
-				entry.outline = parse_str_as_double(value, &error);
+				entry.outline = parse_str_as_double(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatShadow: {
-				entry.shadow = parse_str_as_double(value, &error);
+				entry.shadow = parse_str_as_double(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatAlignment: {
-				entry.alignment = parse_str_as_style_alignment(value, &error);
+				entry.alignment = parse_str_as_style_alignment(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatMarginL: {
-				entry.margin_l = parse_str_as_unsigned_number(value, &error);
+				entry.margin_l = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatMarginR: {
-				entry.margin_r = parse_str_as_unsigned_number(value, &error);
+				entry.margin_r = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatMarginV: {
-				entry.margin_v = parse_str_as_unsigned_number(value, &error);
+				entry.margin_v = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssStyleFormatEncoding: {
-				entry.encoding = parse_str_as_unsigned_number(value, &error);
+				entry.encoding = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			default: {
@@ -437,7 +437,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 }
 
 [[nodiscard]] static ErrorStruct parse_styles(AssStyles* ass_styles, StrView* data_view,
-                                              ParseSettings settings, LineType line_type) {
+                                              ParseSettings settings, LineType line_type,
+                                              Warnings* warnings) {
 
 	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -483,8 +484,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 					    "this is an error");
 				}
 
-				ErrorStruct style_parse_error =
-				    parse_style_line_for_styles(&line_view, style_format, &styles, settings);
+				ErrorStruct style_parse_error = parse_style_line_for_styles(
+				    &line_view, style_format, &styles, settings, warnings);
 
 				if(style_parse_error.message != NULL) {
 					return style_parse_error;
@@ -503,7 +504,14 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 				                      field_name);
 
 				if(settings.strict_settings.allow_additional_fields) {
-					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+					UnexpectedFieldWarning unexpected_field = { .field = field,
+						                                        .setion = "styles" };
+
+					WarningEntry warning = { .type = WarningTypeUnexpectedField,
+						                     .data = { .unexpected_field = unexpected_field } };
+
+					stbds_arrput(warnings->entries, warning);
 
 					free(result_buffer);
 					free(field_name);
@@ -528,55 +536,9 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	// end of script info
 }
 
-[[nodiscard]] static ScriptType parse_str_as_script_type(ConstStrView value,
-                                                         ErrorStruct* error_ptr) {
-
-	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
-		*error_ptr = NO_ERROR();
-		return ScriptTypeV4;
-	} else if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
-		*error_ptr = NO_ERROR();
-		return ScriptTypeV4Plus;
-	} else {
-		*error_ptr = STATIC_ERROR("invalid script type value");
-		return ScriptTypeV4;
-	}
-}
-
-[[nodiscard]] static WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr);
-
-	if(error_ptr->message != NULL) {
-		return WrapStyleSmart;
-	}
-
-	switch(num) {
-		case 0: {
-			*error_ptr = NO_ERROR();
-			return WrapStyleSmart;
-		}
-		case 1: {
-			*error_ptr = NO_ERROR();
-			return WrapStyleEOL;
-		}
-		case 2: {
-			*error_ptr = NO_ERROR();
-			return WrapStyleNoWrap;
-		}
-		case 3: {
-			*error_ptr = NO_ERROR();
-			return WrapStyleSmartLow;
-		}
-		default: {
-			*error_ptr = STATIC_ERROR("invalid wrap style value");
-			return WrapStyleSmart;
-		}
-	}
-}
-
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
                                                    StrView* data_view, ParseSettings settings,
-                                                   LineType line_type) {
+                                                   LineType line_type, Warnings* warnings) {
 
 	AssScriptInfo script_info = { .script_type = ScriptTypeUnknown,
 		                          .title = { .start = NULL, .length = 0 },
@@ -625,7 +587,14 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 					    &result_buffer, "duplicate field in script info section: '%s'", field_name);
 
 					if(settings.strict_settings.script_info.allow_duplicate_fields) {
-						LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+						DuplicateFieldWarning duplicate_field = { .field = field,
+							                                      .setion = "script info" };
+
+						WarningEntry warning = { .type = WarningTypeDuplicateField,
+							                     .data = { .duplicate_field = duplicate_field } };
+
+						stbds_arrput(warnings->entries, warning);
 
 						free(result_buffer);
 						free(field_name);
@@ -670,23 +639,24 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			} else if(str_view_eq_ascii(field, "Collisions")) {
 				script_info.collisions = value;
 			} else if(str_view_eq_ascii(field, "PlayResY")) {
-				script_info.play_res_y = parse_str_as_unsigned_number(value, &error);
+				script_info.play_res_y = parse_str_as_unsigned_number(value, &error, warnings);
 				;
 			} else if(str_view_eq_ascii(field, "PlayResX")) {
-				script_info.play_res_x = parse_str_as_unsigned_number(value, &error);
+				script_info.play_res_x = parse_str_as_unsigned_number(value, &error, warnings);
 				;
 			} else if(str_view_eq_ascii(field, "PlayDepth")) {
 				script_info.play_depth = value;
 			} else if(str_view_eq_ascii(field, "Timer")) {
 				script_info.timer = value;
 			} else if(str_view_eq_ascii(field, "WrapStyle")) {
-				script_info.wrap_style = parse_str_as_wrap_style(value, &error);
+				script_info.wrap_style = parse_str_as_wrap_style(value, &error, warnings);
 			} else if(str_view_eq_ascii(field, "ScaledBorderAndShadow")) {
 				script_info.scaled_border_and_shadow = parse_str_as_str_bool(value, &error);
 			} else if(str_view_eq_ascii(field, "Video Aspect Ratio")) {
-				script_info.video_aspect_ratio = parse_str_as_unsigned_number(value, &error);
+				script_info.video_aspect_ratio =
+				    parse_str_as_unsigned_number(value, &error, warnings);
 			} else if(str_view_eq_ascii(field, "Video Zoom")) {
-				script_info.video_zoom = parse_str_as_unsigned_number(value, &error);
+				script_info.video_zoom = parse_str_as_unsigned_number(value, &error, warnings);
 			} else if(str_view_eq_ascii(field, "YCbCr Matrix")) {
 				script_info.ycbcr_matrix = value;
 			} else {
@@ -702,7 +672,14 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 				                      "unexpected field in script info section: '%s'", field_name);
 
 				if(settings.strict_settings.allow_additional_fields) {
-					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+					UnexpectedFieldWarning unexpected_field = { .field = field,
+						                                        .setion = "script info" };
+
+					WarningEntry warning = { .type = WarningTypeUnexpectedField,
+						                     .data = { .unexpected_field = unexpected_field } };
+
+					stbds_arrput(warnings->entries, warning);
 
 					free(result_buffer);
 					free(field_name);
@@ -753,7 +730,10 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			const char* error = "missing script type in script info section";
 
 			if(settings.strict_settings.script_info.allow_missing_script_type) {
-				LOG_MESSAGE(LogLevelWarn, "%s\n", error);
+				WarningEntry warning = { .type = WarningTypeSimple,
+					                     .data = { .simple = strdup(error) } };
+
+				stbds_arrput(warnings->entries, warning);
 			} else {
 				return STATIC_ERROR(error);
 			}
@@ -921,150 +901,11 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	return NO_ERROR();
 }
 
-[[nodiscard]] static MarginValue parse_str_as_margin_value(ConstStrView value,
-                                                           ErrorStruct* error_ptr) {
-	MarginValue result = { .is_default = true };
-
-	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
-	// margins defined by the style are used.
-
-	// TODO: 0000 is used in older ass files, but is "0" also the default?
-	if(str_view_eq_ascii(value, "0000")) {
-		result.is_default = true;
-		*error_ptr = NO_ERROR();
-
-		return result;
-	}
-
-	size_t num = parse_str_as_unsigned_number(value, error_ptr);
-	if(error_ptr->message != NULL) {
-		return result;
-	}
-
-	result.is_default = false;
-	result.data.value = num;
-	*error_ptr = NO_ERROR();
-
-	return result;
-}
-
-[[nodiscard]] static AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr) {
-
-	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
-	// for the hours!
-
-	AssTime time = {};
-
-	if(value.length != 10) {
-		*error_ptr = STATIC_ERROR("error, not a valid time, not correct length");
-		return time;
-	}
-
-	StrView value_view = get_str_view_from_const_str_view(value);
-
-	{
-		// hour
-
-		ConstStrView hour_str = {};
-		if(!str_view_get_substring_by_amount(&value_view, &hour_str, 1)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get hour value");
-			return time;
-		}
-
-		size_t num = parse_str_as_unsigned_number(hour_str, error_ptr);
-
-		if(error_ptr->message != NULL) {
-			return time;
-		}
-
-		time.hour = (uint8_t)num;
-
-		if(!str_view_expect_ascii(&value_view, ":")) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
-			return time;
-		}
-	}
-
-	{
-		// min
-
-		ConstStrView min_str = {};
-		if(!str_view_get_substring_by_amount(&value_view, &min_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get min value");
-			return time;
-		}
-
-		size_t num = parse_str_as_unsigned_number(min_str, error_ptr);
-
-		if(error_ptr->message != NULL) {
-			return time;
-		}
-
-		time.min = (uint8_t)num;
-
-		if(!str_view_expect_ascii(&value_view, ":")) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
-			return time;
-		}
-	}
-
-	{
-		// sec
-
-		ConstStrView sec_str = {};
-		if(!str_view_get_substring_by_amount(&value_view, &sec_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get sec value");
-			return time;
-		}
-
-		size_t num = parse_str_as_unsigned_number(sec_str, error_ptr);
-
-		if(error_ptr->message != NULL) {
-			return time;
-		}
-
-		time.sec = (uint8_t)num;
-
-		if(!str_view_expect_ascii(&value_view, ":")) {
-			// note: specs defines ":" but in the wild we mostly get "."
-			if(!str_view_expect_ascii(&value_view, ".")) {
-				*error_ptr = STATIC_ERROR("error, not a valid time, missing ':' or '.' after secs");
-				return time;
-			}
-		}
-	}
-
-	{
-		// hundred
-
-		ConstStrView hundred_str = {};
-		if(!str_view_get_substring_by_amount(&value_view, &hundred_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get hundred value");
-			return time;
-		}
-
-		size_t num = parse_str_as_unsigned_number(hundred_str, error_ptr);
-
-		if(error_ptr->message != NULL) {
-			return time;
-		}
-
-		time.hundred = (uint8_t)num;
-
-		if(!str_view_is_eof(value_view)) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, more data then expected");
-			return time;
-		}
-	}
-
-	*error_ptr = NO_ERROR();
-	return time;
-}
-
 [[nodiscard]] static ErrorStruct parse_event_line_for_events(EventType type, StrView* line_view,
                                                              const STBDS_ARRAY(AssEventFormat)
                                                                  const format_spec,
-                                                             AssEvents* events_result) {
+                                                             AssEvents* events_result,
+                                                             Warnings* warnings) {
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
@@ -1121,15 +962,15 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 		switch(format) {
 			case AssEventFormatLayer: {
-				entry.layer = parse_str_as_unsigned_number(value, &error);
+				entry.layer = parse_str_as_unsigned_number(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatStart: {
-				entry.start = parse_str_as_time(value, &error);
+				entry.start = parse_str_as_time(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatEnd: {
-				entry.end = parse_str_as_time(value, &error);
+				entry.end = parse_str_as_time(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatStyle: {
@@ -1141,15 +982,15 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				break;
 			}
 			case AssEventFormatMarginL: {
-				entry.margin_l = parse_str_as_margin_value(value, &error);
+				entry.margin_l = parse_str_as_margin_value(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatMarginR: {
-				entry.margin_r = parse_str_as_margin_value(value, &error);
+				entry.margin_r = parse_str_as_margin_value(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatMarginV: {
-				entry.margin_v = parse_str_as_margin_value(value, &error);
+				entry.margin_v = parse_str_as_margin_value(value, &error, warnings);
 				break;
 			}
 			case AssEventFormatEffect: {
@@ -1199,7 +1040,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 }
 
 [[nodiscard]] static ErrorStruct parse_events(AssEvents* ass_events, StrView* data_view,
-                                              ParseSettings settings, LineType line_type) {
+                                              ParseSettings settings, LineType line_type,
+                                              Warnings* warnings) {
 
 	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -1257,7 +1099,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				}
 
 				ErrorStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeDialogue, &line_view, event_format, &events);
+				    EventTypeDialogue, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1274,7 +1116,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				}
 
 				ErrorStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeComment, &line_view, event_format, &events);
+				    EventTypeComment, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1291,7 +1133,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				}
 
 				ErrorStruct event_parse_error = parse_event_line_for_events(
-				    EventTypePicture, &line_view, event_format, &events);
+				    EventTypePicture, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1307,8 +1149,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 					    "this is an error");
 				}
 
-				ErrorStruct event_parse_error =
-				    parse_event_line_for_events(EventTypeSound, &line_view, event_format, &events);
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypeSound, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1324,8 +1166,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 					    "this is an error");
 				}
 
-				ErrorStruct event_parse_error =
-				    parse_event_line_for_events(EventTypeMovie, &line_view, event_format, &events);
+				ErrorStruct event_parse_error = parse_event_line_for_events(
+				    EventTypeMovie, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1342,7 +1184,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				}
 
 				ErrorStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeCommand, &line_view, event_format, &events);
+				    EventTypeCommand, &line_view, event_format, &events, warnings);
 
 				if(event_parse_error.message != NULL) {
 					FREE_AT_END();
@@ -1363,7 +1205,14 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				                      field_name);
 
 				if(settings.strict_settings.allow_additional_fields) {
-					LOG_MESSAGE(LogLevelWarn, "%s\n", result_buffer);
+
+					UnexpectedFieldWarning unexpected_field = { .field = field,
+						                                        .setion = "events" };
+
+					WarningEntry warning = { .type = WarningTypeUnexpectedField,
+						                     .data = { .unexpected_field = unexpected_field } };
+
+					stbds_arrput(warnings->entries, warning);
 
 					free(result_buffer);
 					free(field_name);
@@ -1393,10 +1242,11 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 [[nodiscard]] static ErrorStruct get_section_by_name(ConstStrView section_name,
                                                      AssResult* ass_result, StrView* data_view,
-                                                     ParseSettings settings, LineType line_type) {
+                                                     ParseSettings settings, LineType line_type,
+                                                     Warnings* warnings) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
-		return parse_styles(&(ass_result->styles), data_view, settings, line_type);
+		return parse_styles(&(ass_result->styles), data_view, settings, line_type, warnings);
 	}
 
 	if(str_view_eq_ascii(section_name, "V4 Styles")) {
@@ -1404,7 +1254,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	if(str_view_eq_ascii(section_name, "Events")) {
-		return parse_events(&(ass_result->events), data_view, settings, line_type);
+		return parse_events(&(ass_result->events), data_view, settings, line_type, warnings);
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
@@ -1478,6 +1328,8 @@ static void free_ass_result_impl(AssResultImpl data) {
 		return NULL;
 	}
 
+	result->warnings = (Warnings){ .entries = STBDS_ARRAY_EMPTY };
+
 	SizedPtr data = get_data_from_source(source);
 
 	if(is_ptr_error(data)) {
@@ -1498,7 +1350,14 @@ static void free_ass_result_impl(AssResultImpl data) {
 				RETURN_ERROR(STATIC_ERROR(error));
 			}
 
-			LOG_MESSAGE(LogLevelWarn, "%s, assuming UTF-8 (ascii also works with that)\n", error);
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "%s, assuming UTF-8 (ascii also works with that)",
+			                      get_file_type_name(file_type));
+
+			WarningEntry warning = { .type = WarningTypeSimple,
+				                     .data = { .simple = result_buffer } };
+
+			stbds_arrput(result->warnings.entries, warning);
 			bom_size = 0;
 			codepoints_result = get_codepoints_from_utf8(data);
 			break;
@@ -1599,7 +1458,8 @@ static void free_ass_result_impl(AssResultImpl data) {
 	} while(false)
 
 	ErrorStruct script_info_parse_result =
-	    parse_script_info(&(ass_result.public_struct.script_info), &data_view, settings, line_type);
+	    parse_script_info(&(ass_result.public_struct.script_info), &data_view, settings, line_type,
+	                      &(result->warnings));
 
 	if(script_info_parse_result.message != NULL) {
 		RETURN_ERROR(script_info_parse_result);
@@ -1622,8 +1482,9 @@ static void free_ass_result_impl(AssResultImpl data) {
 			RETURN_ERROR(STATIC_ERROR("no newline after section name"));
 		}
 
-		ErrorStruct section_parse_result = get_section_by_name(
-		    section_name, &ass_result.public_struct, &data_view, settings, line_type);
+		ErrorStruct section_parse_result =
+		    get_section_by_name(section_name, &ass_result.public_struct, &data_view, settings,
+		                        line_type, &(result->warnings));
 
 		if(section_parse_result.message != NULL) {
 			RETURN_ERROR(section_parse_result);

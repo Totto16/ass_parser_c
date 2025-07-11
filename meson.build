@@ -38,6 +38,7 @@ deps += cc.find_library(
 deps += dependency('threads')
 
 src_files = []
+cli_files = []
 inc_dirs = []
 
 subdir('src')
@@ -61,7 +62,7 @@ ass_parser_dep = declare_dependency(
 
 executable(
     'ass_parser',
-    files('src/main.c'),
+    cli_files,
     dependencies: [ass_parser_dep],
     install: true,
 )
