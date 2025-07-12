@@ -74,7 +74,7 @@
 		case LineTypeCrLf: return LINE_ENDING_CRLF;
 		case LineTypeLf: return "\n";
 		case LineTypeCr: return "\r";
-		default: assert("UNREACHABLE");
+		default: UNREACHABLE();
 	}
 }
 
@@ -372,8 +372,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		return LineTypeCr;
 	}
 
-	*error_ptr = strdup("Unreachable");
-	return LineTypeCrLf;
+	UNREACHABLE();
 
 error_cond:
 

@@ -48,3 +48,18 @@
 
 #define STRINGIFY(a) STR_IMPL(a)
 #define STR_IMPL(a) #a
+
+#ifdef NDEBUG
+#define UNREACHABLE() \
+	do { \
+		fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
+		exit(EXIT_FAILURE); \
+	} while(false)
+#else
+
+#define UNREACHABLE() \
+	do { \
+		assert(false && "UNREACHABLE"); \
+	} while(false)
+
+#endif

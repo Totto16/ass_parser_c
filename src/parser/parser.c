@@ -401,7 +401,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 				break;
 			}
 			default: {
-				error = STATIC_ERROR("unreachable");
+				UNREACHABLE();
 			}
 		}
 
@@ -1017,7 +1017,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				break;
 			}
 			default: {
-				error = STATIC_ERROR("unreachable");
+				UNREACHABLE();
 			}
 		}
 
