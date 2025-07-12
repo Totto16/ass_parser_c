@@ -185,7 +185,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	return true;
 }
 
-[[nodiscard]] bool static str_view_skip_while(StrView* str_view, DelimiterFn delimit_fn,
+[[nodiscard]] static bool str_view_skip_while(StrView* str_view, DelimiterFn delimit_fn,
                                               void* data_ptr) {
 
 	while(true) {
