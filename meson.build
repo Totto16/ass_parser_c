@@ -37,6 +37,19 @@ deps += cc.find_library(
 
 deps += dependency('threads')
 
+
+iconv_dep = cc.find_library(
+    'iconv',
+    required: false,
+)
+if iconv_dep.found()
+    deps += iconv_dep
+elif cc.has_function('iconv_open')
+    message('iconv already provided by libc')
+else
+    deps += dependency('iconv')
+endif
+
 src_files = []
 cli_files = []
 inc_dirs = []
