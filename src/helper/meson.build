@@ -1,5 +1,5 @@
 
-src_files += files(
+lib_src_files += files(
     'io.c',
     'io.h',
     'macros.h',

@@ -15,10 +15,6 @@ project(
 )
 
 deps = []
-compile_flags = [
-    '-DPROGRAM_NAME=' + meson.project_name(),
-    '-DVERSION_STRING=' + meson.project_version(),
-]
 
 deps += dependency(
     'libutf8proc',
@@ -50,27 +46,31 @@ else
     deps += dependency('iconv')
 endif
 
-src_files = []
+lib_src_files = []
 cli_files = []
 inc_dirs = []
+lib_inc_dirs = []
+
+# so that the version of the lib can be differnt than the cli version
+ass_parser_lib_version = '0.0.1'
 
 subdir('src')
 
 ass_parser_lib = library(
     'ass_parser',
-    src_files,
+    lib_src_files,
     dependencies: deps,
     include_directories: inc_dirs,
-    c_args: compile_flags,
+    c_args: ['-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"'],
     install: true,
+    version: ass_parser_lib_version,
 )
 
 ass_parser_dep = declare_dependency(
     link_with: ass_parser_lib,
-    include_directories: inc_dirs,
-    compile_args: compile_flags,
+    include_directories: lib_inc_dirs,
     dependencies: deps,
-    version: meson.project_version(),
+    version: ass_parser_lib_version,
 )
 
 executable(
@@ -78,4 +78,5 @@ executable(
     cli_files,
     dependencies: [ass_parser_dep],
     install: true,
+    c_args: ['-DPROGRAM_NAME=' + meson.project_name()],
 )

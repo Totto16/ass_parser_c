@@ -1,6 +1,4 @@
-#include <helper/io.h>
-#include <helper/macros.h>
-#include <parser/parser.h>
+#include <ass_parser_lib.h>
 
 #include "./log.h"
 
@@ -340,7 +338,7 @@ int main(int argc, char** argv) {
 	}
 
 	if(is_version_string(command)) {
-		printf(STRINGIFY(VERSION_STRING) "\n");
+		printf("%s\n", ass_parser_lib_version());
 		return EXIT_SUCCESS;
 	}
 

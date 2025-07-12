@@ -1,1 +1,1 @@
-src_files += files('ds.c', 'ds.h', 'stb_ds.h')
+lib_src_files += files('ds.c', 'ds.h', 'stb_ds.h')

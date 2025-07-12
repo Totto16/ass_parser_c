@@ -46,9 +46,6 @@
 #define FORMAT_STRING_DEFAULT(to_store, format, ...) \
 	FORMAT_STRING(to_store, exit(EXIT_FAILURE), format, __VA_ARGS__)
 
-#define STRINGIFY(a) STR_IMPL(a)
-#define STR_IMPL(a) #a
-
 #ifdef NDEBUG
 #define UNREACHABLE() \
 	do { \
