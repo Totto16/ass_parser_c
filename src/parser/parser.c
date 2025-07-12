@@ -457,6 +457,10 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 		// parse line
 		{
 
+			if(line.length == 0) {
+				continue;
+			}
+
 			StrView line_view = get_str_view_from_const_str_view(line);
 
 			ConstStrView field = {};
@@ -558,6 +562,10 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 		// parse line
 		{
+
+			if(line.length == 0) {
+				continue;
+			}
 
 			StrView line_view = get_str_view_from_const_str_view(line);
 
@@ -805,6 +813,10 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 		}
 
 		{
+
+			if(line.length == 0) {
+				continue;
+			}
 
 			SectionFieldEntry field_entry = {};
 
