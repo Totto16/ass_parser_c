@@ -58,7 +58,7 @@ ErrorStruct get_warnings_message_from_entry(WarningEntry entry) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field '%s' in '%s' section",
-			                      data.setion, field_name);
+			                      field_name, data.setion);
 
 			return DYNAMIC_ERROR(result_buffer);
 		}
@@ -74,7 +74,7 @@ ErrorStruct get_warnings_message_from_entry(WarningEntry entry) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "duplicate field '%s' in '%s' section",
-			                      data.setion, field_name);
+			                      field_name, data.setion);
 
 			return DYNAMIC_ERROR(result_buffer);
 		}

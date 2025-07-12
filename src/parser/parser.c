@@ -1359,7 +1359,7 @@ static void free_ass_result_impl(AssResultImpl data) {
 
 	switch(file_type) {
 		case FileTypeUnknown: {
-			const char* error = "unrecognized file, no BOM present";
+			const char* error = "unrecognized file type, no BOM present";
 
 			if(!settings.strict_settings.allow_unrecognized_file_encoding) {
 				RETURN_ERROR(STATIC_ERROR(error));
@@ -1367,7 +1367,7 @@ static void free_ass_result_impl(AssResultImpl data) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "%s, assuming UTF-8 (ascii also works with that)",
-			                      get_file_type_name(file_type));
+			                      error);
 
 			WarningEntry warning = { .type = WarningTypeSimple,
 				                     .data = { .simple = result_buffer } };
