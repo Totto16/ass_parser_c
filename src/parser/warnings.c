@@ -4,6 +4,7 @@
 #include "../helper/macros.h"
 
 #include <stdio.h>
+#include <stb/ds.h>
 
 void free_error_struct(ErrorStruct error) {
 	if(error.dynamic) {

@@ -9,6 +9,7 @@
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
+#include <stb/ds.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -6,7 +6,6 @@
 #include "../helper/string_view.h"
 #include "./warnings.h"
 
-#include <stb/ds.h>
 #include <stdint.h>
 
 typedef enum : uint8_t {

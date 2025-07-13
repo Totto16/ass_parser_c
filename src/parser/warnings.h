@@ -4,7 +4,10 @@
 
 #include "../helper/string_view.h"
 
+#define STBDS_ONLY_MACROS
 #include <stb/ds.h>
+#undef STBDS_ONLY_MACROS
+
 #include <stdint.h>
 
 typedef ConstStrView FinalStr;

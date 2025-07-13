@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stb/ds.h>
 
 [[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
                                          Warnings* warnings) {
