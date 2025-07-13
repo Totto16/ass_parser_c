@@ -54,6 +54,8 @@ lib_inc_dirs = []
 # so that the version of the lib can be differnt than the cli version
 ass_parser_lib_version = '0.0.1'
 
+ass_parser_lib_header_install_dir = 'ass_parser'
+
 subdir('src')
 
 ass_parser_lib = library(
@@ -64,6 +66,19 @@ ass_parser_lib = library(
     c_args: ['-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"'],
     install: true,
     version: ass_parser_lib_version,
+)
+
+pkg = import('pkgconfig')
+
+pkg.generate(
+    ass_parser_lib,
+    description: 'An ass parser library',
+    name: 'ass_parser',
+    filebase: 'ass_parser',
+    subdirs: [
+        ass_parser_lib_header_install_dir / 'public',
+        ass_parser_lib_header_install_dir / 'thirdparty',
+    ],
 )
 
 ass_parser_dep = declare_dependency(
