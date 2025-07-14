@@ -141,7 +141,6 @@ char* get_normalized_string_from_codepoints(Codepoints codepoints) {
 	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);
 
-	uint8_t* current_buffer = buffer;
 	size_t current_size = 0;
 
 	if(!buffer) {
@@ -158,16 +157,17 @@ char* get_normalized_string_from_codepoints(Codepoints codepoints) {
 				free(buffer);
 				return NULL;
 			}
+
+			buffer = new_buffer;
 		}
 
-		long result = utf8proc_encode_char(codepoints.data[i], current_buffer);
+		long result = utf8proc_encode_char(codepoints.data[i], buffer + current_size);
 
 		if(result <= 0) {
 			free(buffer);
 			return NULL;
 		}
 
-		current_buffer = current_buffer + result;
 		current_size = current_size + result;
 	}
 
@@ -179,6 +179,8 @@ char* get_normalized_string_from_codepoints(Codepoints codepoints) {
 			free(buffer);
 			return NULL;
 		}
+
+		buffer = new_buffer;
 	}
 
 	buffer[current_size] = '\0';
