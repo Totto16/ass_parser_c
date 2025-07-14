@@ -544,13 +544,15 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 // global default values, so that they are valid all the time
 
-static FinalStr default_ass_title = {
-	(int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10
-};
+static FinalStr
+    g_default_ass_title = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10
+    };
 
-static FinalStr default_ass_script_name = {
-	(int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9
-};
+static FinalStr
+    g_default_ass_script_name = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9
+    };
 
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
                                                    StrView* data_view, ParseSettings settings,
@@ -768,11 +770,11 @@ static FinalStr default_ass_script_name = {
 
 		if(script_info.title.start == NULL) {
 
-			script_info.title = default_ass_title;
+			script_info.title = g_default_ass_title;
 		}
 
 		if(script_info.original_script.start == NULL) {
-			script_info.original_script = default_ass_script_name;
+			script_info.original_script = g_default_ass_script_name;
 		}
 	}
 
