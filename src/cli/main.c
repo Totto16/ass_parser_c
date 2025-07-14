@@ -339,7 +339,7 @@ int main(int argc, char** argv) {
 	}
 
 	if(is_version_string(command)) {
-		printf("%s\n", ass_parser_lib_version());
+		printf("%s\nCommit: %s\n", ass_parser_lib_version(), ass_parser_lib_commit_hash());
 		return EXIT_SUCCESS;
 	}
 
