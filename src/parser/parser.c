@@ -14,8 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define STATIC_CONST_STR(str) (FinalStr){ .start = (void*)(str), .length = sizeof(str) - 1 }
-
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
 		case ScriptTypeUnknown: return "Unknown";
@@ -544,6 +542,16 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	// end of script info
 }
 
+// global default values, so that they are valid all the time
+
+static FinalStr default_ass_title = {
+	(int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10
+};
+
+static FinalStr default_ass_script_name = {
+	(int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9
+};
+
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
                                                    StrView* data_view, ParseSettings settings,
                                                    LineType line_type, Warnings* warnings) {
@@ -759,13 +767,12 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 		}
 
 		if(script_info.title.start == NULL) {
-#define DEFAULT_ASS_TITLE "<untitled>"
-			script_info.title = STATIC_CONST_STR(DEFAULT_ASS_TITLE);
+
+			script_info.title = default_ass_title;
 		}
 
 		if(script_info.original_script.start == NULL) {
-#define DEFAULT_ASS_SCRIPT_NAME "<unknown>"
-			script_info.original_script = STATIC_CONST_STR(DEFAULT_ASS_SCRIPT_NAME);
+			script_info.original_script = default_ass_script_name;
 		}
 	}
 
