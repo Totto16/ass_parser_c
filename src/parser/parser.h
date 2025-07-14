@@ -172,12 +172,12 @@ typedef struct {
 typedef struct {
 	STBDS_ARRAY(AssEventEntry) entries;
 } AssEvents;
-typedef struct {
-	int todo;
+/* typedef struct {
+    int todo;
 } AssFonts;
 typedef struct {
-	int todo;
-} AssGraphics;
+    int todo;
+} AssGraphics; */
 
 STBDS_HASH_MAP_TYPE(char*, FinalStr, SectionFieldEntry);
 
@@ -209,8 +209,8 @@ typedef struct {
 	AssScriptInfo script_info;
 	AssStyles styles;
 	AssEvents events;
-	AssFonts fonts;
-	AssGraphics graphics;
+	//	AssFonts fonts;
+	//	AssGraphics graphics;
 	ExtraSections extra_sections;
 	FileProps file_props;
 } AssResult;
