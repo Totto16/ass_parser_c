@@ -1,0 +1,4 @@
+[submodule "wrapper/javascript"]
+	path = wrapper/javascript
+	url = https://github.com/Totto16/ass_parser_c_wrapper_js.git
+	ignore = dirty
