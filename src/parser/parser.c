@@ -768,7 +768,7 @@ static FinalStr
 				WarningEntry warning = { .type = WarningTypeSimple,
 					                     .data = { .simple = strdup(error) } };
 
-				stbds_arrput(warnings->entries, warning);
+				stbds_arrput(warnings->entries, warning); // NOLINT(clang-analyzer-unix.Malloc)
 			} else {
 				return STATIC_ERROR(error);
 			}
@@ -985,8 +985,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			}
 			are_at_end = true;
 
-			// TODO: check and parse text value, for invalid escape sequences, and invald values
-			// insed {}, like eg {bogus}, or {\j} etc, or not closed {} blocks
+			// TODO(Totto): check and parse text value, for invalid escape sequences, and invald
+			// values inside {}, like eg {bogus}, or {\j} etc, or not closed {} blocks
 
 		} else {
 			if(!str_view_get_substring_by_char_delimiter(line_view, &value, ',', true)) {
@@ -1395,7 +1395,7 @@ static void free_ass_result(AssResult data) {
 			WarningEntry warning = { .type = WarningTypeSimple,
 				                     .data = { .simple = result_buffer } };
 
-			stbds_arrput(result->warnings.entries, warning);
+			stbds_arrput(result->warnings.entries, warning); // NOLINT(clang-analyzer-unix.Malloc)
 			bom_size = 0;
 			codepoints_result = get_codepoints_from_utf8(data);
 			break;
