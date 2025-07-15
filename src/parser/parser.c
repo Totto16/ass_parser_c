@@ -1085,6 +1085,10 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 		// parse line
 		{
 
+			if(line.length == 0) {
+				continue;
+			}
+
 			StrView line_view = get_str_view_from_const_str_view(line);
 
 			ConstStrView field = {};
