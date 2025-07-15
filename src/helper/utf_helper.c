@@ -8,6 +8,11 @@
 
 CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
+	if(ptr.data == NULL && ptr.len == 0) {
+		return (CodepointsResult){ .has_error = false,
+			                       .data = { .result = (Codepoints){ .size = 0, .data = NULL } } };
+	}
+
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * ptr.len);
 
 	if(!buffer) {
@@ -104,6 +109,11 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 		result_ptr.len = result_ptr.len + result;
 		break;
+	}
+
+	if(result_ptr.len == 0) {
+		free(result_ptr.data);
+		result_ptr.data = NULL;
 	}
 
 	iconv_close(conversion_state);

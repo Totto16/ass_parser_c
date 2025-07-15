@@ -1446,6 +1446,10 @@ static void free_ass_result(AssResult data) {
 
 	Codepoints final_data = codepoints_result.data.result;
 
+	if(final_data.data == NULL && final_data.size == 0) {
+		RETURN_ERROR(STATIC_ERROR("file conversion resulted in empty UTF-8 string"));
+	}
+
 	result->allocated_codepoints = final_data;
 
 	StrView data_view = str_view_from_data(final_data);
