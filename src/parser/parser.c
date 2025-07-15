@@ -512,7 +512,7 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 				if(settings.strict_settings.allow_additional_fields) {
 
 					UnexpectedFieldWarning unexpected_field = { .field = field,
-						                                        .setion = "styles" };
+						                                        .section = "styles" };
 
 					WarningEntry warning = { .type = WarningTypeUnexpectedField,
 						                     .data = { .unexpected_field = unexpected_field } };
@@ -611,7 +611,7 @@ static FinalStr
 					if(settings.strict_settings.script_info.allow_duplicate_fields) {
 
 						DuplicateFieldWarning duplicate_field = { .field = field,
-							                                      .setion = "script info" };
+							                                      .section = "script info" };
 
 						WarningEntry warning = { .type = WarningTypeDuplicateField,
 							                     .data = { .duplicate_field = duplicate_field } };
@@ -696,7 +696,7 @@ static FinalStr
 				if(settings.strict_settings.allow_additional_fields) {
 
 					UnexpectedFieldWarning unexpected_field = { .field = field,
-						                                        .setion = "script info" };
+						                                        .section = "script info" };
 
 					WarningEntry warning = { .type = WarningTypeUnexpectedField,
 						                     .data = { .unexpected_field = unexpected_field } };
@@ -1232,7 +1232,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				if(settings.strict_settings.allow_additional_fields) {
 
 					UnexpectedFieldWarning unexpected_field = { .field = field,
-						                                        .setion = "events" };
+						                                        .section = "events" };
 
 					WarningEntry warning = { .type = WarningTypeUnexpectedField,
 						                     .data = { .unexpected_field = unexpected_field } };

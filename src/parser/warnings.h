@@ -32,12 +32,12 @@ typedef enum : uint8_t {
 } WarningType;
 
 typedef struct {
-	const char* setion;
+	const char* section;
 	FinalStr field;
 } UnexpectedFieldWarning;
 
 typedef struct {
-	const char* setion;
+	const char* section;
 	FinalStr field;
 } DuplicateFieldWarning;
 
