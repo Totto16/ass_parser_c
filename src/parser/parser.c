@@ -615,7 +615,7 @@ static FinalStr
 					if(settings.strict_settings.script_info.allow_duplicate_fields) {
 
 						DuplicateFieldWarning duplicate_field = { .field = field,
-							                                      .section = "script info 1" };
+							                                      .section = "script info" };
 
 						WarningEntry warning = { .type = WarningTypeDuplicateField,
 							                     .data = { .duplicate_field = duplicate_field } };
@@ -702,7 +702,7 @@ static FinalStr
 				if(settings.strict_settings.allow_additional_fields) {
 
 					UnexpectedFieldWarning unexpected_field = { .field = field,
-						                                        .section = "script info 2" };
+						                                        .section = "script info" };
 
 					WarningEntry warning = { .type = WarningTypeUnexpectedField,
 						                     .data = { .unexpected_field = unexpected_field } };
