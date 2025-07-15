@@ -131,7 +131,9 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 }
 
 void free_codepoints(Codepoints data) {
-	free(data.data);
+	if(data.data != NULL) {
+		free(data.data);
+	}
 }
 
 #define CHUNK_SIZE_NORMALIZE 256

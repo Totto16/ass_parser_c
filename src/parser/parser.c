@@ -1349,6 +1349,7 @@ static void free_ass_result(AssResult data) {
 	}
 
 	result->warnings = (Warnings){ .entries = STBDS_ARRAY_EMPTY };
+	result->allocated_codepoints = (Codepoints){ .data = NULL, .size = 0 };
 
 	SizedPtr data = get_data_from_source(source);
 
