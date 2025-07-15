@@ -108,18 +108,14 @@ typedef enum : uint8_t {
 	}
 }
 
-typedef struct {
-	AssResult public_struct;
-	Codepoints allocated_codepoints;
-} AssResultImpl;
-
 struct AssParseResultImpl {
 	bool is_error;
 	union {
 		ErrorStruct error;
-		AssResultImpl ok;
+		AssResult ok;
 	} data;
 	Warnings warnings;
+	Codepoints allocated_codepoints;
 };
 
 [[nodiscard]] static SizedPtr get_data_from_source(AssSource source) {
@@ -611,7 +607,7 @@ static FinalStr
 					if(settings.strict_settings.script_info.allow_duplicate_fields) {
 
 						DuplicateFieldWarning duplicate_field = { .field = field,
-							                                      .section = "script info" };
+							                                      .section = "script info 1" };
 
 						WarningEntry warning = { .type = WarningTypeDuplicateField,
 							                     .data = { .duplicate_field = duplicate_field } };
@@ -696,7 +692,7 @@ static FinalStr
 				if(settings.strict_settings.allow_additional_fields) {
 
 					UnexpectedFieldWarning unexpected_field = { .field = field,
-						                                        .section = "script info" };
+						                                        .section = "script info 2" };
 
 					WarningEntry warning = { .type = WarningTypeUnexpectedField,
 						                     .data = { .unexpected_field = unexpected_field } };
@@ -1328,11 +1324,6 @@ static void free_ass_result(AssResult data) {
 	free_extra_sections(data.extra_sections);
 }
 
-static void free_ass_result_impl(AssResultImpl data) {
-	free_codepoints(data.allocated_codepoints);
-	free_ass_result(data.public_struct);
-}
-
 #define FREE_AT_END() \
 	do { \
 	} while(false)
@@ -1433,11 +1424,7 @@ static void free_ass_result_impl(AssResultImpl data) {
 
 	Codepoints final_data = codepoints_result.data.result;
 
-#undef FREE_AT_END
-#define FREE_AT_END() \
-	do { \
-		free_codepoints(final_data); \
-	} while(false)
+	result->allocated_codepoints = final_data;
 
 	StrView data_view = str_view_from_data(final_data);
 
@@ -1469,22 +1456,17 @@ static void free_ass_result_impl(AssResultImpl data) {
 		RETURN_ERROR(STATIC_ERROR("expected newline"));
 	}
 
-	AssResultImpl ass_result = {
-		.allocated_codepoints = final_data,
-		.public_struct =
-		    (AssResult){ .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY },
-		                 .file_props = { .file_type = file_type, .line_type = line_type } }
-	};
+	AssResult ass_result = { .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY },
+		                     .file_props = { .file_type = file_type, .line_type = line_type } };
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
 	do { \
-		free_ass_result_impl(ass_result); \
+		free_ass_result(ass_result); \
 	} while(false)
 
-	ErrorStruct script_info_parse_result =
-	    parse_script_info(&(ass_result.public_struct.script_info), &data_view, settings, line_type,
-	                      &(result->warnings));
+	ErrorStruct script_info_parse_result = parse_script_info(
+	    &(ass_result.script_info), &data_view, settings, line_type, &(result->warnings));
 
 	if(script_info_parse_result.message != NULL) {
 		RETURN_ERROR(script_info_parse_result);
@@ -1507,9 +1489,8 @@ static void free_ass_result_impl(AssResultImpl data) {
 			RETURN_ERROR(STATIC_ERROR("no newline after section name"));
 		}
 
-		ErrorStruct section_parse_result =
-		    get_section_by_name(section_name, &ass_result.public_struct, &data_view, settings,
-		                        line_type, &(result->warnings));
+		ErrorStruct section_parse_result = get_section_by_name(
+		    section_name, &ass_result, &data_view, settings, line_type, &(result->warnings));
 
 		if(section_parse_result.message != NULL) {
 			RETURN_ERROR(section_parse_result);
@@ -1548,17 +1529,18 @@ static void free_ass_result_impl(AssResultImpl data) {
 }
 
 [[nodiscard]] AssResult parse_result_get_value(AssParseResult* result) {
-	return result->data.ok.public_struct;
+	return result->data.ok;
 }
 
 void free_parse_result(AssParseResult* result) {
 	if(!result->is_error) {
-		free_ass_result_impl(result->data.ok);
+		free_ass_result(result->data.ok);
 	} else {
 		free_error_struct(result->data.error);
 	}
 
 	free_warnings(result->warnings);
+	free_codepoints(result->allocated_codepoints);
 
 	free(result);
 }
