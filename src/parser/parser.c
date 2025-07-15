@@ -550,6 +550,11 @@ static FinalStr
 	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9
     };
 
+#define FREE_AT_END() \
+	do { \
+		stbds_arrfree(field_names); \
+	} while(false)
+
 [[nodiscard]] static ErrorStruct parse_script_info(AssScriptInfo* script_info_result,
                                                    StrView* data_view, ParseSettings settings,
                                                    LineType line_type, Warnings* warnings) {
@@ -564,6 +569,7 @@ static FinalStr
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			FREE_AT_END();
 			return STATIC_ERROR("implementation error");
 		}
 
@@ -582,6 +588,7 @@ static FinalStr
 
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
+				FREE_AT_END();
 				return STATIC_ERROR(
 				    "end of line before ':' in line parsing in script info section");
 			}
@@ -597,6 +604,7 @@ static FinalStr
 					char* field_name = get_normalized_string(field);
 
 					if(!field_name) {
+						FREE_AT_END();
 						return STATIC_ERROR("allocation error");
 					}
 
@@ -619,8 +627,8 @@ static FinalStr
 						break;
 					}
 
-					stbds_arrfree(field_names);
 					free(field_name);
+					FREE_AT_END();
 					return DYNAMIC_ERROR(result_buffer);
 				}
 			}
@@ -630,6 +638,7 @@ static FinalStr
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
+				FREE_AT_END();
 				return STATIC_ERROR("skip whitespace error");
 			}
 
@@ -682,6 +691,7 @@ static FinalStr
 				char* field_name = get_normalized_string(field);
 
 				if(!field_name) {
+					FREE_AT_END();
 					return STATIC_ERROR("allocation error");
 				}
 
@@ -705,6 +715,7 @@ static FinalStr
 				}
 
 				free(field_name);
+				FREE_AT_END();
 				return DYNAMIC_ERROR(result_buffer);
 			}
 
@@ -713,12 +724,14 @@ static FinalStr
 				char* field_name = get_normalized_string(field);
 
 				if(!field_name) {
+					FREE_AT_END();
 					return STATIC_ERROR("allocation error");
 				}
 
 				char* value_name = get_normalized_string(value);
 
 				if(!value_name) {
+					FREE_AT_END();
 					return STATIC_ERROR("allocation error");
 				}
 
@@ -730,6 +743,7 @@ static FinalStr
 				free_error_struct(error);
 				free(field_name);
 				free(value_name);
+				FREE_AT_END();
 				return DYNAMIC_ERROR(result_buffer);
 			}
 		}
@@ -740,6 +754,9 @@ static FinalStr
 			break;
 		}
 	}
+
+	stbds_arrfree(field_names);
+#undef FREE_AT_END
 
 	// check script info
 	{
