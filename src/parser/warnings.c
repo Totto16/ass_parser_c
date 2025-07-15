@@ -3,8 +3,8 @@
 
 #include "../helper/macros.h"
 
-#include <stdio.h>
 #include <stb/ds.h>
+#include <stdio.h>
 
 void free_error_struct(ErrorStruct error) {
 	if(error.dynamic) {
@@ -61,6 +61,8 @@ ErrorStruct get_warnings_message_from_entry(WarningEntry entry) {
 			FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field '%s' in '%s' section",
 			                      field_name, data.section);
 
+			free(field_name);
+
 			return DYNAMIC_ERROR(result_buffer);
 		}
 		case WarningTypeDuplicateField: {
@@ -76,6 +78,8 @@ ErrorStruct get_warnings_message_from_entry(WarningEntry entry) {
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "duplicate field '%s' in '%s' section",
 			                      field_name, data.section);
+
+			free(field_name);
 
 			return DYNAMIC_ERROR(result_buffer);
 		}
