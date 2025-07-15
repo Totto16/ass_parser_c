@@ -8,8 +8,8 @@
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
 #include <math.h>
-#include <stdio.h>
 #include <stb/ds.h>
+#include <stdio.h>
 
 [[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
                                          Warnings* warnings) {
