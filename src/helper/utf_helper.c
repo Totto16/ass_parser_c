@@ -107,7 +107,9 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 			}
 		}
 
-		result_ptr.len = result_ptr.len + result;
+		size_t added_size = result == 0 ? (CHUNK_SIZE_CONVERSION - outbytesleft) : result;
+
+		result_ptr.len = result_ptr.len + added_size;
 		break;
 	}
 
