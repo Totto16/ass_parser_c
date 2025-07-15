@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '0.0.2',
+    version: '0.0.3',
 )
 
 deps = []
@@ -51,8 +51,8 @@ cli_files = []
 inc_dirs = []
 lib_inc_dirs = []
 
-# so that the version of the lib can be differnt than the cli version
-ass_parser_lib_version = '0.0.2'
+# so that the version of the lib can be different than the cli version
+ass_parser_lib_version = '0.0.3'
 
 ass_parser_lib_header_install_dir = 'ass_parser'
 
