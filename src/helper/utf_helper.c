@@ -70,8 +70,10 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 		if(result == (size_t)(-1)) {
 			if(errno == EILSEQ) {
 				iconv_close(conversion_state);
+				free(result_ptr.data);
 				return ptr_error("invalid byte sequence detected, while converting");
 			} else if(errno == EINVAL) {
+				free(result_ptr.data);
 				iconv_close(conversion_state);
 				return ptr_error("byte sequence terminated too early, while converting");
 			} else if(errno == E2BIG) {
@@ -84,6 +86,7 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 				if(!new_buffer) {
 					iconv_close(conversion_state);
+					free(result_ptr.data);
 					return ptr_error("realloc error");
 				}
 
@@ -94,6 +97,7 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 			} else {
 				iconv_close(conversion_state);
+				free(result_ptr.data);
 				return ptr_error("unknown error occurred, while converting");
 			}
 		}
