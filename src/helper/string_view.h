@@ -35,6 +35,9 @@ typedef enum : uint8_t {
 
 [[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str);
 
+[[nodiscard]] bool str_view_eq_ascii_case_insensitive(ConstStrView const_str_view,
+                                                      const char* ascii_str);
+
 [[nodiscard]] bool str_view_eq_str_view(ConstStrView const_str_view1, ConstStrView const_str_view2);
 
 [[nodiscard]] bool str_view_is_eof(StrView str_view);

@@ -3,6 +3,7 @@
 #include "./string_view.h"
 #include "./macros.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <utf8proc.h>
@@ -22,14 +23,29 @@
 	return true;
 }
 
-[[nodiscard]] static inline bool is_utf8_char_eq_to_ascii_char(int32_t utf8_char, char ascii_char) {
+[[nodiscard]] static bool is_utf8_char_eq_to_ascii_char(int32_t utf8_char, char ascii_char) {
 	// ascii_char is coneverted to unsigned char, so that no sign extension can occur (since
 	// everything is casted to int, before doing a comparison)
 	return utf8_char == (unsigned char)ascii_char;
 }
 
+#define ASCII_MAX_NUMBER 0x80
+
+[[nodiscard]] static bool is_utf8_char_eq_to_ascii_char_case_insensitive(int32_t utf8_char,
+                                                                         char ascii_char) {
+
+	if(utf8_char >= ASCII_MAX_NUMBER) {
+		return false;
+	}
+
+	return tolower((char)utf8_char) == tolower(ascii_char);
+}
+
+typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
+
 [[nodiscard]] static bool str_view_starts_with_ascii_sized(StrView str_view, const char* ascii_str,
-                                                           size_t ascii_length) {
+                                                           size_t ascii_length,
+                                                           CharCompareFn compare_fn) {
 
 	if(ascii_length + str_view.offset > str_view.length) {
 		return false;
@@ -37,7 +53,7 @@
 
 	for(size_t i = 0; i < ascii_length; ++i) {
 
-		if(!is_utf8_char_eq_to_ascii_char(str_view.start[str_view.offset + i], ascii_str[i])) {
+		if(!compare_fn(str_view.start[str_view.offset + i], ascii_str[i])) {
 			return false;
 		}
 	}
@@ -49,14 +65,16 @@
 
 	size_t ascii_length = strlen(ascii_str);
 
-	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
+	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
+	                                        is_utf8_char_eq_to_ascii_char);
 }
 
 [[nodiscard]] bool str_view_expect_ascii(StrView* str_view, const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
-	if(!str_view_starts_with_ascii_sized(*str_view, ascii_str, ascii_length)) {
+	if(!str_view_starts_with_ascii_sized(*str_view, ascii_str, ascii_length,
+	                                     is_utf8_char_eq_to_ascii_char)) {
 		return false;
 	}
 
@@ -131,7 +149,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	return (StrView){ .offset = 0, .length = input.length, .start = input.start };
 }
 
-[[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str) {
+[[nodiscard]] bool str_view_eq_ascii_case_insensitive(ConstStrView const_str_view,
+                                                      const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
@@ -141,7 +160,21 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	StrView str_view = get_str_view_from_const_str_view(const_str_view);
 
-	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length);
+	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
+	                                        is_utf8_char_eq_to_ascii_char_case_insensitive);
+}
+
+[[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str) {
+	size_t ascii_length = strlen(ascii_str);
+
+	if(const_str_view.length != ascii_length) {
+		return false;
+	}
+
+	StrView str_view = get_str_view_from_const_str_view(const_str_view);
+
+	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
+	                                        is_utf8_char_eq_to_ascii_char);
 }
 
 [[nodiscard]] bool str_view_eq_str_view(ConstStrView const_str_view1,

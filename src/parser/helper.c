@@ -161,12 +161,12 @@
 
 [[nodiscard]] bool parse_str_as_str_bool(ConstStrView value, ErrorStruct* error_ptr) {
 
-	if(str_view_eq_ascii(value, "yes")) {
+	if(str_view_eq_ascii_case_insensitive(value, "yes")) {
 		*error_ptr = NO_ERROR();
 		return true;
 	}
 
-	if(str_view_eq_ascii(value, "no")) {
+	if(str_view_eq_ascii_case_insensitive(value, "no")) {
 		*error_ptr = NO_ERROR();
 		return false;
 	}
