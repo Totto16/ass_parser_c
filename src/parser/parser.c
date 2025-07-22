@@ -658,8 +658,11 @@ static FinalStr
 				script_info.original_timing = value;
 			} else if(str_view_eq_ascii(field, "Synch Point")) {
 				script_info.synch_point = value;
+			} else if(str_view_eq_ascii(field, "Script Updated By")) {
+				script_info.script_updated_by = value;
 			} else if(str_view_eq_ascii(field, "Update Details")) {
 				script_info.update_details = value;
+				// TODO: this is only allowed in non strict mode
 			} else if(str_view_eq_ascii(field, "ScriptType") ||
 			          str_view_eq_ascii(field, "Script Type")) {
 				script_info.script_type = parse_str_as_script_type(value, &error);
