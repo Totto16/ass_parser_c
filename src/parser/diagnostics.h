@@ -64,4 +64,4 @@ typedef struct {
 
 void free_diagnostics(Diagnostics diagnostics);
 
-[[nodiscard]] MessageStruct get_message_from_entry(DiagnosticEntry entry);
+[[nodiscard]] MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_file);

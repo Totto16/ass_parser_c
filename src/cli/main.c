@@ -166,12 +166,16 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	const char* file = argv[0];
 
+	const char* source_file = NULL;
+
 	if(strcmp(file, "-") == 0) {
 		source.type = AssSourceTypeStr;
 		source.data.str = read_entire_stdin();
+		source_file = NULL;
 	} else {
 		source.type = AssSourceTypeFile;
 		source.data.file = file;
+		source_file = file;
 	}
 
 	ParseSettings settings = { .strict_settings =
@@ -297,7 +301,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	for(size_t i = 0; i < diagnostics_length; ++i) {
 		DiagnosticEntry entry = diagnostics.entries[i];
 
-		MessageStruct message = get_message_from_entry(entry);
+		MessageStruct message = get_message_from_entry(entry, source_file);
 
 		switch(entry.severity) {
 			case DiagnosticSeverityWarning: {

@@ -138,7 +138,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
                                                               void* data_ptr, bool allow_eof) {
 
 	size_t size = 0;
-	bool got_delimter = false;
+	bool got_delimiter = false;
 
 	for(size_t i = 0;; ++i) {
 		if(str_view->position.offset + i >= str_view->length) {
@@ -153,7 +153,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 		if(delimit_fn(current_codepoint, data_ptr)) {
 			size = i;
-			got_delimter = true;
+			got_delimiter = true;
 			break;
 		}
 	}
@@ -163,7 +163,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
 		                          .column = str_view->position.file_pos.column };
 
-	str_view_advance_unchecked(str_view, size + (got_delimter ? 1 : 0));
+	str_view_advance_unchecked(str_view, size + (got_delimiter ? 1 : 0));
 	return true;
 }
 
@@ -358,7 +358,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	const char line_characters[LINE_CHARACTER_SIZE] = LINE_ENDING_CRLF;
 
 	size_t size = 0;
-	bool got_delimter = false;
+	bool got_delimiter = false;
 
 	for(size_t i = 0;; ++i) {
 		if(str_view->position.offset + i >= str_view->length) {
@@ -386,7 +386,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 				return false;
 			}
 
-			got_delimter = true;
+			got_delimiter = true;
 			break;
 		}
 	}
@@ -396,7 +396,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
 		                          .column = str_view->position.file_pos.column };
 
-	str_view_advance_unchecked(str_view, size + (got_delimter ? LINE_CHARACTER_SIZE : 0));
+	str_view_advance_unchecked(str_view, size + (got_delimiter ? LINE_CHARACTER_SIZE : 0));
 	str_view_advance_line_count(str_view);
 
 	return true;

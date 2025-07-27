@@ -43,16 +43,20 @@ void free_diagnostics(Diagnostics diagnostics) {
 
 #define LINE_FORMAT "%zu:%zu"
 
-#define FORMAT_LINE_FMT_EXPAND(pos) pos.line, pos.column
+#define FILE_FORMAT "%s:"
 
-MessageStruct get_message_from_entry(DiagnosticEntry entry) {
+#define FORMAT_LINE_FMT_EXPAND_POS(pos) ((pos).line + 1), ((pos).column + 1)
+
+MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_file) {
+
+	const char* source_file_value = source_file == NULL ? "<unknown file>" : source_file;
 
 	switch(entry.type) {
 		case DiagnosticTypeSimple: {
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, LINE_FORMAT ": %s",
-			                      FORMAT_LINE_FMT_EXPAND(entry.position),
+			FORMAT_STRING_DEFAULT(&result_buffer, FILE_FORMAT LINE_FORMAT ": %s", source_file_value,
+			                      FORMAT_LINE_FMT_EXPAND_POS(entry.position),
 			                      entry.data.simple.message);
 
 			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
@@ -69,8 +73,9 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      LINE_FORMAT ": unexpected field '%s' in '%s' section",
-			                      FORMAT_LINE_FMT_EXPAND(entry.position), field_name, data.section);
+			                      FILE_FORMAT LINE_FORMAT ": unexpected field '%s' in '%s' section",
+			                      source_file_value, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			                      field_name, data.section);
 
 			free(field_name);
 
@@ -88,8 +93,9 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      LINE_FORMAT "duplicate field '%s' in '%s' section",
-			                      FORMAT_LINE_FMT_EXPAND(entry.position), field_name, data.section);
+			                      FILE_FORMAT LINE_FORMAT ": duplicate field '%s' in '%s' section",
+			                      source_file_value, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			                      field_name, data.section);
 
 			free(field_name);
 
