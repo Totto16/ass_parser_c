@@ -43,6 +43,8 @@ void log_unlock_mutex(void);
 
 [[nodiscard]] bool log_should_use_color(void);
 
+[[nodiscard]] bool log_should_use_thread_name(void);
+
 [[nodiscard]] bool has_flag(int flags, LogFlags needle);
 
 typedef struct {
@@ -60,14 +62,17 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 		if(should_log(level)) { \
 			bool should_use_color = log_should_use_color(); \
 			const char* level_name = get_level_name_internal(level, should_use_color); \
-			const char* thread_name = get_thread_name(); \
+			bool should_use_thread_name = log_should_use_thread_name(); \
 			log_lock_mutex(); \
 			FILE* file_stream = should_log_to_stderr(level) ? stderr : stdout; \
 			fprintf(file_stream, "[%s] ", level_name); \
-			if(should_use_color) { \
-				fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
-			} else { \
-				fprintf(file_stream, "[%s] ", thread_name); \
+			if(should_use_thread_name) { \
+				const char* thread_name = get_thread_name(); \
+				if(should_use_color) { \
+					fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
+				} else { \
+					fprintf(file_stream, "[%s] ", thread_name); \
+				} \
 			} \
 			if(has_flag(flags, LogPrintLocation)) { \
 				fprintf(file_stream, "[%s %s:%d] ", __func__, __FILE__, __LINE__); \
@@ -82,7 +87,7 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 // everybody can use them
 
 // NOT thread safe
-void initialize_logger(void);
+void initialize_logger(bool use_thread_name);
 
 // NOT thread safe
 void set_log_level(LogLevel level);

@@ -19,11 +19,13 @@
 typedef struct {
 	LogLevel log_level;
 	pthread_mutex_t mutex;
+	bool use_thread_name;
 } GlobalLogState;
 
 static GlobalLogState
     g_global_value_log_entry = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    .log_level = DEFAULT_LOG_LEVEL
+	    .log_level = DEFAULT_LOG_LEVEL,
+	    .use_thread_name = true
     };
 
 // thread state
@@ -51,6 +53,11 @@ bool should_log_to_stderr(LogLevel level) {
 
 bool log_should_use_color(void) {
 	return isatty(STDIN_FILENO) != 0;
+}
+
+// this expected the lock to be acquired
+bool log_should_use_thread_name(void) {
+	return g_global_value_log_entry.use_thread_name;
 }
 
 bool has_flag(int flags, LogFlags needle) {
@@ -164,8 +171,9 @@ void log_unlock_mutex(void) {
 	}
 }
 
-void initialize_logger(void) {
+void initialize_logger(bool use_thread_name) {
 	g_global_value_log_entry.log_level = DEFAULT_LOG_LEVEL;
+	g_global_value_log_entry.use_thread_name = use_thread_name;
 
 	int result = pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
 	if(result != 0) {

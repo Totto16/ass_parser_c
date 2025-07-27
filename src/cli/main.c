@@ -277,11 +277,9 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		}
 	}
 
-	initialize_logger();
+	initialize_logger(false);
 
 	set_log_level(log_level);
-
-	set_thread_name("main thread");
 
 	AssParseResult* result = parse_ass(source, settings);
 
