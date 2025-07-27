@@ -384,6 +384,11 @@
 			return time;
 		}
 
+		if(num >= 24) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, hour value to large");
+			return time;
+		}
+
 		time.hour = (uint8_t)num;
 
 		if(!str_view_expect_ascii(&value_view, ":")) {
@@ -407,6 +412,11 @@
 			return time;
 		}
 
+		if(num >= 60) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, minute value to large");
+			return time;
+		}
+
 		time.min = (uint8_t)num;
 
 		if(!str_view_expect_ascii(&value_view, ":")) {
@@ -427,6 +437,11 @@
 		size_t num = parse_str_as_unsigned_number(sec_str, message_ptr, diagnostics);
 
 		if(message_ptr->message != NULL) {
+			return time;
+		}
+
+		if(num >= 60) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, seconds value to large");
 			return time;
 		}
 
@@ -454,6 +469,11 @@
 		size_t num = parse_str_as_unsigned_number(hundred_str, message_ptr, diagnostics);
 
 		if(message_ptr->message != NULL) {
+			return time;
+		}
+
+		if(num >= 100) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, hundred value to large");
 			return time;
 		}
 
