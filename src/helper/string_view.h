@@ -5,14 +5,25 @@
 #include "./utf_helper.h"
 
 typedef struct {
-	int32_t* start;
+	size_t line;
+	size_t column;
+} FilePos;
+
+typedef struct {
 	size_t offset;
+	FilePos file_pos;
+} StrViewPos;
+
+typedef struct {
+	int32_t* start;
 	size_t length;
+	StrViewPos position;
 } StrView;
 
 typedef struct {
 	int32_t* start;
 	size_t length;
+	FilePos file_pos;
 } ConstStrView;
 
 typedef enum : uint8_t {
@@ -20,6 +31,10 @@ typedef enum : uint8_t {
 	LineTypeLf,
 	LineTypeCr,
 } LineType;
+
+#define NO_LINE_TYPE ((LineType)LineTypeCr)
+
+#define NO_POS() ((FilePos){ .line = 0, .column = 0 })
 
 [[nodiscard]] StrView str_view_from_data(Codepoints data);
 
@@ -42,7 +57,8 @@ typedef enum : uint8_t {
 
 [[nodiscard]] bool str_view_is_eof(StrView str_view);
 
-[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result);
+[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result,
+                                                    bool process_newlines, LineType line_type);
 
 [[nodiscard]] bool str_view_skip_optional_whitespace(StrView* str_view);
 

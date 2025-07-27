@@ -54,7 +54,7 @@
 	}
 
 	ConstStrView suffix = {};
-	if(!str_view_get_substring_until_eof(&value_view, &suffix)) {
+	if(!str_view_get_substring_until_eof(&value_view, &suffix, false, NO_LINE_TYPE)) {
 		*message_ptr = STATIC_MESSAGE_STRUCT("implementation error");
 		return 0.0;
 	}
@@ -111,7 +111,8 @@
 
 						DiagnosticEntry warning = { .type = DiagnosticTypeSimple,
 							                        .data = { .simple = DYNAMIC_MESSAGE_STRUCT(
-							                                      result_buffer) } };
+							                                      result_buffer) },
+							                        .position = value.file_pos };
 
 						stbds_arrput(diagnostics->entries, warning);
 
@@ -198,7 +199,7 @@
 
 		for(size_t j = 0; j < 2; ++j) {
 
-			int32_t current_codepoint = value_view.start[value_view.offset + (i * 2) + j];
+			int32_t current_codepoint = value_view.start[value_view.position.offset + (i * 2) + j];
 
 			uint8_t current_value = 0;
 

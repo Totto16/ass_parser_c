@@ -513,7 +513,8 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
 						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning };
+						                           .severity = DiagnosticSeverityWarning,
+						                           .position = field.file_pos };
 
 					stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -544,12 +545,12 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 static FinalStr
     g_default_ass_title = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10
+	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10, .file_pos = NO_POS()
     };
 
 static FinalStr
     g_default_ass_script_name = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9
+	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9, .file_pos = NO_POS()
     };
 
 #define FREE_AT_END() \
@@ -622,7 +623,8 @@ static FinalStr
 						DiagnosticEntry diagnostic = { .type = DiagnosticTypeDuplicateField,
 							                           .data = { .duplicate_field =
 							                                         duplicate_field },
-							                           .severity = DiagnosticSeverityWarning };
+							                           .severity = DiagnosticSeverityWarning,
+							                           .position = field.file_pos };
 
 						stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -713,7 +715,8 @@ static FinalStr
 
 					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
 						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning };
+						                           .severity = DiagnosticSeverityWarning,
+						                           .position = field.file_pos };
 
 					stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -775,7 +778,8 @@ static FinalStr
 			if(settings.strict_settings.script_info.allow_missing_script_type) {
 				DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple,
 					                           .data = { .simple = STATIC_MESSAGE_STRUCT(error) },
-					                           .severity = DiagnosticSeverityWarning };
+					                           .severity = DiagnosticSeverityWarning,
+					                           .position = data_view->position.file_pos };
 
 				stbds_arrput(diagnostics->entries,
 				             diagnostic); // NOLINT(clang-analyzer-unix.Malloc)
@@ -868,7 +872,7 @@ static FinalStr
 
 			ConstStrView key = {};
 
-			if(!str_view_get_substring_until_eof(&line_view, &key)) {
+			if(!str_view_get_substring_until_eof(&line_view, &key, false, NO_LINE_TYPE)) {
 				return STATIC_MESSAGE_STRUCT("eof error");
 			}
 
@@ -992,7 +996,7 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 				    "'Text' field of event lines may only occur at the last position!");
 			}
 
-			if(!str_view_get_substring_until_eof(line_view, &value)) {
+			if(!str_view_get_substring_until_eof(line_view, &value, false, NO_LINE_TYPE)) {
 				return STATIC_MESSAGE_STRUCT("eof before comma in events section event line");
 			}
 			are_at_end = true;
@@ -1266,7 +1270,8 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
 						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning };
+						                           .severity = DiagnosticSeverityWarning,
+						                           .position = field.file_pos };
 
 					stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -1363,16 +1368,21 @@ static void free_ass_result(AssResult data) {
 	do { \
 	} while(false)
 
-#define RETURN_ERROR(err) \
+#define RETURN_ERROR_IMPL(err, pos) \
 	do { \
 		FREE_AT_END(); \
 		DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple, \
 			                           .data = { .simple = (err) }, \
-			                           .severity = DiagnosticSeverityError }; \
+			                           .severity = DiagnosticSeverityError, \
+			                           .position = (pos) }; \
 		stbds_arrput(result->diagnostics.entries, diagnostic); \
 		result->is_error = true; \
 		return result; \
 	} while(false)
+
+#define RETURN_ERROR(err) RETURN_ERROR_IMPL(err, data_view.position.file_pos)
+
+#define RETURN_ERROR_AT_START(err) RETURN_ERROR_IMPL(err, NO_POS())
 
 [[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings) {
 
@@ -1388,7 +1398,7 @@ static void free_ass_result(AssResult data) {
 	SizedPtr data = get_data_from_source(source);
 
 	if(is_ptr_error(data)) {
-		RETURN_ERROR(STATIC_MESSAGE_STRUCT(ptr_get_error(data)));
+		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(ptr_get_error(data)));
 	}
 
 	FileType file_type = determine_file_type(data);
@@ -1402,7 +1412,7 @@ static void free_ass_result(AssResult data) {
 			const char* error = "unrecognized file type, no BOM present";
 
 			if(!settings.strict_settings.allow_unrecognized_file_encoding) {
-				RETURN_ERROR(STATIC_MESSAGE_STRUCT(error));
+				RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(error));
 			}
 
 			char* result_buffer = NULL;
@@ -1412,7 +1422,8 @@ static void free_ass_result(AssResult data) {
 			DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple,
 				                           .data = { .simple =
 				                                         DYNAMIC_MESSAGE_STRUCT(result_buffer) },
-				                           .severity = DiagnosticSeverityWarning };
+				                           .severity = DiagnosticSeverityWarning,
+				                           .position = NO_POS() };
 
 			stbds_arrput(result->diagnostics.entries,
 			             diagnostic); // NOLINT(clang-analyzer-unix.Malloc)
@@ -1454,20 +1465,21 @@ static void free_ass_result(AssResult data) {
 			                      "only UTF-8 encoded files supported atm, but got: %s",
 			                      get_file_type_name(file_type));
 
-			RETURN_ERROR(DYNAMIC_MESSAGE_STRUCT(result_buffer));
+			RETURN_ERROR_AT_START(DYNAMIC_MESSAGE_STRUCT(result_buffer));
 		}
 	}
 
 	free_sized_ptr(data);
 
 	if(codepoints_result.has_error) {
-		RETURN_ERROR(STATIC_MESSAGE_STRUCT(codepoints_result.data.error));
+		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(codepoints_result.data.error));
 	}
 
 	Codepoints final_data = codepoints_result.data.result;
 
 	if(final_data.data == NULL && final_data.size == 0) {
-		RETURN_ERROR(STATIC_MESSAGE_STRUCT("file conversion resulted in empty UTF-8 string"));
+		RETURN_ERROR_AT_START(
+		    STATIC_MESSAGE_STRUCT("file conversion resulted in empty UTF-8 string"));
 	}
 
 	result->allocated_codepoints = final_data;
@@ -1477,7 +1489,7 @@ static void free_ass_result(AssResult data) {
 	if(bom_size > 0) {
 		// NOTE: the bom byte is always just one codepoint
 		if(!str_view_advance(&data_view, bom_size)) {
-			RETURN_ERROR(STATIC_MESSAGE_STRUCT("couldn't skip bom bytes"));
+			RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT("couldn't skip bom bytes"));
 		}
 	}
 
@@ -1489,7 +1501,7 @@ static void free_ass_result(AssResult data) {
 	LineType line_type = get_line_type(line_type_view, &line_type_error);
 
 	if(line_type_error != NULL) {
-		RETURN_ERROR(DYNAMIC_MESSAGE_STRUCT(line_type_error));
+		RETURN_ERROR_AT_START(DYNAMIC_MESSAGE_STRUCT(line_type_error));
 	}
 
 	// parse script info
@@ -1553,6 +1565,9 @@ static void free_ass_result(AssResult data) {
 }
 
 #undef FREE_AT_END
+#undef RETURN_ERROR_IMPL
+#undef RETURN_ERROR_AT_START
+#undef RETURN_ERROR
 
 [[nodiscard]] Diagnostics get_diagnostics_from_result(AssParseResult* result) {
 	return result->diagnostics;

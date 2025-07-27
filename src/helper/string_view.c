@@ -9,16 +9,25 @@
 #include <utf8proc.h>
 
 [[nodiscard]] StrView str_view_from_data(Codepoints data) {
-	return (StrView){ .start = data.data, .offset = 0, .length = data.size };
+	return (StrView){ .start = data.data,
+		              .length = data.size,
+		              .position = (StrViewPos){ .offset = 0,
+		                                        .file_pos = (FilePos){ .column = 0, .line = 0 } } };
+}
+
+inline static void str_view_advance_unchecked(StrView* str_view, size_t len) {
+
+	str_view->position.offset += len;
+	str_view->position.file_pos.column += len;
 }
 
 [[nodiscard]] bool str_view_advance(StrView* str_view, size_t len) {
 
-	if(str_view->offset + len > str_view->length) {
+	if(str_view->position.offset + len > str_view->length) {
 		return false;
 	}
 
-	str_view->offset = str_view->offset + len;
+	str_view_advance_unchecked(str_view, len);
 
 	return true;
 }
@@ -47,13 +56,13 @@ typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
                                                            size_t ascii_length,
                                                            CharCompareFn compare_fn) {
 
-	if(ascii_length + str_view.offset > str_view.length) {
+	if(ascii_length + str_view.position.offset > str_view.length) {
 		return false;
 	}
 
 	for(size_t i = 0; i < ascii_length; ++i) {
 
-		if(!compare_fn(str_view.start[str_view.offset + i], ascii_str[i])) {
+		if(!compare_fn(str_view.start[str_view.position.offset + i], ascii_str[i])) {
 			return false;
 		}
 	}
@@ -96,11 +105,22 @@ typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
 	}
 }
 
+inline static void str_view_advance_line_count(StrView* str_view) {
+	str_view->position.file_pos.column++;
+	str_view->position.file_pos.column = 0;
+}
+
 [[nodiscard]] bool str_view_expect_newline(StrView* str_view, LineType line_type) {
 
 	const char* to_compare = get_str_for_linetype(line_type);
 
-	return str_view_expect_ascii(str_view, to_compare);
+	bool result = str_view_expect_ascii(str_view, to_compare);
+
+	if(result) {
+		str_view_advance_line_count(str_view);
+	}
+
+	return result;
 }
 
 [[nodiscard]] static bool char_delimiter(int32_t code_point, void* data_ptr) {
@@ -121,7 +141,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	bool got_delimter = false;
 
 	for(size_t i = 0;; ++i) {
-		if(str_view->offset + i >= str_view->length) {
+		if(str_view->position.offset + i >= str_view->length) {
 			if(allow_eof) {
 				size = i;
 				break;
@@ -129,7 +149,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 			return false;
 		}
 
-		int32_t current_codepoint = str_view->start[str_view->offset + i];
+		int32_t current_codepoint = str_view->start[str_view->position.offset + i];
 
 		if(delimit_fn(current_codepoint, data_ptr)) {
 			size = i;
@@ -139,14 +159,21 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	}
 
 	result->length = size;
-	result->start = str_view->start + str_view->offset;
+	result->start = str_view->start + str_view->position.offset;
+	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
+		                          .column = str_view->position.file_pos.column };
 
-	return str_view_advance(str_view, size + (got_delimter ? 1 : 0));
+	str_view_advance_unchecked(str_view, size + (got_delimter ? 1 : 0));
+	return true;
 }
 
 [[nodiscard]] StrView get_str_view_from_const_str_view(ConstStrView input) {
 
-	return (StrView){ .offset = 0, .length = input.length, .start = input.start };
+	return (StrView){ .length = input.length,
+		              .start = input.start,
+		              .position = { .offset = 0,
+		                            .file_pos = (FilePos){ .line = input.file_pos.line,
+		                                                   .column = input.file_pos.column } } };
 }
 
 [[nodiscard]] bool str_view_eq_ascii_case_insensitive(ConstStrView const_str_view,
@@ -195,25 +222,45 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 }
 
 [[nodiscard]] bool str_view_is_eof(StrView str_view) {
-	return str_view.offset >= str_view.length;
+	return str_view.position.offset >= str_view.length;
 }
 
-[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result) {
+[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result,
+                                                    bool process_newlines, LineType line_type) {
 
-	if(str_view->offset > str_view->length) {
+	if(str_view->position.offset > str_view->length) {
 		return false;
 	}
 
-	if(str_view->offset == str_view->length) {
+	if(str_view->position.offset == str_view->length) {
 		result->length = 0;
-		result->start = str_view->start + str_view->offset;
+		result->start = str_view->start + str_view->position.offset;
+		result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
+			                          .column = str_view->position.file_pos.column };
 		return true;
 	}
 
-	result->length = str_view->length - str_view->offset;
-	result->start = str_view->start + str_view->offset;
+	result->length = str_view->length - str_view->position.offset;
+	result->start = str_view->start + str_view->position.offset;
+	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
+		                          .column = str_view->position.file_pos.column };
 
-	str_view->offset = str_view->length;
+	str_view->position.offset = str_view->length;
+
+	if(process_newlines) {
+		ConstStrView temp = {};
+
+		while(true) {
+			bool result = str_view_get_substring_until_eol(str_view, &temp, line_type, true);
+			if(!result) {
+				return false;
+			}
+		}
+
+	} else {
+		str_view->position.file_pos = NO_POS(); // stub out, so to make it immediately visible, that
+		                                        // we didn't process newlines
+	}
 
 	return true;
 }
@@ -226,13 +273,14 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 			return true;
 		}
 
-		int32_t current_codepoint = str_view->start[str_view->offset];
+		int32_t current_codepoint = str_view->start[str_view->position.offset];
 
 		if(!delimit_fn(current_codepoint, data_ptr)) {
 			return true;
 		}
 
-		str_view->offset++;
+		str_view->position.offset++;
+		str_view->position.file_pos.column++;
 	}
 
 	return true;
@@ -252,8 +300,10 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 [[nodiscard]] ConstStrView get_const_str_view_from_str_view(StrView input) {
 
-	return (ConstStrView){ .start = input.start + input.offset,
-		                   .length = input.length - input.offset };
+	return (ConstStrView){ .start = input.start + input.position.offset,
+		                   .length = input.length - input.position.offset,
+		                   .file_pos = (FilePos){ .line = input.position.file_pos.line,
+		                                          .column = input.position.file_pos.column } };
 }
 
 [[nodiscard]] char* get_normalized_string(ConstStrView str_view) {
@@ -268,15 +318,16 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		return false;
 	}
 
-	if(str_view->offset + amount > str_view->length) {
+	if(str_view->position.offset + amount > str_view->length) {
 		return false;
 	}
 
 	result->length = amount;
-	result->start = str_view->start + str_view->offset;
+	result->start = str_view->start + str_view->position.offset;
+	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
+		                          .column = str_view->position.file_pos.column };
 
-	str_view->offset = str_view->offset + amount;
-
+	str_view_advance_unchecked(str_view, amount);
 	return true;
 }
 
@@ -310,7 +361,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	bool got_delimter = false;
 
 	for(size_t i = 0;; ++i) {
-		if(str_view->offset + i >= str_view->length) {
+		if(str_view->position.offset + i >= str_view->length) {
 			if(allow_eof) {
 				size = i;
 				break;
@@ -318,17 +369,17 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 			return false;
 		}
 
-		int32_t current_codepoint = str_view->start[str_view->offset + i];
+		int32_t current_codepoint = str_view->start[str_view->position.offset + i];
 
 		if(is_utf8_char_eq_to_ascii_char(current_codepoint, line_characters[0])) {
 			size = i;
 
-			if(str_view->offset + i + 1 >= str_view->length) {
+			if(str_view->position.offset + i + 1 >= str_view->length) {
 				// ended in the middle of the separator
 				return false;
 			}
 
-			int32_t next_codepoint = str_view->start[str_view->offset + i + 1];
+			int32_t next_codepoint = str_view->start[str_view->position.offset + i + 1];
 
 			if(!is_utf8_char_eq_to_ascii_char(next_codepoint, line_characters[1])) {
 				// invalid next byte to separator
@@ -341,9 +392,14 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	}
 
 	result->length = size;
-	result->start = str_view->start + str_view->offset;
+	result->start = str_view->start + str_view->position.offset;
+	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
+		                          .column = str_view->position.file_pos.column };
 
-	return str_view_advance(str_view, size + (got_delimter ? LINE_CHARACTER_SIZE : 0));
+	str_view_advance_unchecked(str_view, size + (got_delimter ? LINE_CHARACTER_SIZE : 0));
+	str_view_advance_line_count(str_view);
+
+	return true;
 }
 
 [[nodiscard]] LineType get_line_type(ConstStrView str_view, char** error_ptr) {

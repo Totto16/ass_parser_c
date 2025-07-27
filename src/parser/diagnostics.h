@@ -26,8 +26,6 @@ typedef struct {
 
 void free_message_struct(MessageStruct msg);
 
-[[nodiscard]] MessageStruct duplicate_message_struct(MessageStruct msg);
-
 typedef enum : uint8_t {
 	DiagnosticTypeSimple,
 	DiagnosticTypeUnexpectedField,
@@ -57,6 +55,7 @@ typedef struct {
 		DuplicateFieldDiagnostic duplicate_field;
 	} data;
 	DiagnosticSeverity severity;
+	FilePos position;
 } DiagnosticEntry;
 
 typedef struct {

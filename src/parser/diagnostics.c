@@ -12,13 +12,6 @@ void free_message_struct(MessageStruct msg) {
 	}
 }
 
-[[nodiscard]] MessageStruct duplicate_message_struct(MessageStruct msg) {
-	if(msg.dynamic) {
-		return ((MessageStruct){ .message = strdup(msg.message), .dynamic = true });
-	}
-	return msg;
-}
-
 static void free_diagnostic_entry(DiagnosticEntry entry) {
 
 	switch(entry.type) {
@@ -48,11 +41,21 @@ void free_diagnostics(Diagnostics diagnostics) {
 	stbds_arrfree(diagnostics.entries);
 }
 
+#define LINE_FORMAT "%zu:%zu"
+
+#define FORMAT_LINE_FMT_EXPAND(pos) pos.line, pos.column
+
 MessageStruct get_message_from_entry(DiagnosticEntry entry) {
 
 	switch(entry.type) {
 		case DiagnosticTypeSimple: {
-			return duplicate_message_struct(entry.data.simple);
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, LINE_FORMAT ": %s",
+			                      FORMAT_LINE_FMT_EXPAND(entry.position),
+			                      entry.data.simple.message);
+
+			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
 		}
 		case DiagnosticTypeUnexpectedField: {
 
@@ -65,8 +68,9 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry) {
 			}
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field '%s' in '%s' section",
-			                      field_name, data.section);
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      LINE_FORMAT ": unexpected field '%s' in '%s' section",
+			                      FORMAT_LINE_FMT_EXPAND(entry.position), field_name, data.section);
 
 			free(field_name);
 
@@ -83,8 +87,9 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry) {
 			}
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "duplicate field '%s' in '%s' section",
-			                      field_name, data.section);
+			FORMAT_STRING_DEFAULT(&result_buffer,
+			                      LINE_FORMAT "duplicate field '%s' in '%s' section",
+			                      FORMAT_LINE_FMT_EXPAND(entry.position), field_name, data.section);
 
 			free(field_name);
 
