@@ -4,7 +4,7 @@
 
 #include "../helper/sized_ptr.h"
 #include "../helper/string_view.h"
-#include "./warnings.h"
+#include "./diagnostics.h"
 
 #include <stdint.h>
 
@@ -219,11 +219,9 @@ typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings);
 
-[[nodiscard]] Warnings get_warnings_from_result(AssParseResult* result);
+[[nodiscard]] Diagnostics get_diagnostics_from_result(AssParseResult* result);
 
 [[nodiscard]] bool parse_result_is_error(AssParseResult* result);
-
-[[nodiscard]] char* parse_result_get_error(AssParseResult* result);
 
 [[nodiscard]] AssResult parse_result_get_value(AssParseResult* result);
 

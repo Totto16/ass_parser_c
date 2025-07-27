@@ -290,24 +290,37 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		return EXIT_FAILURE;
 	}
 
-	{
-		// log warnings
+	// log diagnostics
 
-		Warnings warnings = get_warnings_from_result(result);
+	Diagnostics diagnostics = get_diagnostics_from_result(result);
 
-		for(size_t i = 0; i < stbds_arrlenu(warnings.entries); ++i) {
-			WarningEntry entry = warnings.entries[i];
+	size_t diagnostics_length = stbds_arrlenu(diagnostics.entries);
 
-			ErrorStruct message = get_warnings_message_from_entry(entry);
+	for(size_t i = 0; i < diagnostics_length; ++i) {
+		DiagnosticEntry entry = diagnostics.entries[i];
 
-			LOG_MESSAGE(LogLevelWarn, "%s\n", (char*)message.message);
+		MessageStruct message = get_message_from_entry(entry);
 
-			free_error_struct(message);
+		switch(entry.severity) {
+			case DiagnosticSeverityWarning: {
+				LOG_MESSAGE(LogLevelWarn, "%s\n", (char*)message.message);
+				break;
+			}
+			case DiagnosticSeverityError: {
+				LOG_MESSAGE(LogLevelError, "%s\n", (char*)message.message);
+				break;
+			}
+			default: {
+				LOG_MESSAGE(LogLevelCritical, "Unknown severity: %s\n", (char*)message.message);
+				break;
+			}
 		}
+
+		free_message_struct(message);
 	}
 
 	if(parse_result_is_error(result)) {
-		LOG_MESSAGE(LogLevelError, "Parse error: %s\n", parse_result_get_error(result));
+		LOG_MESSAGE(LogLevelError, "Parse error: %lu diagnostics occurred\n", diagnostics_length);
 		free_parse_result(result);
 		return EXIT_FAILURE;
 	}
