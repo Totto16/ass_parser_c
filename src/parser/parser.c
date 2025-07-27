@@ -566,6 +566,10 @@ static FinalStr
 		                          .title = { .start = NULL, .length = 0 },
 		                          .original_script = { .start = NULL, .length = 0 } };
 
+	// note: we already advanced to the next line, so this needs to be one line before
+	FilePos script_info_section_pos = { .line = data_view->position.file_pos.line - 1,
+		                                data_view->position.file_pos.column };
+
 	STBDS_ARRAY(FinalStr) field_names = STBDS_ARRAY_EMPTY;
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
@@ -779,7 +783,7 @@ static FinalStr
 				DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple,
 					                           .data = { .simple = STATIC_MESSAGE_STRUCT(error) },
 					                           .severity = DiagnosticSeverityWarning,
-					                           .position = data_view->position.file_pos };
+					                           .position = script_info_section_pos };
 
 				stbds_arrput(diagnostics->entries,
 				             diagnostic); // NOLINT(clang-analyzer-unix.Malloc)

@@ -106,7 +106,7 @@ typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
 }
 
 inline static void str_view_advance_line_count(StrView* str_view) {
-	str_view->position.file_pos.column++;
+	str_view->position.file_pos.line++;
 	str_view->position.file_pos.column = 0;
 }
 
@@ -160,8 +160,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	result->length = size;
 	result->start = str_view->start + str_view->position.offset;
-	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
-		                          .column = str_view->position.file_pos.column };
+	result->file_pos = str_view->position.file_pos;
 
 	str_view_advance_unchecked(str_view, size + (got_delimiter ? 1 : 0));
 	return true;
@@ -171,9 +170,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	return (StrView){ .length = input.length,
 		              .start = input.start,
-		              .position = { .offset = 0,
-		                            .file_pos = (FilePos){ .line = input.file_pos.line,
-		                                                   .column = input.file_pos.column } } };
+		              .position = { .offset = 0, .file_pos = input.file_pos } };
 }
 
 [[nodiscard]] bool str_view_eq_ascii_case_insensitive(ConstStrView const_str_view,
@@ -235,15 +232,13 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	if(str_view->position.offset == str_view->length) {
 		result->length = 0;
 		result->start = str_view->start + str_view->position.offset;
-		result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
-			                          .column = str_view->position.file_pos.column };
+		result->file_pos = str_view->position.file_pos;
 		return true;
 	}
 
 	result->length = str_view->length - str_view->position.offset;
 	result->start = str_view->start + str_view->position.offset;
-	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
-		                          .column = str_view->position.file_pos.column };
+	result->file_pos = str_view->position.file_pos;
 
 	str_view->position.offset = str_view->length;
 
@@ -302,8 +297,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	return (ConstStrView){ .start = input.start + input.position.offset,
 		                   .length = input.length - input.position.offset,
-		                   .file_pos = (FilePos){ .line = input.position.file_pos.line,
-		                                          .column = input.position.file_pos.column } };
+		                   .file_pos = input.position.file_pos };
 }
 
 [[nodiscard]] char* get_normalized_string(ConstStrView str_view) {
@@ -324,8 +318,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	result->length = amount;
 	result->start = str_view->start + str_view->position.offset;
-	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
-		                          .column = str_view->position.file_pos.column };
+	result->file_pos = str_view->position.file_pos;
 
 	str_view_advance_unchecked(str_view, amount);
 	return true;
@@ -393,8 +386,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	result->length = size;
 	result->start = str_view->start + str_view->position.offset;
-	result->file_pos = (FilePos){ .line = str_view->position.file_pos.line,
-		                          .column = str_view->position.file_pos.column };
+	result->file_pos = str_view->position.file_pos;
 
 	str_view_advance_unchecked(str_view, size + (got_delimiter ? LINE_CHARACTER_SIZE : 0));
 	str_view_advance_line_count(str_view);
