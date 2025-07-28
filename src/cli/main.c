@@ -28,6 +28,12 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
 	printf(IDENT1 "options:\n");
+
+	printf(IDENT2 "general options:\n");
+
+	printf(IDENT3 "-v, --version: print the version and exit\n");
+	printf(IDENT3 "-h, -?, --help: print the help message for commands or the entire program\n");
+
 	printf(IDENT2 "common options:\n");
 
 	printf(IDENT3 "-l, --loglevel <loglevel>: Set the log level for the application\n");
@@ -38,6 +44,7 @@ static void print_check_usage(bool is_subcommand) {
 	              "disables all checks\n");
 	printf(IDENT3 "-s, --strict: don't enable strict checking of the '.ass' file, this "
 	              "enables all checks\n");
+
 	printf(IDENT2 "single strictness options\n");
 
 	printf(IDENT3 "--allow-missing-script-type-in-script-info [value]: set this specific option, "
@@ -56,6 +63,24 @@ static void print_check_usage(bool is_subcommand) {
 	    IDENT3
 	    "--allow-unrecognized-file-encoding [value]: set this specific option, specifying no value "
 	    "is enabling it\n");
+
+	printf(IDENT3
+	       "--allow-validation-errors [value]: set this specific option, specifying no value "
+	       "is enabling it\n");
+
+	printf(IDENT2 "common validation options\n");
+
+	printf(IDENT3 "-a, --validate-everything: validate everything\n");
+	printf(IDENT3 "-A, --validate-nothing: validate nothing\n");
+
+	printf(IDENT2 "single validation options\n");
+
+	printf(IDENT3 "--validate-fonts [value]: set this specific option, "
+	              "specifying no value is enabling it\n");
+	printf(IDENT3 "--validate-styles [value]: set this specific option, "
+	              "specifying no value is enabling it\n");
+	printf(IDENT3 "--validate-text [value]: set this specific option, "
+	              "specifying no value is enabling it\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -187,7 +212,12 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 		                                             .allow_additional_fields = false,
 		                                             .allow_number_truncating = false,
-		                                             .allow_unrecognized_file_encoding = false } };
+		                                             .allow_unrecognized_file_encoding = false,
+		                                             .allow_validation_errors = false },
+
+		                       .validate_settings = (ValidateSettings){ .validate_fonts = true,
+		                                                                .validate_text = true,
+		                                                                .validate_styles = true } };
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -210,6 +240,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.allow_additional_fields = true;
 			settings.strict_settings.allow_number_truncating = true;
 			settings.strict_settings.allow_unrecognized_file_encoding = true;
+			settings.strict_settings.allow_validation_errors = true;
 
 			processed_args++;
 		} else if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--strict") == 0)) {
@@ -218,6 +249,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.allow_additional_fields = false;
 			settings.strict_settings.allow_number_truncating = false;
 			settings.strict_settings.allow_unrecognized_file_encoding = false;
+			settings.strict_settings.allow_validation_errors = false;
 
 			processed_args++;
 		} else if((strcmp(arg, "--allow-duplicate-fields-in-script-info") == 0)) {
@@ -254,6 +286,46 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_unrecognized_file_encoding = value;
+
+		} else if((strcmp(arg, "--allow-validation-errors") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.strict_settings.allow_validation_errors = value;
+
+		} else if((strcmp(arg, "-a") == 0) || (strcmp(arg, "--validate-everything") == 0)) {
+			settings.validate_settings.validate_fonts = true;
+			settings.validate_settings.validate_text = true;
+			settings.validate_settings.validate_styles = true;
+
+			processed_args++;
+		} else if((strcmp(arg, "-A") == 0) || (strcmp(arg, "--validate-nothing") == 0)) {
+			settings.validate_settings.validate_fonts = false;
+			settings.validate_settings.validate_text = false;
+			settings.validate_settings.validate_styles = false;
+
+			processed_args++;
+		} else if((strcmp(arg, "--validate-fonts") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.validate_settings.validate_fonts = value;
+
+		} else if((strcmp(arg, "--validate-styles") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.validate_settings.validate_styles = value;
+
+		} else if((strcmp(arg, "--validate-text") == 0)) {
+			processed_args++;
+
+			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+
+			settings.validate_settings.validate_text = value;
 
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {

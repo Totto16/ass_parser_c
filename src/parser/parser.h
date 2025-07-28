@@ -31,10 +31,18 @@ typedef struct {
 	bool allow_additional_fields;
 	bool allow_number_truncating;
 	bool allow_unrecognized_file_encoding;
+	bool allow_validation_errors;
 } StrictSettings;
 
 typedef struct {
+	bool validate_fonts;
+	bool validate_styles;
+	bool validate_text;
+} ValidateSettings;
+
+typedef struct {
 	StrictSettings strict_settings;
+	ValidateSettings validate_settings;
 } ParseSettings;
 
 typedef enum : uint8_t {
