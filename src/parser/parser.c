@@ -176,20 +176,6 @@ struct AssParseResultImpl {
 	return str_view_is_eof(str_view);
 }
 
-#define INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, severity_type) \
-	do { \
-		DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple, \
-			                           .data = { .simple = (message) }, \
-			                           .severity = (severity_type), \
-			                           .position = (pos) }; \
-		stbds_arrput(entries, diagnostic); \
-	} while(false)
-
-#define INSERT_SIMPLE_WARNING(entries, message, pos) \
-	INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, DiagnosticSeverityWarning)
-
-#define INSERT_SIMPLE_ERROR(entries, message, pos) \
-	INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, DiagnosticSeverityError)
 
 #if defined(__clang__) || defined(__GNUC__)
 #define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
