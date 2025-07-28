@@ -46,6 +46,11 @@ else
     deps += dependency('iconv')
 endif
 
+deps += dependency(
+    'fontconfig',
+    allow_fallback: true,
+)
+
 lib_src_files = []
 cli_files = []
 inc_dirs = []
