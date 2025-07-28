@@ -6,6 +6,7 @@
 #include "../helper/macros.h"
 #include "../helper/utf_helper.h"
 #include "./helper.h"
+#include "./validate.h"
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
@@ -50,7 +51,7 @@ typedef enum : uint8_t {
 	AssStyleFormatEncoding,
 } AssStyleFormat;
 
-[[nodiscard]] const char* get_name_for_style_format(AssStyleFormat format) {
+[[nodiscard]] static const char* get_name_for_style_format(AssStyleFormat format) {
 	switch(format) {
 		case AssStyleFormatName: return "Name";
 		case AssStyleFormatFontname: return "Fontname";
@@ -92,7 +93,7 @@ typedef enum : uint8_t {
 	AssEventFormatText,
 } AssEventFormat;
 
-[[nodiscard]] const char* get_name_for_event_format(AssEventFormat format) {
+[[nodiscard]] static const char* get_name_for_event_format(AssEventFormat format) {
 	switch(format) {
 		case AssEventFormatLayer: return "Layer";
 		case AssEventFormatStart: return "Start";
@@ -175,22 +176,58 @@ struct AssParseResultImpl {
 	return str_view_is_eof(str_view);
 }
 
-[[nodiscard]] static MessageStruct
-parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * format_result) {
+#define INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, severity_type) \
+	do { \
+		DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple, \
+			                           .data = { .simple = (message) }, \
+			                           .severity = (severity_type), \
+			                           .position = (pos) }; \
+		stbds_arrput(entries, diagnostic); \
+	} while(false)
 
-	while(!(str_view_is_eof(*line_view))) {
+#define INSERT_SIMPLE_WARNING(entries, message, pos) \
+	INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, DiagnosticSeverityWarning)
 
-		if(!str_view_skip_optional_whitespace(line_view)) {
-			return STATIC_MESSAGE_STRUCT("skip whitespace error");
+#define INSERT_SIMPLE_ERROR(entries, message, pos) \
+	INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, DiagnosticSeverityError)
+
+#if defined(__clang__) || defined(__GNUC__)
+#define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
+#else
+#define ENUM_EXTENSIBILITY_CLOSED
+#endif
+
+typedef enum ENUM_EXTENSIBILITY_CLOSED : bool {
+	ErrorTypeFatal = false,
+	ErrorTypeNone = true,
+} ErrorType;
+
+[[nodiscard]] static ErrorType
+parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat) * format_result,
+                             Diagnostics* diagnostics) {
+
+	StrView line_view = get_str_view_from_const_str_view(line);
+
+	while(!(str_view_is_eof(line_view))) {
+
+		if(!str_view_skip_optional_whitespace(&line_view)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries,
+			                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		ConstStrView key = {};
-		if(!str_view_get_substring_by_char_delimiter(line_view, &key, ',', true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+		if(!str_view_get_substring_by_char_delimiter(&line_view, &key, ',', true)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		if(key.length == 0) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		AssStyleFormat format = 0;
@@ -246,7 +283,9 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 			char* key_name = get_normalized_string(key);
 
 			if(!key_name) {
-				return STATIC_MESSAGE_STRUCT("allocation error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			char* result_buffer = NULL;
@@ -256,34 +295,47 @@ parse_format_line_for_styles(StrView* line_view, STBDS_ARRAY(AssStyleFormat) * f
 
 			free(key_name);
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		stbds_arrput(*format_result, format);
 	}
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct
-parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat) const format_spec,
-                            AssStyles* styles_result, ParseSettings settings,
-                            Diagnostics* diagnostics) {
+/*** general note:
+    @see keep-going
+    means that, even if we encountered an error, at the end this is all invalid, so
+    the invalid data in the field is ok, but we can keep going parsing and get more
+    errors */
+
+[[nodiscard]] static ErrorType parse_style_line_for_styles(
+    const ConstStrView line, const STBDS_ARRAY(AssStyleFormat) const format_spec,
+    AssStyles* styles_result, ParseSettings settings, Diagnostics* diagnostics) {
+
+	StrView line_view = get_str_view_from_const_str_view(line);
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
 	AssStyleEntry entry = {};
 
-	if(!str_view_skip_optional_whitespace(line_view)) {
-		return STATIC_MESSAGE_STRUCT("skip whitespace error");
+	if(!str_view_skip_optional_whitespace(&line_view)) {
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("skip whitespace error"),
+		                    line_view.position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	size_t i = 0;
-	for(; !str_view_is_eof(*line_view); ++i) {
+	for(; !str_view_is_eof(line_view); ++i) {
 
 		ConstStrView value = {};
-		if(!str_view_get_substring_by_char_delimiter(line_view, &value, ',', true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+		if(!str_view_get_substring_by_char_delimiter(&line_view, &value, ',', true)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		if(i >= field_size) {
@@ -294,7 +346,9 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			                      "specified %lu, but we are already at %lu",
 			                      field_size, (i + 1));
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		MessageStruct error = EMPTY_MESSAGE_STRUCT();
@@ -405,7 +459,9 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 			char* value_name = get_normalized_string(value);
 
 			if(!value_name) {
-				return STATIC_MESSAGE_STRUCT("allocation error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			char* result_buffer = NULL;
@@ -414,7 +470,12 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 			free(value_name);
 			free_message_struct(error);
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+
+			/*** @see keep-going */
+			continue;
 		}
 	}
 
@@ -426,27 +487,39 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 		                      "specified %lu, but we only have %lu",
 		                      field_size, i);
 
-		return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+		INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+		                    line_view.position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	stbds_arrput(styles_result->entries, entry);
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct parse_styles(AssStyles* ass_styles, StrView* data_view,
-                                                ParseSettings settings, LineType line_type,
-                                                Diagnostics* diagnostics) {
+[[nodiscard]] static ErrorType parse_styles(AssStyles* ass_styles, StrView* data_view,
+                                            ParseSettings settings, LineType line_type,
+                                            Diagnostics* diagnostics) {
 
 	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
 
 	STBDS_ARRAY(AssStyleFormat) style_format = STBDS_ARRAY_EMPTY;
 
+#define FREE_AT_END() \
+	do { \
+		stbds_arrfree(styles.entries); \
+		stbds_arrfree(style_format); \
+	} while(false)
+
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			FREE_AT_END();
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		// parse line
@@ -460,71 +533,77 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
-				return STATIC_MESSAGE_STRUCT(
-				    "end of line before ':' in line parsing in styles section");
+				FREE_AT_END();
+
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT(
+				                        "end of line before ':' in line parsing in styles section"),
+				                    data_view->position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			if(str_view_eq_ascii(field, "Format")) {
 
 				if(stbds_arrlenu(style_format) != 0) {
-					return STATIC_MESSAGE_STRUCT(
-					    "multiple format fields detected in the styles section, this is not "
-					    "allowed");
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "multiple format fields detected in the styles section, this is not "
+					        "allowed"),
+					    data_view->position.file_pos);
+
+					/*** @see keep-going */
+					continue;
 				}
 
-				MessageStruct format_line_error =
-				    parse_format_line_for_styles(&line_view, &style_format);
+				ErrorType format_line_error = parse_format_line_for_styles(
+				    get_const_str_view_from_str_view(line_view), &style_format, diagnostics);
 
-				if(format_line_error.message != NULL) {
-					return format_line_error;
+				if(format_line_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Style")) {
 
 				if(stbds_arrlenu(style_format) == 0) {
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the styles section, "
-					    "this is an error");
+					FREE_AT_END();
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the styles section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct style_parse_error = parse_style_line_for_styles(
-				    &line_view, style_format, &styles, settings, diagnostics);
+				ErrorType style_parse_error =
+				    parse_style_line_for_styles(get_const_str_view_from_str_view(line_view),
+				                                style_format, &styles, settings, diagnostics);
 
-				if(style_parse_error.message != NULL) {
-					return style_parse_error;
-				}
-
-			} else {
-
-				char* field_name = get_normalized_string(field);
-
-				if(!field_name) {
-					return STATIC_MESSAGE_STRUCT("allocation error");
-				}
-
-				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in styles section: '%s'",
-				                      field_name);
-
-				if(settings.strict_settings.allow_additional_fields) {
-
-					UnexpectedFieldDiagnostic unexpected_field = { .field = field,
-						                                           .section = "styles" };
-
-					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning,
-						                           .position = field.file_pos };
-
-					stbds_arrput(diagnostics->entries, diagnostic);
-
-					free(result_buffer);
-					free(field_name);
+				if(style_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
 					continue;
 				}
 
-				free(field_name);
-				return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			} else {
+				const DiagnosticSeverity severity_type =
+				    settings.strict_settings.allow_additional_fields ? DiagnosticSeverityWarning
+				                                                     : DiagnosticSeverityError;
+
+				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
+					                                           .section = "styles" };
+
+				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
+					                           .data = { .unexpected_field = unexpected_field },
+					                           .severity = severity_type,
+					                           .position = field.file_pos };
+
+				stbds_arrput(diagnostics->entries, diagnostic);
+
+				/*** @see keep-going */
+				continue;
 			}
 		}
 
@@ -536,10 +615,14 @@ parse_style_line_for_styles(StrView* line_view, const STBDS_ARRAY(AssStyleFormat
 	}
 
 	stbds_arrfree(style_format);
+
 	*ass_styles = styles;
-	return EMPTY_MESSAGE_STRUCT();
+
+	return ErrorTypeNone;
 	// end of script info
 }
+
+#undef FREE_AT_END
 
 // global default values, so that they are valid all the time
 
@@ -558,9 +641,9 @@ static FinalStr
 		stbds_arrfree(field_names); \
 	} while(false)
 
-[[nodiscard]] static MessageStruct parse_script_info(AssScriptInfo* script_info_result,
-                                                     StrView* data_view, ParseSettings settings,
-                                                     LineType line_type, Diagnostics* diagnostics) {
+[[nodiscard]] static ErrorType parse_script_info(AssScriptInfo* script_info_result,
+                                                 StrView* data_view, ParseSettings settings,
+                                                 LineType line_type, Diagnostics* diagnostics) {
 
 	AssScriptInfo script_info = { .script_type = ScriptTypeUnknown,
 		                          .title = { .start = NULL, .length = 0 },
@@ -577,7 +660,10 @@ static FinalStr
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
 			FREE_AT_END();
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+
+			return ErrorTypeFatal;
 		}
 
 		// parse line
@@ -595,9 +681,15 @@ static FinalStr
 
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
-				FREE_AT_END();
-				return STATIC_MESSAGE_STRUCT(
-				    "end of line before ':' in line parsing in script info section");
+
+				INSERT_SIMPLE_ERROR(
+				    diagnostics->entries,
+				    STATIC_MESSAGE_STRUCT(
+				        "end of line before ':' in line parsing in script info section"),
+				    data_view->position.file_pos);
+
+				/*** @see keep-going */
+				continue;
 			}
 
 			// check for duplicate fields
@@ -608,48 +700,39 @@ static FinalStr
 				if(str_view_eq_str_view(field_str, field)) {
 					found_field = true;
 
-					char* field_name = get_normalized_string(field);
+					const DiagnosticSeverity severity_type =
+					    settings.strict_settings.script_info.allow_duplicate_fields
+					        ? DiagnosticSeverityWarning
+					        : DiagnosticSeverityError;
 
-					if(!field_name) {
-						FREE_AT_END();
-						return STATIC_MESSAGE_STRUCT("allocation error");
-					}
+					DuplicateFieldDiagnostic duplicate_field = { .field = field,
+						                                         .section = "script info" };
 
-					char* result_buffer = NULL;
-					FORMAT_STRING_DEFAULT(
-					    &result_buffer, "duplicate field in script info section: '%s'", field_name);
+					DiagnosticEntry diagnostic = { .type = DiagnosticTypeDuplicateField,
+						                           .data = { .duplicate_field = duplicate_field },
+						                           .severity = severity_type,
+						                           .position = field.file_pos };
 
-					if(settings.strict_settings.script_info.allow_duplicate_fields) {
+					stbds_arrput(diagnostics->entries, diagnostic);
 
-						DuplicateFieldDiagnostic duplicate_field = { .field = field,
-							                                         .section = "script info" };
-
-						DiagnosticEntry diagnostic = { .type = DiagnosticTypeDuplicateField,
-							                           .data = { .duplicate_field =
-							                                         duplicate_field },
-							                           .severity = DiagnosticSeverityWarning,
-							                           .position = field.file_pos };
-
-						stbds_arrput(diagnostics->entries, diagnostic);
-
-						free(result_buffer);
-						free(field_name);
-						break;
-					}
-
-					free(field_name);
-					FREE_AT_END();
-					return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+					/*** @see keep-going */
+					break;
 				}
 			}
 
 			if(!found_field) {
+				// note: as this is not intended, we can choose if the last or the first value is
+				// the final value
 				stbds_arrput(field_names, field);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
 				FREE_AT_END();
-				return STATIC_MESSAGE_STRUCT("skip whitespace error");
+
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			ConstStrView value = get_const_str_view_from_str_view(line_view);
@@ -701,37 +784,22 @@ static FinalStr
 				script_info.ycbcr_matrix = value;
 			} else {
 
-				char* field_name = get_normalized_string(field);
+				const DiagnosticSeverity severity_type =
+				    settings.strict_settings.allow_additional_fields ? DiagnosticSeverityWarning
+				                                                     : DiagnosticSeverityError;
 
-				if(!field_name) {
-					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT("allocation error");
-				}
+				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
+					                                           .section = "script info" };
 
-				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer,
-				                      "unexpected field in script info section: '%s'", field_name);
+				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
+					                           .data = { .unexpected_field = unexpected_field },
+					                           .severity = severity_type,
+					                           .position = field.file_pos };
 
-				if(settings.strict_settings.allow_additional_fields) {
+				stbds_arrput(diagnostics->entries, diagnostic);
 
-					UnexpectedFieldDiagnostic unexpected_field = { .field = field,
-						                                           .section = "script info" };
-
-					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning,
-						                           .position = field.file_pos };
-
-					stbds_arrput(diagnostics->entries, diagnostic);
-
-					free(result_buffer);
-					free(field_name);
-					continue;
-				}
-
-				free(field_name);
-				FREE_AT_END();
-				return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+				/*** @see keep-going */
+				continue;
 			}
 
 			if(error.message != NULL) {
@@ -740,14 +808,20 @@ static FinalStr
 
 				if(!field_name) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT("allocation error");
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("allocation error"),
+					                    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
 				char* value_name = get_normalized_string(value);
 
 				if(!value_name) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT("allocation error");
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("allocation error"),
+					                    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
 				char* result_buffer = NULL;
@@ -758,8 +832,12 @@ static FinalStr
 				free_message_struct(error);
 				free(field_name);
 				free(value_name);
-				FREE_AT_END();
-				return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+
+				INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+				                    line_view.position.file_pos);
+
+				/*** @see keep-going */
+				continue;
 			}
 		}
 
@@ -779,24 +857,22 @@ static FinalStr
 		if(script_info.script_type == ScriptTypeUnknown) {
 			const char* error = "missing script type in script info section";
 
-			if(settings.strict_settings.script_info.allow_missing_script_type) {
-				DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple,
-					                           .data = { .simple = STATIC_MESSAGE_STRUCT(error) },
-					                           .severity = DiagnosticSeverityWarning,
-					                           .position = script_info_section_pos };
+			const DiagnosticSeverity severity_type =
+			    settings.strict_settings.script_info.allow_missing_script_type
+			        ? DiagnosticSeverityWarning
+			        : DiagnosticSeverityError;
 
-				stbds_arrput(diagnostics->entries,
-				             diagnostic); // NOLINT(clang-analyzer-unix.Malloc)
-			} else {
-				return STATIC_MESSAGE_STRUCT(error);
-			}
+			INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, STATIC_MESSAGE_STRUCT(error),
+			                         script_info_section_pos, severity_type);
+
 		} else if(script_info.script_type != ScriptTypeV4Plus) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "only scrypt type v4+ is supported but got: %s",
 			                      get_script_type_name(script_info.script_type));
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    script_info_section_pos);
 		}
 
 		if(script_info.title.start == NULL) {
@@ -810,17 +886,21 @@ static FinalStr
 	}
 
 	*script_info_result = script_info;
-	return EMPTY_MESSAGE_STRUCT();
+
+	return ErrorTypeNone;
 	// end of script info
 }
 
-[[nodiscard]] static MessageStruct skip_section(StrView* data_view, LineType line_type) {
+[[nodiscard]] static ErrorType skip_section(StrView* data_view, LineType line_type,
+                                            Diagnostics* diagnostics) {
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		// skip the line
@@ -831,17 +911,19 @@ static FinalStr
 		}
 	}
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct extra_section(ConstStrView section_name, StrView* data_view,
-                                                 ExtraSections* extra_sections,
-                                                 LineType line_type) {
+[[nodiscard]] static ErrorType extra_section(ConstStrView section_name, StrView* data_view,
+                                             ExtraSections* extra_sections, LineType line_type,
+                                             Diagnostics* diagnostics) {
 
 	char* section_name_str = get_normalized_string(section_name);
 
 	if(section_name_str == NULL) {
-		return STATIC_MESSAGE_STRUCT("alloc error");
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+		                    data_view->position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	ExtraSectionHashMapEntry extra_section = { .key = section_name_str,
@@ -851,7 +933,9 @@ static FinalStr
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		{
@@ -866,18 +950,29 @@ static FinalStr
 
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
-				return STATIC_MESSAGE_STRUCT(
-				    "end of line before ':' in line parsing in extra section");
+
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT(
+				                        "end of line before ':' in line parsing in extra section"),
+				                    data_view->position.file_pos);
+
+				/*** @see keep-going */
+				continue;
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
-				return STATIC_MESSAGE_STRUCT("skip whitespace error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			ConstStrView key = {};
 
 			if(!str_view_get_substring_until_eof(&line_view, &key, false, NO_LINE_TYPE)) {
-				return STATIC_MESSAGE_STRUCT("eof error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("eof error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			field_entry.key = get_normalized_string(field);
@@ -893,25 +988,35 @@ static FinalStr
 
 	stbds_shputs(extra_sections->entries, extra_section);
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct
-parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * format_result) {
+[[nodiscard]] static ErrorType
+parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat) * format_result,
+                             Diagnostics* diagnostics) {
 
-	while(!(str_view_is_eof(*line_view))) {
+	StrView line_view = get_str_view_from_const_str_view(line);
 
-		if(!str_view_skip_optional_whitespace(line_view)) {
-			return STATIC_MESSAGE_STRUCT("skip whitespace error");
+	while(!(str_view_is_eof(line_view))) {
+
+		if(!str_view_skip_optional_whitespace(&line_view)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries,
+			                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		ConstStrView key = {};
-		if(!str_view_get_substring_by_char_delimiter(line_view, &key, ',', true)) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+		if(!str_view_get_substring_by_char_delimiter(&line_view, &key, ',', true)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		if(key.length == 0) {
-			return STATIC_MESSAGE_STRUCT("implementation error");
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		AssEventFormat format = 0;
@@ -941,7 +1046,9 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			char* key_name = get_normalized_string(key);
 
 			if(!key_name) {
-				return STATIC_MESSAGE_STRUCT("allocation error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			char* result_buffer = NULL;
@@ -950,27 +1057,34 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			                      key_name);
 
 			free(key_name);
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		stbds_arrput(*format_result, format);
 	}
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct parse_event_line_for_events(EventType type, StrView* line_view,
-                                                               const STBDS_ARRAY(AssEventFormat)
-                                                                   const format_spec,
-                                                               AssEvents* events_result,
-                                                               Diagnostics* diagnostics) {
+[[nodiscard]] static ErrorType parse_event_line_for_events(EventType type, const ConstStrView line,
+                                                           const STBDS_ARRAY(AssEventFormat)
+                                                               const format_spec,
+                                                           AssEvents* events_result,
+                                                           Diagnostics* diagnostics) {
 
 	size_t field_size = stbds_arrlenu(format_spec);
 
 	AssEventEntry entry = { .type = type };
 
-	if(!str_view_skip_optional_whitespace(line_view)) {
-		return STATIC_MESSAGE_STRUCT("skip whitespace error");
+	StrView line_view = get_str_view_from_const_str_view(line);
+
+	if(!str_view_skip_optional_whitespace(&line_view)) {
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("skip whitespace error"),
+		                    line_view.position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	size_t i = 0;
@@ -985,7 +1099,9 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			                      "specified %lu, but we are already at %lu",
 			                      field_size, (i + 1));
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		AssEventFormat format = format_spec[i];
@@ -996,21 +1112,29 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 		if(format == AssEventFormatText) {
 			if(i != field_size - 1) {
-				return STATIC_MESSAGE_STRUCT(
-				    "'Text' field of event lines may only occur at the last position!");
+
+				INSERT_SIMPLE_ERROR(
+				    diagnostics->entries,
+				    STATIC_MESSAGE_STRUCT(
+				        "'Text' field of event lines may only occur at the last position!"),
+				    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
-			if(!str_view_get_substring_until_eof(line_view, &value, false, NO_LINE_TYPE)) {
-				return STATIC_MESSAGE_STRUCT("eof before comma in events section event line");
+			if(!str_view_get_substring_until_eof(&line_view, &value, false, NO_LINE_TYPE)) {
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("implementation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 			are_at_end = true;
 
-			// TODO(Totto): check and parse text value, for invalid escape sequences, and invald
-			// values inside {}, like eg {bogus}, or {\j} etc, or not closed {} blocks
-
 		} else {
-			if(!str_view_get_substring_by_char_delimiter(line_view, &value, ',', true)) {
-				return STATIC_MESSAGE_STRUCT("implementation error");
+			if(!str_view_get_substring_by_char_delimiter(&line_view, &value, ',', true)) {
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("implementation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 
 				are_at_end = true;
 			}
@@ -1069,7 +1193,9 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			char* value_name = get_normalized_string(value);
 
 			if(!value_name) {
-				return STATIC_MESSAGE_STRUCT("allocation error");
+				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+				                    line_view.position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			char* result_buffer = NULL;
@@ -1078,7 +1204,12 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 
 			free_message_struct(error);
 			free(value_name);
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    line_view.position.file_pos);
+
+			/*** @see keep-going */
+			continue;
 		}
 	}
 
@@ -1089,17 +1220,19 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 		                      "specified %lu, but we only have %lu",
 		                      field_size, i);
 
-		return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+		INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+		                    line_view.position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	stbds_arrput(events_result->entries, entry);
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
-[[nodiscard]] static MessageStruct parse_events(AssEvents* ass_events, StrView* data_view,
-                                                ParseSettings settings, LineType line_type,
-                                                Diagnostics* diagnostics) {
+[[nodiscard]] static ErrorType parse_events(AssEvents* ass_events, StrView* data_view,
+                                            ParseSettings settings, LineType line_type,
+                                            Diagnostics* diagnostics) {
 
 	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
 
@@ -1116,7 +1249,10 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
 			FREE_AT_END();
-			return STATIC_MESSAGE_STRUCT("implementation error");
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+			return ErrorTypeFatal;
 		}
 
 		// parse line
@@ -1131,162 +1267,192 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 			ConstStrView field = {};
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 				FREE_AT_END();
-				return STATIC_MESSAGE_STRUCT(
-				    "end of line before ':' in line parsing in events section");
+
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT(
+				                        "end of line before ':' in line parsing in events section"),
+				                    data_view->position.file_pos);
+				return ErrorTypeFatal;
 			}
 
 			if(str_view_eq_ascii(field, "Format")) {
 
 				if(stbds_arrlenu(event_format) != 0) {
-					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "multiple format fields detected in the events section, this is not "
-					    "allowed");
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "multiple format fields detected in the events section, this is not "
+					        "allowed"),
+					    data_view->position.file_pos);
+
+					/*** @see keep-going */
+					continue;
 				}
 
-				MessageStruct format_line_error =
-				    parse_format_line_for_events(&line_view, &event_format);
+				ErrorType format_line_error = parse_format_line_for_events(
+				    get_const_str_view_from_str_view(line_view), &event_format, diagnostics);
 
-				if(format_line_error.message != NULL) {
-					FREE_AT_END();
-					return format_line_error;
+				if(format_line_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Dialogue")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeDialogue, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypeDialogue, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Comment")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeComment, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypeComment, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Picture")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypePicture, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypePicture, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Sound")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeSound, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypeSound, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Movie")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeMovie, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypeMovie, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else if(str_view_eq_ascii(field, "Command")) {
 
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT(
-					    "no format line occurred before the style line in the events section, "
-					    "this is an error");
+
+					INSERT_SIMPLE_ERROR(
+					    diagnostics->entries,
+					    STATIC_MESSAGE_STRUCT(
+					        "no format line occurred before the style line in the events section, "
+					        "this is an error"),
+					    line_view.position.file_pos);
+					return ErrorTypeFatal;
 				}
 
-				MessageStruct event_parse_error = parse_event_line_for_events(
-				    EventTypeCommand, &line_view, event_format, &events, diagnostics);
+				ErrorType event_parse_error = parse_event_line_for_events(
+				    EventTypeCommand, get_const_str_view_from_str_view(line_view), event_format,
+				    &events, diagnostics);
 
-				if(event_parse_error.message != NULL) {
-					FREE_AT_END();
-					return event_parse_error;
+				if(event_parse_error != ErrorTypeNone) {
+					/*** @see keep-going */
+					continue;
 				}
 
 			} else {
 
-				char* field_name = get_normalized_string(field);
+				const DiagnosticSeverity severity_type =
+				    settings.strict_settings.allow_additional_fields ? DiagnosticSeverityWarning
+				                                                     : DiagnosticSeverityError;
 
-				if(!field_name) {
-					FREE_AT_END();
-					return STATIC_MESSAGE_STRUCT("allocation error");
-				}
+				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
+					                                           .section = "events" };
 
-				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field in events section: '%s'",
-				                      field_name);
+				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
+					                           .data = { .unexpected_field = unexpected_field },
+					                           .severity = severity_type,
+					                           .position = field.file_pos };
 
-				if(settings.strict_settings.allow_additional_fields) {
+				stbds_arrput(diagnostics->entries, diagnostic);
 
-					UnexpectedFieldDiagnostic unexpected_field = { .field = field,
-						                                           .section = "events" };
-
-					DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-						                           .data = { .unexpected_field = unexpected_field },
-						                           .severity = DiagnosticSeverityWarning,
-						                           .position = field.file_pos };
-
-					stbds_arrput(diagnostics->entries, diagnostic);
-
-					free(result_buffer);
-					free(field_name);
-					continue;
-				}
-
-				free(field_name);
-				FREE_AT_END();
-				return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+				/*** @see keep-going */
+				continue;
 			}
 		}
 
@@ -1298,24 +1464,29 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	stbds_arrfree(event_format);
+
 	*ass_events = events;
-	return EMPTY_MESSAGE_STRUCT();
+
+	return ErrorTypeNone;
 	// end of script info
 }
 
 #undef FREE_AT_END
 
-[[nodiscard]] static MessageStruct get_section_by_name(ConstStrView section_name,
-                                                       AssResult* ass_result, StrView* data_view,
-                                                       ParseSettings settings, LineType line_type,
-                                                       Diagnostics* diagnostics) {
+[[nodiscard]] static ErrorType get_section_by_name(ConstStrView section_name, AssResult* ass_result,
+                                                   StrView* data_view, ParseSettings settings,
+                                                   LineType line_type, Diagnostics* diagnostics) {
 
 	if(str_view_eq_ascii(section_name, "V4+ Styles")) {
 		return parse_styles(&(ass_result->styles), data_view, settings, line_type, diagnostics);
 	}
 
 	if(str_view_eq_ascii(section_name, "V4 Styles")) {
-		return STATIC_MESSAGE_STRUCT("v4 styles are not supported");
+
+		INSERT_SIMPLE_ERROR(diagnostics->entries,
+		                    STATIC_MESSAGE_STRUCT("v4 styles are not supported"),
+		                    data_view->position.file_pos);
+		return ErrorTypeFatal;
 	}
 
 	if(str_view_eq_ascii(section_name, "Events")) {
@@ -1323,16 +1494,17 @@ parse_format_line_for_events(StrView* line_view, STBDS_ARRAY(AssEventFormat) * f
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
-		return skip_section(data_view, line_type);
+		return skip_section(data_view, line_type, diagnostics);
 	}
 
 	if(str_view_eq_ascii(section_name, "Graphics")) {
-		return skip_section(data_view, line_type);
+		return skip_section(data_view, line_type, diagnostics);
 	}
 
-	return extra_section(section_name, data_view, &(ass_result->extra_sections), line_type);
+	return extra_section(section_name, data_view, &(ass_result->extra_sections), line_type,
+	                     diagnostics);
 
-	return EMPTY_MESSAGE_STRUCT();
+	return ErrorTypeNone;
 }
 
 static void free_extra_section_entry(ExtraSectionEntry entry) {
@@ -1372,16 +1544,17 @@ static void free_ass_result(AssResult data) {
 	do { \
 	} while(false)
 
-#define RETURN_ERROR_IMPL(err, pos) \
+#define RETURN_ERROR_NO_MESSAGE() \
 	do { \
 		FREE_AT_END(); \
-		DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple, \
-			                           .data = { .simple = (err) }, \
-			                           .severity = DiagnosticSeverityError, \
-			                           .position = (pos) }; \
-		stbds_arrput(result->diagnostics.entries, diagnostic); \
 		result->is_error = true; \
 		return result; \
+	} while(false)
+
+#define RETURN_ERROR_IMPL(err, pos) \
+	do { \
+		INSERT_SIMPLE_ERROR(result->diagnostics.entries, err, pos); \
+		RETURN_ERROR_NO_MESSAGE(); \
 	} while(false)
 
 #define RETURN_ERROR(err) RETURN_ERROR_IMPL(err, data_view.position.file_pos)
@@ -1423,14 +1596,9 @@ static void free_ass_result(AssResult data) {
 			FORMAT_STRING_DEFAULT(&result_buffer, "%s, assuming UTF-8 (ascii also works with that)",
 			                      error);
 
-			DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple,
-				                           .data = { .simple =
-				                                         DYNAMIC_MESSAGE_STRUCT(result_buffer) },
-				                           .severity = DiagnosticSeverityWarning,
-				                           .position = NO_POS() };
+			INSERT_SIMPLE_WARNING(result->diagnostics.entries,
+			                      DYNAMIC_MESSAGE_STRUCT(result_buffer), NO_POS());
 
-			stbds_arrput(result->diagnostics.entries,
-			             diagnostic); // NOLINT(clang-analyzer-unix.Malloc)
 			bom_size = 0;
 			codepoints_result = get_codepoints_from_utf8(data);
 			break;
@@ -1527,11 +1695,11 @@ static void free_ass_result(AssResult data) {
 		free_ass_result(ass_result); \
 	} while(false)
 
-	MessageStruct script_info_parse_result = parse_script_info(
+	ErrorType script_info_parse_result = parse_script_info(
 	    &(ass_result.script_info), &data_view, settings, line_type, &(result->diagnostics));
 
-	if(script_info_parse_result.message != NULL) {
-		RETURN_ERROR(script_info_parse_result);
+	if(script_info_parse_result != ErrorTypeNone) {
+		RETURN_ERROR_NO_MESSAGE();
 	}
 
 	while(true) {
@@ -1551,15 +1719,27 @@ static void free_ass_result(AssResult data) {
 			RETURN_ERROR(STATIC_MESSAGE_STRUCT("no newline after section name"));
 		}
 
-		MessageStruct section_parse_result = get_section_by_name(
+		ErrorType section_parse_result = get_section_by_name(
 		    section_name, &ass_result, &data_view, settings, line_type, &(result->diagnostics));
 
-		if(section_parse_result.message != NULL) {
-			RETURN_ERROR(section_parse_result);
+		if(section_parse_result != ErrorTypeNone) {
+			RETURN_ERROR_NO_MESSAGE();
 		}
 
 		if(str_view_is_eof(data_view)) {
 			break;
+		}
+	}
+
+	validate_ass_result(ass_result, settings, &(result->diagnostics));
+
+	// if we have one error diagnostic, we consider this an error, so we can collect errors until
+	// now, and only now report a fatal error
+	for(size_t i = 0; i < stbds_arrlenu(result->diagnostics.entries); ++i) {
+		DiagnosticEntry entry = result->diagnostics.entries[i];
+
+		if(entry.severity == DiagnosticSeverityError) {
+			RETURN_ERROR_NO_MESSAGE();
 		}
 	}
 
@@ -1572,6 +1752,7 @@ static void free_ass_result(AssResult data) {
 #undef RETURN_ERROR_IMPL
 #undef RETURN_ERROR_AT_START
 #undef RETURN_ERROR
+#undef RETURN_ERROR_NO_MESSAGE
 
 [[nodiscard]] Diagnostics get_diagnostics_from_result(AssParseResult* result) {
 	return result->diagnostics;

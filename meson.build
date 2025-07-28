@@ -58,12 +58,29 @@ ass_parser_lib_header_install_dir = 'ass_parser'
 
 subdir('src')
 
+internal_c_args = []
+
+
+internal_c_args += cc.get_supported_arguments(
+    '-Wassign-enum',
+    '-Wenum-conversion',
+    '-Wenum-switch',
+    '-fstrict-enums',
+    '-Wenum-identifier',
+    '-Wenum-compare',
+    '-Wenum-enum-conversion',
+    '-Wenum-float-conversion',
+    '-Wenum-too-large',
+    '-Wenum-compare-switch',
+    '-Wenum-compare-conditional',
+)
+
 ass_parser_lib = library(
     'ass_parser',
     lib_src_files,
     dependencies: deps,
     include_directories: inc_dirs,
-    c_args: ['-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"'],
+    c_args: ['-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
     install: true,
     version: ass_parser_lib_version,
 )

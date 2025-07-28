@@ -19,9 +19,12 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 		return (CodepointsResult){ .has_error = true, .data = { .error = "failed malloc" } };
 	}
 
+	// this is fine, as this enum is a flag / mask enum, 0 means no option is enabled
+	utf8proc_option_t options = (utf8proc_option_t)0;
+
 	utf8proc_ssize_t result = utf8proc_decompose(
 	    ptr.data, ptr.len, buffer, ptr.len,
-	    0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
+	    options); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	if(result < 0) {
 		free(buffer);
