@@ -20,11 +20,15 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 	}
 
 	// this is fine, as this enum is a flag / mask enum, 0 means no option is enabled
-	utf8proc_option_t options = (utf8proc_option_t)0;
+	utf8proc_option_t options =
+	    (utf8proc_option_t)0; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	utf8proc_ssize_t result = utf8proc_decompose(
-	    ptr.data, ptr.len, buffer, ptr.len,
-	    options); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
+	    ptr.data,
+	    ptr.len, // NOLINT(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
+	    buffer,
+	    ptr.len, // NOLINT(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
+	    options);
 
 	if(result < 0) {
 		free(buffer);

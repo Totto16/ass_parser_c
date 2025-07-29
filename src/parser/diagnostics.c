@@ -13,12 +13,8 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 			free_message_struct(entry.data.simple);
 			break;
 		}
-		case DiagnosticTypeUnexpectedField: {
-			break;
-		}
-		case DiagnosticTypeDuplicateField: {
-			break;
-		}
+		case DiagnosticTypeUnexpectedField:
+		case DiagnosticTypeDuplicateField:
 		default: {
 			break;
 		}
@@ -57,6 +53,7 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
+		free(field_name); \
 		return STATIC_MESSAGE_STRUCT(message); \
 	} while(false)
 
@@ -89,11 +86,19 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 		}
 	}
 
+#undef PROPAGATE_ERROR_IMPL
+
 #define FILE_POS_FORMAT "%zu:%zu:"
 
 #define FILE_FORMAT "%s:"
 
 #define FORMAT_LINE_FMT_EXPAND_POS(pos) ((pos).line + 1), ((pos).column + 1)
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free(result_buffer); \
+		return STATIC_MESSAGE_STRUCT(message); \
+	} while(false)
 
 	char* final_result = NULL;
 

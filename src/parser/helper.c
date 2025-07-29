@@ -11,8 +11,10 @@
 #include <stb/ds.h>
 #include <stdio.h>
 
-[[nodiscard]] double parse_str_as_double(ConstStrView value, MessageStruct* message_ptr,
-                                         Diagnostics* diagnostics) {
+#define BASE_10_DOUBLE 10.0
+
+[[nodiscard]] double parse_str_as_double(ConstStrView value, // NOLINT(misc-no-recursion)
+                                         MessageStruct* message_ptr, Diagnostics* diagnostics) {
 
 	StrView value_view = get_str_view_from_const_str_view(value);
 
@@ -67,16 +69,17 @@
 
 	size_t suffix_power_of_10 = suffix.length;
 
-	final_value = final_value + (double)suffix_num / (pow(10.0, (double)suffix_power_of_10));
+	final_value =
+	    final_value + (double)suffix_num / (pow(BASE_10_DOUBLE, (double)suffix_power_of_10));
 
 	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return final_value;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstStrView value,
-                                                              MessageStruct* message_ptr,
-                                                              bool allow_number_truncating,
-                                                              Diagnostics* diagnostics) {
+[[nodiscard]] size_t
+parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-recursion)
+                                         MessageStruct* message_ptr, bool allow_number_truncating,
+                                         Diagnostics* diagnostics) {
 	size_t result = 0;
 
 	for(size_t i = 0; i < value.length; ++i) {
@@ -110,8 +113,8 @@
 
 					MessageStruct local_error = EMPTY_MESSAGE_STRUCT();
 
-					double _unused = parse_str_as_double(value, &local_error, diagnostics);
-					UNUSED(_unused);
+					double unused = parse_str_as_double(value, &local_error, diagnostics);
+					UNUSED(unused);
 
 					if(local_error.message == NULL) {
 
@@ -139,7 +142,9 @@
 			*message_ptr = DYNAMIC_MESSAGE_STRUCT(result_buffer);
 			return 0;
 		}
-		result = (result * 10) + (current_codepoint - '0');
+		result = (result *
+		          10) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		         (current_codepoint - '0');
 	}
 
 	*message_ptr = EMPTY_MESSAGE_STRUCT();
@@ -148,7 +153,8 @@
 
 #undef PROPAGATE_ERROR_IMPL
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, MessageStruct* message_ptr,
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, // NOLINT(misc-no-recursion)
+                                                  MessageStruct* message_ptr,
                                                   Diagnostics* diagnostics) {
 	return parse_str_as_unsigned_number_with_option(value, message_ptr, false, diagnostics);
 }
@@ -189,7 +195,8 @@
 
 	AssColor color = {};
 
-	if(value.length != 10) {
+	if(value.length !=
+	   10) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid color, not correct length");
 		return color;
 	}
@@ -215,10 +222,14 @@
 				current_value = (current_codepoint - '0');
 			} else if(current_codepoint >= (unsigned char)'a' &&
 			          current_codepoint <= (unsigned char)'f') {
-				current_value = (current_codepoint - 'a') + 10;
+				current_value =
+				    (current_codepoint - 'a') +
+				    10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			} else if(current_codepoint >= (unsigned char)'A' &&
 			          current_codepoint <= (unsigned char)'F') {
-				current_value = (current_codepoint - 'A') + 10;
+				current_value =
+				    (current_codepoint - 'A') +
+				    10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			} else {
 				*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid hex color number");
 				return color;
@@ -307,24 +318,24 @@
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentML;
 		}
-		case 5: {
+		case 5: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentMC;
 		}
-		case 6: {
+		case 6: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentMR;
 		}
 			// top
-		case 7: {
+		case 7: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTL;
 		}
-		case 8: {
+		case 8: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTC;
 		}
-		case 9: {
+		case 9: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTR;
 		}
@@ -362,6 +373,11 @@
 	return result;
 }
 
+#define MAX_HUNDRED 100
+#define MAX_SECONDS 60
+#define MAX_MINUTES 60
+#define MAX_HOURS 24
+
 [[nodiscard]] AssTime parse_str_as_time(ConstStrView value, MessageStruct* message_ptr,
                                         Diagnostics* diagnostics) {
 
@@ -370,7 +386,8 @@
 
 	AssTime time = {};
 
-	if(value.length != 10) {
+	if(value.length !=
+	   10) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid time, not correct length");
 		return time;
 	}
@@ -392,7 +409,7 @@
 			return time;
 		}
 
-		if(num >= 24) {
+		if(num >= MAX_HOURS) {
 			*message_ptr = STATIC_MESSAGE_STRUCT("error, hour value to large");
 			return time;
 		}
@@ -420,7 +437,7 @@
 			return time;
 		}
 
-		if(num >= 60) {
+		if(num >= MAX_MINUTES) {
 			*message_ptr = STATIC_MESSAGE_STRUCT("error, minute value to large");
 			return time;
 		}
@@ -448,7 +465,7 @@
 			return time;
 		}
 
-		if(num >= 60) {
+		if(num >= MAX_SECONDS) {
 			*message_ptr = STATIC_MESSAGE_STRUCT("error, seconds value to large");
 			return time;
 		}
@@ -480,7 +497,7 @@
 			return time;
 		}
 
-		if(num >= 100) {
+		if(num >= MAX_HUNDRED) {
 			*message_ptr = STATIC_MESSAGE_STRUCT("error, hundred value to large");
 			return time;
 		}
@@ -503,13 +520,15 @@
 	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
 		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return ScriptTypeV4;
-	} else if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
+	}
+
+	if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
 		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return ScriptTypeV4Plus;
-	} else {
-		*message_ptr = STATIC_MESSAGE_STRUCT("invalid script type value");
-		return ScriptTypeV4;
 	}
+
+	*message_ptr = STATIC_MESSAGE_STRUCT("invalid script type value");
+	return ScriptTypeV4;
 }
 
 [[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, MessageStruct* message_ptr,
