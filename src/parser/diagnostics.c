@@ -41,25 +41,15 @@ void free_diagnostics(Diagnostics diagnostics) {
 	stbds_arrfree(diagnostics.entries);
 }
 
-#define LINE_FORMAT "%zu:%zu"
-
-#define FILE_FORMAT "%s:"
-
-#define FORMAT_LINE_FMT_EXPAND_POS(pos) ((pos).line + 1), ((pos).column + 1)
-
 MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_file) {
 
-	const char* source_file_value = source_file == NULL ? "<unknown file>" : source_file;
+	char* result_buffer = NULL;
 
 	switch(entry.type) {
 		case DiagnosticTypeSimple: {
 
-			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, FILE_FORMAT LINE_FORMAT ": %s", source_file_value,
-			                      FORMAT_LINE_FMT_EXPAND_POS(entry.position),
-			                      entry.data.simple.message);
-
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			result_buffer = strdup(entry.data.simple.message);
+			break;
 		}
 		case DiagnosticTypeUnexpectedField: {
 
@@ -71,15 +61,12 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 				return STATIC_MESSAGE_STRUCT("<diagnostic message allocation error>");
 			}
 
-			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      FILE_FORMAT LINE_FORMAT ": unexpected field '%s' in '%s' section",
-			                      source_file_value, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field '%s' in '%s' section",
 			                      field_name, data.section);
 
 			free(field_name);
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			break;
 		}
 		case DiagnosticTypeDuplicateField: {
 
@@ -91,19 +78,44 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 				return STATIC_MESSAGE_STRUCT("<diagnostic message allocation error>");
 			}
 
-			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      FILE_FORMAT LINE_FORMAT ": duplicate field '%s' in '%s' section",
-			                      source_file_value, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			FORMAT_STRING_DEFAULT(&result_buffer, "duplicate field '%s' in '%s' section",
 			                      field_name, data.section);
 
 			free(field_name);
 
-			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+			break;
 		}
 		default: {
 			return STATIC_MESSAGE_STRUCT("unknown diagnostic type");
-			break;
 		}
 	}
+
+#define FILE_POS_FORMAT "%zu:%zu:"
+
+#define FILE_FORMAT "%s:"
+
+#define FORMAT_LINE_FMT_EXPAND_POS(pos) ((pos).line + 1), ((pos).column + 1)
+
+	char* final_result = NULL;
+
+	if(source_file == NULL) {
+		final_result = strdup(result_buffer);
+	} else {
+		if(is_empty_pos(entry.position)) {
+			FORMAT_STRING_DEFAULT(&final_result,
+			                      FILE_FORMAT " "
+			                                  "%s",
+			                      source_file, result_buffer);
+		} else {
+			FORMAT_STRING_DEFAULT(&final_result,
+			                      FILE_FORMAT FILE_POS_FORMAT " "
+			                                                  "%s",
+			                      source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			                      result_buffer);
+		}
+	}
+
+	free(result_buffer);
+
+	return DYNAMIC_MESSAGE_STRUCT(final_result);
 }

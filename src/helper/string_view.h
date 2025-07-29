@@ -34,7 +34,11 @@ typedef enum : uint8_t {
 
 #define NO_LINE_TYPE ((LineType)LineTypeCr)
 
-#define NO_POS() ((FilePos){ .line = 0, .column = 0 })
+#define EMPTY_POS_VAL ((size_t)-1)
+
+#define EMPTY_POS() ((FilePos){ .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL })
+
+[[nodiscard]] bool is_empty_pos(FilePos pos);
 
 [[nodiscard]] StrView str_view_from_data(Codepoints data);
 

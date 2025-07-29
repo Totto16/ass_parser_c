@@ -327,7 +327,7 @@ typedef struct {
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
 
-static void validate_font(const char* font_name, FontStyleType search_type,
+static void validate_font(const char* font_name, FontStyleType search_type, FilePos file_pos,
                           bool allow_validation_errors, Diagnostics* diagnostics,
                           DetailedFontValidateSettings settings) {
 
@@ -340,7 +340,7 @@ static void validate_font(const char* font_name, FontStyleType search_type,
 
 	if(result.error) {
 		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("fontconfig error"),
-		                    NO_POS());
+		                    EMPTY_POS());
 		return;
 	}
 
@@ -354,7 +354,7 @@ static void validate_font(const char* font_name, FontStyleType search_type,
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-		                         NO_POS(), severity_type);
+		                         file_pos, severity_type);
 
 		FREE_AT_END();
 		return;
@@ -373,7 +373,7 @@ static void validate_font(const char* font_name, FontStyleType search_type,
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-		                         NO_POS(), severity_type);
+		                         file_pos, severity_type);
 
 		free_message_struct(found_result.data.error);
 
@@ -390,7 +390,7 @@ static void validate_font(const char* font_name, FontStyleType search_type,
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-		                         NO_POS(), severity_type);
+		                         file_pos, severity_type);
 
 		FREE_AT_END();
 		return;
@@ -459,7 +459,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(!style_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
-			                    NO_POS());
+			                    EMPTY_POS());
 			return NULL;
 		}
 
@@ -472,7 +472,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			                      style_name);
 
 			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-			                    NO_POS());
+			                    entry.name.file_pos);
 
 			free(style_name);
 			continue;
@@ -496,7 +496,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(!style_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
-			                    NO_POS());
+			                    EMPTY_POS());
 			return NULL;
 		}
 
@@ -512,7 +512,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			                      style_name);
 
 			INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-			                         NO_POS(), severity_type);
+			                         entry.style.file_pos, severity_type);
 
 			free(style_name);
 			continue;
@@ -526,7 +526,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(!font_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
-			                    NO_POS());
+			                    EMPTY_POS());
 			return NULL;
 		}
 
@@ -563,7 +563,7 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries,
-		                         STATIC_MESSAGE_STRUCT("failed to load fontconfig"), NO_POS(),
+		                         STATIC_MESSAGE_STRUCT("failed to load fontconfig"), EMPTY_POS(),
 		                         severity_type);
 		return;
 	}
@@ -582,7 +582,7 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 
 		if(!font_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
-			                    NO_POS());
+			                    EMPTY_POS());
 
 			free_used_fonts_hm(&used_fonts);
 			return;
@@ -600,7 +600,8 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 
 		FontStyleType search_type = get_style_type_for_font(entry);
 
-		validate_font(font_name, search_type, allow_validation_errors, diagnostics, settings);
+		validate_font(font_name, search_type, entry.fontname.file_pos, allow_validation_errors,
+		              diagnostics, settings);
 		free(font_name);
 	}
 
@@ -609,8 +610,8 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 	FcFini();
 }
 
-static void validate_style_angles(double angle, bool allow_validation_errors,
-                                  Diagnostics* diagnostics) {
+static void validate_style_angle(double angle, FilePos file_pos, bool allow_validation_errors,
+                                 Diagnostics* diagnostics) {
 
 	if(angle < 0.0 || angle > 360.0) {
 		const DiagnosticSeverity severity_type =
@@ -620,7 +621,7 @@ static void validate_style_angles(double angle, bool allow_validation_errors,
 		FORMAT_STRING_DEFAULT(&result_buffer, "value for angle is out of range: %f", angle);
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-		                         NO_POS(), severity_type);
+		                         file_pos, severity_type);
 	}
 }
 
@@ -633,7 +634,8 @@ static void validate_styles(AssResult ass_result, bool allow_validation_errors,
 		// TODO: validate windows encoding
 		// validate_style_encoding(entry, diagnostics);
 
-		validate_style_angles(entry.angle, allow_validation_errors, diagnostics);
+		validate_style_angle(entry.angle, entry.name.file_pos, allow_validation_errors,
+		                     diagnostics);
 	}
 }
 
@@ -688,5 +690,4 @@ void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnosti
 	return -1;
 }
 
-// TODO: use pos of strView or finalstr instead of no_pos in all places
 // TODO: replace FORMAT_STRING_DEFAULT everywhere with error return, where it makes sense!

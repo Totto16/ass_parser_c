@@ -8,6 +8,10 @@
 #include <string.h>
 #include <utf8proc.h>
 
+[[nodiscard]] bool is_empty_pos(FilePos pos) {
+	return pos.line == EMPTY_POS_VAL && pos.column == EMPTY_POS_VAL;
+}
+
 [[nodiscard]] StrView str_view_from_data(Codepoints data) {
 	return (StrView){ .start = data.data,
 		              .length = data.size,
@@ -253,8 +257,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		}
 
 	} else {
-		str_view->position.file_pos = NO_POS(); // stub out, so to make it immediately visible, that
-		                                        // we didn't process newlines
+		str_view->position.file_pos = EMPTY_POS(); // stub out, so to make it immediately visible,
+		                                           // that we didn't process newlines
 	}
 
 	return true;

@@ -613,12 +613,12 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 static FinalStr
     g_default_ass_title = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10, .file_pos = NO_POS()
+	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10, .file_pos = EMPTY_POS()
     };
 
 static FinalStr
     g_default_ass_script_name = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9, .file_pos = NO_POS()
+	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9, .file_pos = EMPTY_POS()
     };
 
 #define FREE_AT_END() \
@@ -1544,7 +1544,7 @@ static void free_ass_result(AssResult data) {
 
 #define RETURN_ERROR(err) RETURN_ERROR_IMPL(err, data_view.position.file_pos)
 
-#define RETURN_ERROR_AT_START(err) RETURN_ERROR_IMPL(err, NO_POS())
+#define RETURN_ERROR_AT_START(err) RETURN_ERROR_IMPL(err, EMPTY_POS())
 
 [[nodiscard]] AssParseResult* parse_ass(AssSource source, ParseSettings settings) {
 
@@ -1582,7 +1582,7 @@ static void free_ass_result(AssResult data) {
 			                      error);
 
 			INSERT_SIMPLE_WARNING(result->diagnostics.entries,
-			                      DYNAMIC_MESSAGE_STRUCT(result_buffer), NO_POS());
+			                      DYNAMIC_MESSAGE_STRUCT(result_buffer), EMPTY_POS());
 
 			bom_size = 0;
 			codepoints_result = get_codepoints_from_utf8(data);
