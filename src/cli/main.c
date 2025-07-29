@@ -416,7 +416,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		return EXIT_FAILURE;
 	}
 
-	LOG_MESSAGE_SIMPLE(LogLevelInfo, "File is valid\n");
+	LOG_MESSAGE(LogLevelInfo, "File is valid %lu diagnostics occurred\n", diagnostics_length);
 	free_parse_result(result);
 	return EXIT_SUCCESS;
 }
