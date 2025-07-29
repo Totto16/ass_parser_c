@@ -151,19 +151,32 @@ struct AssParseResultImpl {
 		return FileTypeUnknown;
 	}
 
-	if(bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) {
+	if(bom[0] == 0xEF && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[1] == 0xBB && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[2] == 0xBF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		return FileTypeUtf8;
-	} else if(bom[0] == 0xFF && bom[1] == 0xFE && bom[2] == 0x00 && bom[3] == 0x00) {
-		return FileTypeUtf32LE;
-	} else if(bom[0] == 0x00 && bom[1] == 0x00 && bom[2] == 0xFE && bom[3] == 0xFF) {
-		return FileTypeUtf32BE;
-	} else if(bom[0] == 0xFF && bom[1] == 0xFE) {
-		return FileTypeUtf16LE;
-	} else if(bom[0] == 0xFE && bom[1] == 0xFF) {
-		return FileTypeUtf16BE;
-	} else {
-		return FileTypeUnknown;
 	}
+	if(bom[0] == 0xFF && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[1] == 0xFE && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[2] == 0x00 && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[3] == 0x00) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return FileTypeUtf32LE;
+	}
+	if(bom[0] == 0x00 && bom[1] == 0x00 &&
+	   bom[2] == 0xFE && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[3] == 0xFF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return FileTypeUtf32BE;
+	}
+	if(bom[0] == 0xFF && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[1] == 0xFE) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return FileTypeUtf16LE;
+	}
+	if(bom[0] == 0xFE && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	   bom[1] == 0xFF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return FileTypeUtf16BE;
+	}
+
+	return FileTypeUnknown;
 }
 
 [[nodiscard]] static bool str_view_starts_with_ascii_or_eof(StrView str_view,
@@ -323,7 +336,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 		return ErrorTypeFatal;
 	}
 
-	size_t i = 0;
+	size_t i = 0; // NOLINT(readability-identifier-length)
 	for(; !str_view_is_eof(line_view); ++i) {
 
 		ConstStrView value = {};
@@ -654,13 +667,15 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 static FinalStr
     g_default_ass_title = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10,
+	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' },
+	    10, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
 static FinalStr
     g_default_ass_script_name = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9,
+	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' },
+	    9, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
@@ -1148,7 +1163,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 		return ErrorTypeFatal;
 	}
 
-	size_t i = 0;
+	size_t i = 0; // NOLINT(readability-identifier-length)
 
 	for(bool are_at_end = false; !are_at_end; ++i) {
 

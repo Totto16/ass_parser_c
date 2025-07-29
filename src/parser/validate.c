@@ -651,10 +651,12 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 	FcFini();
 }
 
+#define MAX_ANGLE_DEGREE_DOUBLE 360.0
+
 static void validate_style_angle(double angle, FilePos file_pos, bool allow_validation_errors,
                                  Diagnostics* diagnostics) {
 
-	if(angle < 0.0 || angle > 360.0) {
+	if(angle < 0.0 || angle > MAX_ANGLE_DEGREE_DOUBLE) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \

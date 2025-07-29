@@ -36,11 +36,12 @@
 			free(internal_buffer); \
 			error_statement; \
 		} \
+		if(*to_store == NULL) { \
+			free(internal_buffer); \
+			fprintf(stderr, "snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #to_store); \
+			error_statement; \
+		} \
 		*to_store = internal_buffer; \
-	} \
-	if(*to_store == NULL) { \
-		fprintf(stderr, "snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #to_store); \
-		error_statement; \
 	}
 
 #define FORMAT_STRING_DEFAULT(to_store, format, ...) \
@@ -60,7 +61,7 @@
 
 #define UNREACHABLE() \
 	do { \
-		assert(false && "UNREACHABLE"); \
+		assert(false && "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \
 	} while(false)
 
 #endif
