@@ -358,7 +358,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 #define LINE_CHARACTER_SIZE 2
 
-	const char line_characters[LINE_CHARACTER_SIZE] = LINE_ENDING_CRLF;
+	const char line_characters[LINE_CHARACTER_SIZE] = { '\r', '\n' };
 
 	size_t size = 0;
 	bool got_delimiter = false;

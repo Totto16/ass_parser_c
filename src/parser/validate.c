@@ -435,7 +435,7 @@ static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 	stbds_shfree(*style_to_font_hm);
 }
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__clang__)
 typedef struct {
 } MonoState;
 

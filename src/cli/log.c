@@ -120,7 +120,8 @@ const char* get_level_name_internal(LogLevel level, bool color) {
 // fitted
 #define ADDITIONAL_TID_SIZE (4 + 11)
 
-#define THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE (THREAD_ID_FORMATTED_MAX_SIZE + ADDITIONAL_TID_SIZE)
+#define THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE \
+	(THREAD_ID_FORMATTED_MAX_SIZE + ADDITIONAL_TID_SIZE + 1)
 
 static _Thread_local char
     g_thread_local_name_storage_fallback // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

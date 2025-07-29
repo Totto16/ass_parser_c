@@ -176,7 +176,7 @@ struct AssParseResultImpl {
 	return str_view_is_eof(str_view);
 }
 
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
 #else
 #define ENUM_EXTENSIBILITY_CLOSED
@@ -654,12 +654,14 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 static FinalStr
     g_default_ass_title = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10, .file_pos = EMPTY_POS()
+	    (int32_t[]){ '<', 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '>' }, 10,
+	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
 static FinalStr
     g_default_ass_script_name = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9, .file_pos = EMPTY_POS()
+	    (int32_t[]){ '<', 'u', 'n', 'k', 'n', 'o', 'w', 'n', '>' }, 9,
+	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
 #define FREE_AT_END() \
