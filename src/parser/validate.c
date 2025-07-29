@@ -467,6 +467,11 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 [[nodiscard]] static UsedFontsHM get_used_fonts(AssResult ass_result, bool allow_validation_errors,
                                                 Diagnostics* diagnostics) {
 
+#define FREE_AT_END() \
+	do { \
+		free_style_to_font_hm(&hm_style_to_font); \
+	} while(false)
+
 	StyleToFontHM hm_style_to_font = STBDS_HASH_MAP_EMPTY;
 
 	for(size_t i = 0; i < stbds_arrlenu(ass_result.styles.entries); ++i) {
@@ -477,6 +482,8 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		if(!style_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
 			                    EMPTY_POS());
+
+			FREE_AT_END();
 			return NULL;
 		}
 
@@ -488,6 +495,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	do { \
 		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
 		                    entry.name.file_pos); \
+		FREE_AT_END(); \
 		free(style_name); \
 		return NULL; \
 	} while(false)
@@ -513,6 +521,13 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		stbds_shputs(hm_style_to_font, hm_entry);
 	}
 
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_used_fonts_hm(&used_fonts); \
+		free_style_to_font_hm(&hm_style_to_font); \
+	} while(false)
+
 	UsedFontsHM used_fonts = STBDS_HASH_MAP_EMPTY;
 
 	for(size_t i = 0; i < stbds_arrlenu(ass_result.events.entries); ++i) {
@@ -527,6 +542,9 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		if(!style_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
 			                    EMPTY_POS());
+
+			free_used_fonts_hm(&used_fonts);
+			FREE_AT_END();
 			return NULL;
 		}
 
@@ -539,6 +557,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
 		                    entry.name.file_pos); \
 		free(style_name); \
+		FREE_AT_END(); \
 		return NULL; \
 	} while(false)
 
@@ -567,6 +586,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		if(!font_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
 			                    EMPTY_POS());
+			FREE_AT_END();
 			return NULL;
 		}
 
@@ -594,6 +614,8 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	return used_fonts;
 }
 
+#undef FREE_AT_END
+
 static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
                            Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
 
@@ -610,8 +632,15 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 
 	UsedFontsHM used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
 
+#define FREE_AT_END() \
+	do { \
+		free_used_fonts_hm(&used_fonts); \
+		FcFini(); \
+	} while(false)
+
 	if(used_fonts == NULL) {
 		// an error was already reported
+		FREE_AT_END();
 		return;
 	}
 
@@ -624,7 +653,7 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
 			                    EMPTY_POS());
 
-			free_used_fonts_hm(&used_fonts);
+			FREE_AT_END();
 			return;
 		}
 
@@ -645,10 +674,10 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 		free(font_name);
 	}
 
-	free_used_fonts_hm(&used_fonts);
-
-	FcFini();
+	FREE_AT_END();
 }
+
+#undef FREE_AT_END
 
 #define MAX_ANGLE_DEGREE_DOUBLE 360.0
 
