@@ -140,34 +140,33 @@ bool is_valid_name_for_type(FontStyleType type, FcChar8* name) {
 
 	switch(type) {
 		case FontStyleTypeNormal: {
-			const char* strings[] = { "Regular", "Normal", "Standard" };
+			static const char* s_strings[] = { "Regular", "Normal", "Standard" };
 
-			array.values = strings;
-			array.size = sizeof(strings) / sizeof(*strings);
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
 			break;
 		}
 		case FontStyleTypeBold: {
-			const char* strings[] = { "Bold" };
+			static const char* s_strings[] = { "Bold" };
 
-			array.values = strings;
-			array.size = sizeof(strings) / sizeof(*strings);
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
 			break;
 		}
 		case FontStyleTypeItalic: {
-			const char* strings[] = { "Italic" };
+			static const char* s_strings[] = { "Italic" };
 
-			array.values = strings;
-			array.size = sizeof(strings) / sizeof(*strings);
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
 			break;
 		}
 		case FontStyleTypeBoldItalic: {
-			const char* strings[] = { "Bold Italic" };
+			static const char* s_strings[] = { "Bold Italic" };
 
-			array.values = strings;
-			array.size = sizeof(strings) / sizeof(*strings);
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
 			break;
 		}
-
 		default: return false;
 	}
 
