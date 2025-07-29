@@ -17,13 +17,17 @@
 
 #define FORMAT_STRING(to_store, error_statement, format, ...) \
 	{ \
+		if(to_store == NULL) { \
+			fprintf(stderr, "FORMAT_STRING macro gone wrong: '%s' is NULL!\n", #to_store); \
+			error_statement; \
+		} \
 		char* internal_buffer = *to_store; \
 		if(internal_buffer != NULL) { \
 			free(internal_buffer); \
 		} \
 		int to_write = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internal_buffer = (char*)malloc(to_write * sizeof(char)); \
-		if(!internal_buffer) { \
+		if(internal_buffer == NULL) { \
 			fprintf(stderr, "Couldn't allocate memory for %d bytes!\n", to_write); \
 			error_statement; \
 		} \
@@ -31,14 +35,9 @@
 		if(written >= to_write) { \
 			fprintf(stderr, \
 			        "Snprint did write more bytes then it had space in the buffer, available " \
-			        "space:'%d', actually written:'%d'!\n", \
+			        "space: '%d', actually written: '%d'!\n", \
 			        (to_write) - 1, written); \
 			free(internal_buffer); \
-			error_statement; \
-		} \
-		if(*to_store == NULL) { \
-			free(internal_buffer); \
-			fprintf(stderr, "snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #to_store); \
 			error_statement; \
 		} \
 		*to_store = internal_buffer; \
