@@ -341,8 +341,8 @@ static void free_font_search_result(FontSearchResult result) {
 
 #undef PROPAGATE_ERROR_IMPL
 
-static void validate_font(const char* font_name, FontStyleType search_type, FilePos file_pos,
-                          bool allow_validation_errors, Diagnostics* diagnostics,
+static void validate_font(const char* style_name, const char* font_name, FontStyleType search_type,
+                          FilePos file_pos, bool allow_validation_errors, Diagnostics* diagnostics,
                           DetailedFontValidateSettings settings) {
 
 	FontResultObject result = fontconfig_find_fonts_by_family_name(font_name);
@@ -370,7 +370,8 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 	} while(false)
 
 		char* result_buffer = NULL;
-		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "no font for '%s' found", font_name);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "style '%s': no font for '%s' found",
+		                              style_name, font_name);
 
 		const DiagnosticSeverity severity_type =
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -668,21 +669,35 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 			return;
 		}
 
+		char* style_name = get_normalized_string(entry.name);
+
+		if(!style_name) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+			                    EMPTY_POS());
+
+			FREE_AT_END();
+			free(font_name);
+			return;
+		}
+
 		if(settings.check_only_used_fonts) {
 			int font_index = stbds_shgeti(used_fonts, font_name);
 
 			if(font_index < 0) {
 
 				free(font_name);
+				free(style_name);
 				continue;
 			}
 		}
 
 		FontStyleType search_type = get_style_type_for_font(entry);
 
-		validate_font(font_name, search_type, entry.fontname.file_pos, allow_validation_errors,
-		              diagnostics, settings);
+		validate_font(style_name, font_name, search_type, entry.fontname.file_pos,
+		              allow_validation_errors, diagnostics, settings);
+
 		free(font_name);
+		free(style_name);
 	}
 
 	FREE_AT_END();
