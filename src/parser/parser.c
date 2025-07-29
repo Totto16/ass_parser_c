@@ -634,10 +634,12 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
 					                                           .section = "styles" };
 
-				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-					                           .data = { .unexpected_field = unexpected_field },
-					                           .severity = severity_type,
-					                           .position = field.file_pos };
+				DiagnosticEntry diagnostic = {
+					.inner = (InnerDiagnostic){ .type = DiagnosticTypeUnexpectedField,
+					                            .data = { .unexpected_field = unexpected_field } },
+					.severity = severity_type,
+					.position = field.file_pos
+				};
 
 				stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -751,10 +753,13 @@ static FinalStr
 					DuplicateFieldDiagnostic duplicate_field = { .field = field,
 						                                         .section = "script info" };
 
-					DiagnosticEntry diagnostic = { .type = DiagnosticTypeDuplicateField,
-						                           .data = { .duplicate_field = duplicate_field },
-						                           .severity = severity_type,
-						                           .position = field.file_pos };
+					DiagnosticEntry diagnostic = {
+						.inner =
+						    (InnerDiagnostic){ .type = DiagnosticTypeDuplicateField,
+						                       .data = { .duplicate_field = duplicate_field } },
+						.severity = severity_type,
+						.position = field.file_pos
+					};
 
 					stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -834,10 +839,12 @@ static FinalStr
 				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
 					                                           .section = "script info" };
 
-				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-					                           .data = { .unexpected_field = unexpected_field },
-					                           .severity = severity_type,
-					                           .position = field.file_pos };
+				DiagnosticEntry diagnostic = {
+					.inner = (InnerDiagnostic){ .type = DiagnosticTypeUnexpectedField,
+					                            .data = { .unexpected_field = unexpected_field } },
+					.severity = severity_type,
+					.position = field.file_pos
+				};
 
 				stbds_arrput(diagnostics->entries, diagnostic);
 
@@ -1552,10 +1559,12 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				UnexpectedFieldDiagnostic unexpected_field = { .field = field,
 					                                           .section = "events" };
 
-				DiagnosticEntry diagnostic = { .type = DiagnosticTypeUnexpectedField,
-					                           .data = { .unexpected_field = unexpected_field },
-					                           .severity = severity_type,
-					                           .position = field.file_pos };
+				DiagnosticEntry diagnostic = {
+					.inner = (InnerDiagnostic){ .type = DiagnosticTypeUnexpectedField,
+					                            .data = { .unexpected_field = unexpected_field } },
+					.severity = severity_type,
+					.position = field.file_pos
+				};
 
 				stbds_arrput(diagnostics->entries, diagnostic);
 

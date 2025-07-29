@@ -4,6 +4,7 @@
 
 #include "./helper.h"
 #include "../helper/macros.h"
+#include "./diagnostics.h"
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
@@ -118,12 +119,9 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 
 					if(local_error.message == NULL) {
 
-						DiagnosticEntry warning = { .type = DiagnosticTypeSimple,
-							                        .data = { .simple = DYNAMIC_MESSAGE_STRUCT(
-							                                      result_buffer) },
-							                        .position = value.file_pos };
-
-						stbds_arrput(diagnostics->entries, warning);
+						INSERT_SIMPLE_WARNING(diagnostics->entries,
+						                      DYNAMIC_MESSAGE_STRUCT(result_buffer),
+						                      value.file_pos);
 
 						free_message_struct(local_error);
 						free(value_name);

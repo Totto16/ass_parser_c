@@ -390,7 +390,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	for(size_t i = 0; i < diagnostics_length; ++i) {
 		DiagnosticEntry entry = diagnostics.entries[i];
 
-		MessageStruct message = get_message_from_entry(entry, source_file);
+		MessageStruct message = get_message_from_entry_pretty(entry, source_file);
 
 		switch(entry.severity) {
 			case DiagnosticSeverityWarning: {

@@ -6,11 +6,10 @@
 #include <stb/ds.h>
 #include <stdio.h>
 
-static void free_diagnostic_entry(DiagnosticEntry entry) {
-
-	switch(entry.type) {
+static void free_inner_diagnostic(InnerDiagnostic inner) {
+	switch(inner.type) {
 		case DiagnosticTypeSimple: {
-			free_message_struct(entry.data.simple);
+			free_message_struct(inner.data.simple);
 			break;
 		}
 		case DiagnosticTypeUnexpectedField:
@@ -19,6 +18,11 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 			break;
 		}
 	}
+}
+
+static void free_diagnostic_entry(DiagnosticEntry entry) {
+
+	free_inner_diagnostic(entry.inner);
 }
 
 void free_diagnostics(Diagnostics diagnostics) {
@@ -31,19 +35,15 @@ void free_diagnostics(Diagnostics diagnostics) {
 	stbds_arrfree(diagnostics.entries);
 }
 
-MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_file) {
+[[nodiscard]] static MessageStruct get_message_from_inner_entry(InnerDiagnostic inner) {
 
-	char* result_buffer = NULL;
-
-	switch(entry.type) {
+	switch(inner.type) {
 		case DiagnosticTypeSimple: {
-
-			result_buffer = strdup(entry.data.simple.message);
-			break;
+			return STATIC_MESSAGE_STRUCT(inner.data.simple.message);
 		}
 		case DiagnosticTypeUnexpectedField: {
 
-			UnexpectedFieldDiagnostic data = entry.data.unexpected_field;
+			UnexpectedFieldDiagnostic data = inner.data.unexpected_field;
 
 			char* field_name = get_normalized_string(data.field);
 
@@ -57,16 +57,17 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 		return STATIC_MESSAGE_STRUCT(message); \
 	} while(false)
 
+			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "unexpected field '%s' in '%s' section",
 			                              field_name, data.section);
 
 			free(field_name);
 
-			break;
+			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
 		}
 		case DiagnosticTypeDuplicateField: {
 
-			DuplicateFieldDiagnostic data = entry.data.duplicate_field;
+			DuplicateFieldDiagnostic data = inner.data.duplicate_field;
 
 			char* field_name = get_normalized_string(data.field);
 
@@ -74,19 +75,29 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 				return STATIC_MESSAGE_STRUCT("<diagnostic message allocation error>");
 			}
 
+			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "duplicate field '%s' in '%s' section",
 			                              field_name, data.section);
 
 			free(field_name);
 
-			break;
+			return DYNAMIC_MESSAGE_STRUCT(result_buffer);
 		}
 		default: {
 			return STATIC_MESSAGE_STRUCT("unknown diagnostic type");
 		}
 	}
+}
 
 #undef PROPAGATE_ERROR_IMPL
+
+[[nodiscard]] MessageStruct get_message_from_entry(DiagnosticEntry entry) {
+	return get_message_from_inner_entry(entry.inner);
+}
+
+MessageStruct get_message_from_entry_pretty(DiagnosticEntry entry, const char* source_file) {
+
+	MessageStruct inner_message = get_message_from_inner_entry(entry.inner);
 
 #define FILE_POS_FORMAT "%zu:%zu:"
 
@@ -96,31 +107,47 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
-		free(result_buffer); \
+		free_message_struct(inner_message); \
 		return STATIC_MESSAGE_STRUCT(message); \
 	} while(false)
 
-	char* final_result = NULL;
-
 	if(source_file == NULL) {
-		final_result = strdup(result_buffer);
-	} else {
-		if(is_empty_pos(entry.position)) {
-			FORMAT_STRING_PROPAGATE_ERROR(&final_result,
-			                              FILE_FORMAT " "
-			                                          "%s",
-			                              source_file, result_buffer);
+
+		MessageStruct final_result = EMPTY_MESSAGE_STRUCT();
+
+		if(inner_message.dynamic) {
+			// do a move, no need to copy
+			final_result = inner_message;
+			inner_message = EMPTY_MESSAGE_STRUCT();
 		} else {
-			FORMAT_STRING_PROPAGATE_ERROR(&final_result,
-			                              FILE_FORMAT FILE_POS_FORMAT " "
-			                                                          "%s",
-			                              source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
-			                              result_buffer);
+			// this is not freed as it's static!
+			final_result = inner_message;
 		}
+
+		free_message_struct(inner_message);
+		return final_result;
 	}
 
-	free(result_buffer);
+	if(is_empty_pos(entry.position)) {
 
+		char* final_result = NULL;
+		FORMAT_STRING_PROPAGATE_ERROR(&final_result,
+		                              FILE_FORMAT " "
+		                                          "%s",
+		                              source_file, inner_message.message);
+
+		free_message_struct(inner_message);
+		return DYNAMIC_MESSAGE_STRUCT(final_result);
+	}
+
+	char* final_result = NULL;
+	FORMAT_STRING_PROPAGATE_ERROR(&final_result,
+	                              FILE_FORMAT FILE_POS_FORMAT " "
+	                                                          "%s",
+	                              source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+	                              inner_message.message);
+
+	free_message_struct(inner_message);
 	return DYNAMIC_MESSAGE_STRUCT(final_result);
 }
 

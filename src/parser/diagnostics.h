@@ -41,6 +41,10 @@ typedef struct {
 		UnexpectedFieldDiagnostic unexpected_field;
 		DuplicateFieldDiagnostic duplicate_field;
 	} data;
+} InnerDiagnostic;
+
+typedef struct {
+	InnerDiagnostic inner;
 	DiagnosticSeverity severity;
 	FilePos position;
 } DiagnosticEntry;
@@ -55,8 +59,9 @@ typedef struct {
 
 #define INSERT_SIMPLE_DIAGNOSTIC(entries, message, pos, severity_type) \
 	do { \
-		DiagnosticEntry diagnostic = { .type = DiagnosticTypeSimple, \
-			                           .data = { .simple = (message) }, \
+		DiagnosticEntry diagnostic = { .inner = \
+			                               (InnerDiagnostic){ .type = DiagnosticTypeSimple, \
+			                                                  .data = { .simple = (message) } }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
 		stbds_arrput(entries, diagnostic); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
@@ -72,4 +77,7 @@ typedef struct {
 
 void free_diagnostics(Diagnostics diagnostics);
 
-[[nodiscard]] MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_file);
+[[nodiscard]] MessageStruct get_message_from_entry(DiagnosticEntry entry);
+
+[[nodiscard]] MessageStruct get_message_from_entry_pretty(DiagnosticEntry entry,
+                                                          const char* source_file);
