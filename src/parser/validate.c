@@ -471,8 +471,11 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			FORMAT_STRING_DEFAULT(&result_buffer, "style with the name '%s' already exists",
 			                      style_name);
 
-			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-			                    entry.name.file_pos);
+			const DiagnosticSeverity severity_type =
+			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
+
+			INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                         entry.name.file_pos, severity_type);
 
 			free(style_name);
 			continue;
@@ -504,12 +507,12 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(index < 0) {
 
-			const DiagnosticSeverity severity_type =
-			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
-
 			char* result_buffer = NULL;
 			FORMAT_STRING_DEFAULT(&result_buffer, "style '%s' for event line not found",
 			                      style_name);
+
+			const DiagnosticSeverity severity_type =
+			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 			INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 			                         entry.style.file_pos, severity_type);
