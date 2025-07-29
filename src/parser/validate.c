@@ -264,6 +264,12 @@ typedef struct {
 	} data;
 } FontSearchResult;
 
+static void free_font_search_result(FontSearchResult result) {
+	if(result.type == FontSearchResultTypeError) {
+		free_message_struct(result.data.error);
+	}
+}
+
 [[nodiscard]] FontSearchResult find_type_for_fonts(const char* font_name, FcFontSet* font_list,
                                                    FontStyleType font_type,
                                                    DetailedFontValidateSettings settings) {
@@ -379,8 +385,15 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 	FontSearchResult found_result =
 	    find_type_for_fonts(font_name, ok_res.font_list, search_type, settings);
 
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_font_result(result); \
+		free_font_search_result(found_result); \
+	} while(false)
+
 	if(found_result.type == FontSearchResultTypeError) {
-		char* result_buffer = NULL;
+		char* result_buffer = NULL; // NOLINT(clang-analyzer-unix.Malloc)
 		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
 		                              "an error occurred while trying to find font '%s': %s",
 		                              font_name, found_result.data.error.message);
@@ -390,8 +403,6 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 		                         file_pos, severity_type);
-
-		free_message_struct(found_result.data.error);
 
 		FREE_AT_END();
 		return;
