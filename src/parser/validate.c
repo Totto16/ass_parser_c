@@ -1,14 +1,17 @@
 
+#define _GNU_SOURCE // NOLINT(readability-identifier-naming,bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+#include <string.h>
+#undef _GNU_SOURCE
+
 #define ASS_PARSER_C_INTERNAL_USAGE
 
-#include "./validate.h"
 #include "../helper/macros.h"
+#include "./validate.h"
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
 #include <stb/ds.h>
 #include <stdio.h>
-#include <strings.h>
 
 #include <fontconfig/fontconfig.h>
 
@@ -37,7 +40,7 @@ static void free_font_result(FontResultObject result) {
 	}
 }
 
-static FontResultObject fontconfig_find_font_by_family_name(const char* font_name) {
+static FontResultObject fontconfig_find_fonts_by_family_name(const char* font_name) {
 	// Build a pattern to search for
 	FcPattern* pattern = FcPatternCreate();
 
@@ -180,6 +183,76 @@ bool is_valid_name_for_type(FontStyleType type, FcChar8* name) {
 }
 
 typedef enum : uint8_t {
+	MatchResolutionExact,
+	MatchResolutionIncludes,
+	MatchResolutionLikeIs
+} MatchResolution;
+
+[[nodiscard]] bool matches_font(const char* family, const char* font_name,
+                                MatchResolution resolution) {
+
+	switch(resolution) {
+		case MatchResolutionExact: {
+			return strcasecmp(family, font_name) == 0;
+		}
+		case MatchResolutionIncludes: {
+			const char* pos1 = strcasestr(family, font_name);
+
+			if(pos1 != NULL) {
+				return true;
+			}
+
+			const char* pos2 = strcasestr(font_name, family);
+
+			return pos2 != NULL;
+		}
+		case MatchResolutionLikeIs:
+		default: {
+			return true;
+		}
+	}
+}
+
+typedef struct {
+	MatchResolution font_match_res;
+	bool check_only_used_fonts;
+	bool enabled;
+} DetailedFontValidateSettings;
+
+[[nodiscard]] static DetailedFontValidateSettings
+get_detailed_font_settings_from_presset(FontPreset preset) {
+
+	switch(preset) {
+		case FontPresetDisabled: {
+			return (DetailedFontValidateSettings){ .enabled = false,
+				                                   .check_only_used_fonts = true,
+				                                   .font_match_res = MatchResolutionExact };
+		}
+		case FontPresetStrictAll: {
+			return (DetailedFontValidateSettings){ .enabled = true,
+				                                   .check_only_used_fonts = false,
+				                                   .font_match_res = MatchResolutionExact };
+		}
+		case FontPresetStrict: {
+			return (DetailedFontValidateSettings){ .enabled = true,
+				                                   .check_only_used_fonts = true,
+				                                   .font_match_res = MatchResolutionExact };
+		}
+		case FontPresetModerate: {
+			return (DetailedFontValidateSettings){ .enabled = true,
+				                                   .check_only_used_fonts = true,
+				                                   .font_match_res = MatchResolutionIncludes };
+		}
+		case FontPresetLenient: {
+			return (DetailedFontValidateSettings){ .enabled = true,
+				                                   .check_only_used_fonts = true,
+				                                   .font_match_res = MatchResolutionLikeIs };
+		}
+		default: UNREACHABLE();
+	}
+}
+
+typedef enum : uint8_t {
 	FontSearchResultTypeFound,
 	FontSearchResultTypeNotFound,
 	FontSearchResultTypeError
@@ -193,7 +266,8 @@ typedef struct {
 } FontSearchResult;
 
 [[nodiscard]] FontSearchResult find_type_for_fonts(const char* font_name, FcFontSet* font_list,
-                                                   FontStyleType font_type) {
+                                                   FontStyleType font_type,
+                                                   DetailedFontValidateSettings settings) {
 	for(int i = 0; i < font_list->nfont; ++i) {
 		FcPattern* font = font_list->fonts[i];
 
@@ -208,8 +282,7 @@ typedef struct {
 				                                     "couldn't get font family") } };
 		}
 
-		if(strcasecmp((char*)family, font_name) != 0) {
-			// not an exact match
+		if(!matches_font((char*)family, font_name, settings.font_match_res)) {
 			continue;
 		}
 
@@ -254,22 +327,14 @@ typedef struct {
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
 
-static void validate_font(AssStyleEntry entry, bool allow_validation_errors,
-                          Diagnostics* diagnostics) {
+static void validate_font(const char* font_name, FontStyleType search_type,
+                          bool allow_validation_errors, Diagnostics* diagnostics,
+                          DetailedFontValidateSettings settings) {
 
-	char* font_name = get_normalized_string(entry.fontname);
-
-	if(!font_name) {
-		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
-		                    NO_POS());
-		return;
-	}
-
-	FontResultObject result = fontconfig_find_font_by_family_name(font_name);
+	FontResultObject result = fontconfig_find_fonts_by_family_name(font_name);
 
 #define FREE_AT_END() \
 	do { \
-		free(font_name); \
 		free_font_result(result); \
 	} while(false)
 
@@ -295,9 +360,8 @@ static void validate_font(AssStyleEntry entry, bool allow_validation_errors,
 		return;
 	}
 
-	FontStyleType search_type = get_style_type_for_font(entry);
-
-	FontSearchResult found_result = find_type_for_fonts(font_name, ok_res.font_list, search_type);
+	FontSearchResult found_result =
+	    find_type_for_fonts(font_name, ok_res.font_list, search_type, settings);
 
 	if(found_result.type == FontSearchResultTypeError) {
 		char* result_buffer = NULL;
@@ -337,8 +401,161 @@ static void validate_font(AssStyleEntry entry, bool allow_validation_errors,
 
 #undef FREE_AT_END
 
+STBDS_HASH_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry);
+
+typedef STBDS_HASH_MAP(StyleToFontHMEntry) StyleToFontHM;
+
+static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
+
+	size_t hm_length = stbds_shlenu(*style_to_font_hm);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		StyleToFontHMEntry entry = (*style_to_font_hm)[i];
+		free(entry.key);
+	}
+
+	stbds_shfree(*style_to_font_hm);
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+typedef struct {
+} MonoState;
+
+#define MONOSTATE MonoState
+#define MONOSTATE_VALUE ((MonoState){})
+
+#else
+
+#define MONOSTATE bool
+#define MONOSTATE_VALUE true
+
+#endif
+
+STBDS_HASH_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry);
+
+typedef STBDS_HASH_MAP(UsedFontHMEntry) UsedFontsHM;
+
+static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
+
+	size_t hm_length = stbds_shlenu(*used_fonts_hm);
+
+	for(size_t i = 0; i < hm_length; ++i) {
+		UsedFontHMEntry entry = (*used_fonts_hm)[i];
+		free(entry.key);
+	}
+
+	stbds_shfree(*used_fonts_hm);
+}
+
+[[nodiscard]] static UsedFontsHM get_used_fonts(AssResult ass_result, bool allow_validation_errors,
+                                                Diagnostics* diagnostics) {
+
+	StyleToFontHM hm_style_to_font = STBDS_HASH_MAP_EMPTY;
+
+	for(size_t i = 0; i < stbds_arrlenu(ass_result.styles.entries); ++i) {
+		AssStyleEntry entry = ass_result.styles.entries[i];
+
+		char* style_name = get_normalized_string(entry.name);
+
+		if(!style_name) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+			                    NO_POS());
+			return NULL;
+		}
+
+		int index = stbds_shgeti(hm_style_to_font, style_name);
+
+		if(index >= 0) {
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "style with the name '%s' already exists",
+			                      style_name);
+
+			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                    NO_POS());
+
+			free(style_name);
+			continue;
+		}
+
+		StyleToFontHMEntry hm_entry = { .key = style_name, .value = entry.fontname };
+
+		stbds_shputs(hm_style_to_font, hm_entry);
+	}
+
+	UsedFontsHM used_fonts = STBDS_HASH_MAP_EMPTY;
+
+	for(size_t i = 0; i < stbds_arrlenu(ass_result.events.entries); ++i) {
+		AssEventEntry entry = ass_result.events.entries[i];
+
+		if(entry.type != EventTypeComment && entry.type != EventTypeDialogue) {
+			continue;
+		}
+
+		char* style_name = get_normalized_string(entry.style);
+
+		if(!style_name) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+			                    NO_POS());
+			return NULL;
+		}
+
+		int index = stbds_shgeti(hm_style_to_font, style_name);
+
+		if(index < 0) {
+
+			const DiagnosticSeverity severity_type =
+			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
+
+			char* result_buffer = NULL;
+			FORMAT_STRING_DEFAULT(&result_buffer, "style '%s' for event line not found",
+			                      style_name);
+
+			INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                         NO_POS(), severity_type);
+
+			free(style_name);
+			continue;
+		}
+
+		free(style_name);
+
+		StyleToFontHMEntry style_to_font_entry = hm_style_to_font[index];
+
+		char* font_name = get_normalized_string(style_to_font_entry.value);
+
+		if(!font_name) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+			                    NO_POS());
+			return NULL;
+		}
+
+		// insert font, if not already in the hm (that is used like a set)
+		int font_index = stbds_shgeti(used_fonts, font_name);
+
+		if(font_index < 0) {
+			UsedFontHMEntry used_font_entry = { .key = font_name, .value = MONOSTATE_VALUE };
+
+			stbds_shputs(used_fonts, used_font_entry);
+		} else {
+			free(font_name);
+		}
+	}
+
+	// this hm is not needed anymore
+	free_style_to_font_hm(&hm_style_to_font);
+
+	if(used_fonts == STBDS_HASH_MAP_EMPTY) {
+		UsedFontHMEntry default_value = { .key = NULL, .value = MONOSTATE_VALUE };
+		// forces the length to be 0, but the pointer to not be null!
+		stbds_shdefaults(used_fonts, default_value);
+	}
+
+	return used_fonts;
+}
+
 static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
-                           Diagnostics* diagnostics) {
+                           Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
 
 	if(!FcInit()) {
 
@@ -351,11 +568,43 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 		return;
 	}
 
+	UsedFontsHM used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
+
+	if(used_fonts == NULL) {
+		// an error was already reported
+		return;
+	}
+
 	for(size_t i = 0; i < stbds_arrlenu(ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = ass_result.styles.entries[i];
 
-		validate_font(entry, allow_validation_errors, diagnostics);
+		char* font_name = get_normalized_string(entry.fontname);
+
+		if(!font_name) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
+			                    NO_POS());
+
+			free_used_fonts_hm(&used_fonts);
+			return;
+		}
+
+		if(settings.check_only_used_fonts) {
+			int font_index = stbds_shgeti(used_fonts, font_name);
+
+			if(font_index < 0) {
+
+				free(font_name);
+				continue;
+			}
+		}
+
+		FontStyleType search_type = get_style_type_for_font(entry);
+
+		validate_font(font_name, search_type, allow_validation_errors, diagnostics, settings);
+		free(font_name);
 	}
+
+	free_used_fonts_hm(&used_fonts);
 
 	FcFini();
 }
@@ -386,14 +635,12 @@ static void validate_styles(AssResult ass_result, bool allow_validation_errors,
 
 		validate_style_angles(entry.angle, allow_validation_errors, diagnostics);
 	}
-
-	// TODO: check if the style in a effect line is present
 }
 
 static void validate_text(AssResult ass_result, bool allow_validation_errors,
                           Diagnostics* diagnostics) {
 
-	// TODO(Totto): check and parse text value, for invalid escape sequences, and invald
+	// TODO: check and parse text value, for invalid escape sequences, and invald
 	// values inside {}, like eg {bogus}, or {\j} etc, or not closed {} blocks
 
 	UNUSED(ass_result);
@@ -403,8 +650,12 @@ static void validate_text(AssResult ass_result, bool allow_validation_errors,
 
 void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnostics* diagnostics) {
 
-	if(settings.validate_settings.validate_fonts) {
-		validate_fonts(ass_result, settings.strict_settings.allow_validation_errors, diagnostics);
+	DetailedFontValidateSettings font_settings =
+	    get_detailed_font_settings_from_presset(settings.validate_settings.font_settings.preset);
+
+	if(font_settings.enabled) {
+		validate_fonts(ass_result, settings.strict_settings.allow_validation_errors, diagnostics,
+		               font_settings);
 	}
 
 	if(settings.validate_settings.validate_styles) {
@@ -415,3 +666,27 @@ void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnosti
 		validate_text(ass_result, settings.strict_settings.allow_validation_errors, diagnostics);
 	}
 }
+
+[[nodiscard]] int parse_font_preset(const char* preset) {
+
+	if(strcmp(preset, "disabled") == 0) {
+		return FontPresetDisabled;
+	}
+	if(strcmp(preset, "strict-all") == 0) {
+		return FontPresetStrictAll;
+	}
+	if(strcmp(preset, "strict") == 0) {
+		return FontPresetStrict;
+	}
+	if(strcmp(preset, "moderate") == 0) {
+		return FontPresetModerate;
+	}
+	if(strcmp(preset, "lenient") == 0) {
+		return FontPresetLenient;
+	}
+
+	return -1;
+}
+
+// TODO: use pos of strView or finalstr instead of no_pos in all places
+// TODO: replace FORMAT_STRING_DEFAULT everywhere with error return, where it makes sense!

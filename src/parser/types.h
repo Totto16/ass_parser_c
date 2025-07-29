@@ -32,8 +32,20 @@ typedef struct {
 	bool allow_validation_errors;
 } StrictSettings;
 
+typedef enum : uint8_t {
+	FontPresetDisabled,
+	FontPresetStrictAll,
+	FontPresetStrict,
+	FontPresetModerate,
+	FontPresetLenient
+} FontPreset;
+
 typedef struct {
-	bool validate_fonts;
+	FontPreset preset;
+} FontSettings;
+
+typedef struct {
+	FontSettings font_settings;
 	bool validate_styles;
 	bool validate_text;
 } ValidateSettings;

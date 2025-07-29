@@ -176,7 +176,6 @@ struct AssParseResultImpl {
 	return str_view_is_eof(str_view);
 }
 
-
 #if defined(__clang__) || defined(__GNUC__)
 #define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
 #else

@@ -9,6 +9,7 @@ extern "C" {
 #include "../helper/io.h"
 #include "../lib/lib.h"
 #include "../parser/parser.h"
+#include "../parser/validate.h"
 
 #ifdef __cplusplus
 }

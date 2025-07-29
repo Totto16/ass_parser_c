@@ -75,12 +75,12 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT2 "single validation options\n");
 
-	printf(IDENT3 "--validate-fonts [value]: set this specific option, "
-	              "specifying no value is enabling it\n");
 	printf(IDENT3 "--validate-styles [value]: set this specific option, "
 	              "specifying no value is enabling it\n");
 	printf(IDENT3 "--validate-text [value]: set this specific option, "
 	              "specifying no value is enabling it\n");
+
+	printf(IDENT3 "--font-validate-preset <preset>: set the preset for font validation\n");
 }
 
 // prints the usage, if argc is not the right amount!
@@ -215,9 +215,10 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		                                             .allow_unrecognized_file_encoding = false,
 		                                             .allow_validation_errors = false },
 
-		                       .validate_settings = (ValidateSettings){ .validate_fonts = true,
-		                                                                .validate_text = true,
-		                                                                .validate_styles = true } };
+		                       .validate_settings = (ValidateSettings){
+		                           .font_settings = (FontSettings){ .preset = FontPresetStrict },
+		                           .validate_text = true,
+		                           .validate_styles = true } };
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -295,23 +296,39 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			settings.strict_settings.allow_validation_errors = value;
 
 		} else if((strcmp(arg, "-a") == 0) || (strcmp(arg, "--validate-everything") == 0)) {
-			settings.validate_settings.validate_fonts = true;
+			settings.validate_settings.font_settings.preset = FontPresetStrictAll;
 			settings.validate_settings.validate_text = true;
 			settings.validate_settings.validate_styles = true;
 
 			processed_args++;
 		} else if((strcmp(arg, "-A") == 0) || (strcmp(arg, "--validate-nothing") == 0)) {
-			settings.validate_settings.validate_fonts = false;
+			settings.validate_settings.font_settings.preset = FontPresetDisabled;
 			settings.validate_settings.validate_text = false;
 			settings.validate_settings.validate_styles = false;
 
 			processed_args++;
-		} else if((strcmp(arg, "--validate-fonts") == 0)) {
-			processed_args++;
+		} else if((strcmp(arg, "--font-validate-preset") == 0)) {
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			if(processed_args + 2 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'font-validate-preset' option\n");
+				print_usage(argv[0], UsageCommandCheck);
+				return EXIT_FAILURE;
+			}
 
-			settings.validate_settings.validate_fonts = value;
+			int parsed_preset = parse_font_preset(argv[processed_args + 1]);
+
+			if(parsed_preset < 0) {
+				fprintf(
+				    stderr,
+				    "Wrong option for the 'font-validate-preset' option, unrecognized preset: %s\n",
+				    argv[processed_args + 1]);
+				print_usage(argv[0], UsageCommandCheck);
+				return EXIT_FAILURE;
+			}
+
+			settings.validate_settings.font_settings.preset = parsed_preset;
+
+			processed_args += 2;
 
 		} else if((strcmp(arg, "--validate-styles") == 0)) {
 			processed_args++;
