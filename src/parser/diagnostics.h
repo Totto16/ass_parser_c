@@ -59,7 +59,7 @@ typedef struct {
 			                           .data = { .simple = (message) }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
-		stbds_arrput(entries, diagnostic); \
+		stbds_arrput(entries, diagnostic); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
 	} while(false)
 
 #define INSERT_SIMPLE_WARNING(entries, message, pos) \
