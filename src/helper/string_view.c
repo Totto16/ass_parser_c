@@ -344,8 +344,14 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 		char char_delimiter = line_type == LineTypeCr ? '\r' : '\n';
 
-		return str_view_get_substring_by_char_delimiter(str_view, result, char_delimiter,
-		                                                allow_eof);
+		bool final_result =
+		    str_view_get_substring_by_char_delimiter(str_view, result, char_delimiter, allow_eof);
+
+		if(final_result) {
+			str_view_advance_line_count(str_view);
+		}
+		
+		return final_result;
 	}
 
 	assert(line_type == LineTypeCrLf);
