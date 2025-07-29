@@ -29,9 +29,9 @@ typedef enum : uint8_t {
 
 // only for internal use!!
 
-[[nodiscard]] bool should_log(LogLevel level);
+[[nodiscard]] bool log_should_log(LogLevel level);
 
-[[nodiscard]] bool should_log_to_stderr(LogLevel level);
+[[nodiscard]] bool log_should_log_to_stderr(LogLevel level);
 
 [[nodiscard]] const char* get_level_name_internal(LogLevel level, bool color);
 
@@ -41,7 +41,7 @@ void log_lock_mutex(void);
 
 void log_unlock_mutex(void);
 
-[[nodiscard]] bool log_should_use_color(void);
+[[nodiscard]] bool log_should_use_color(bool stderr);
 
 [[nodiscard]] bool log_should_use_thread_name(void);
 
@@ -59,12 +59,13 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
 		LogLevel level = destructured.level; \
 		int flags = destructured.flags; \
-		if(should_log(level)) { \
-			bool should_use_color = log_should_use_color(); \
+		if(log_should_log(level)) { \
+			bool should_log_to_stderr = log_should_log_to_stderr(level); \
+			bool should_use_color = log_should_use_color(should_log_to_stderr); \
 			const char* level_name = get_level_name_internal(level, should_use_color); \
 			bool should_use_thread_name = log_should_use_thread_name(); \
 			log_lock_mutex(); \
-			FILE* file_stream = should_log_to_stderr(level) ? stderr : stdout; \
+			FILE* file_stream = should_log_to_stderr ? stderr : stdout; \
 			fprintf(file_stream, "[%s] ", level_name); \
 			if(should_use_thread_name) { \
 				const char* thread_name = get_thread_name(); \
