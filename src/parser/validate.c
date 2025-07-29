@@ -311,9 +311,16 @@ typedef struct {
 					goto break_for_inner;
 				}
 				default: {
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		return (FontSearchResult){ .type = FontSearchResultTypeError, \
+			                       .data = { .error = STATIC_MESSAGE_STRUCT(message) } }; \
+	} while(false)
+
 					char* result_buffer = NULL;
-					FORMAT_STRING_DEFAULT(&result_buffer, "result for getting the style was: '%d'",
-					                      res);
+					FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+					                              "result for getting the style was: '%d'", res);
 
 					return (FontSearchResult){ .type = FontSearchResultTypeError,
 						                       .data = { .error = DYNAMIC_MESSAGE_STRUCT(
@@ -326,6 +333,8 @@ typedef struct {
 
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
+
+#undef PROPAGATE_ERROR_IMPL
 
 static void validate_font(const char* font_name, FontStyleType search_type, FilePos file_pos,
                           bool allow_validation_errors, Diagnostics* diagnostics,
@@ -347,8 +356,16 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 	FontResultOk ok_res = result.data.ok;
 
 	if(ok_res.font_list->nfont == 0) {
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), file_pos); \
+		FREE_AT_END(); \
+		return; \
+	} while(false)
+
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer, "no font for '%s' found", font_name);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "no font for '%s' found", font_name);
 
 		const DiagnosticSeverity severity_type =
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -365,9 +382,9 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 
 	if(found_result.type == FontSearchResultTypeError) {
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer,
-		                      "an error occurred while trying to find font '%s': %s", font_name,
-		                      found_result.data.error.message);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+		                              "an error occurred while trying to find font '%s': %s",
+		                              font_name, found_result.data.error.message);
 
 		const DiagnosticSeverity severity_type =
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -383,8 +400,8 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 
 	if(found_result.type == FontSearchResultTypeNotFound) {
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer, "variant '%s' for font '%s' not found",
-		                      get_search_type_name(search_type), font_name);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "variant '%s' for font '%s' not found",
+		                              get_search_type_name(search_type), font_name);
 
 		const DiagnosticSeverity severity_type =
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -399,6 +416,7 @@ static void validate_font(const char* font_name, FontStyleType search_type, File
 	FREE_AT_END();
 }
 
+#undef PROPAGATE_ERROR_IMPL
 #undef FREE_AT_END
 
 STBDS_HASH_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry);
@@ -467,9 +485,19 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(index >= 0) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    entry.name.file_pos); \
+		free(style_name); \
+		return NULL; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "style with the name '%s' already exists",
-			                      style_name);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "style with the name '%s' already exists",
+			                              style_name);
+
+#undef PROPAGATE_ERROR_IMPL
 
 			const DiagnosticSeverity severity_type =
 			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -507,9 +535,19 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		if(index < 0) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    entry.name.file_pos); \
+		free(style_name); \
+		return NULL; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "style '%s' for event line not found",
-			                      style_name);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "style '%s' for event line not found",
+			                              style_name);
+
+#undef PROPAGATE_ERROR_IMPL
 
 			const DiagnosticSeverity severity_type =
 			    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
@@ -617,11 +655,20 @@ static void validate_style_angle(double angle, FilePos file_pos, bool allow_vali
                                  Diagnostics* diagnostics) {
 
 	if(angle < 0.0 || angle > 360.0) {
-		const DiagnosticSeverity severity_type =
-		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), file_pos); \
+		return; \
+	} while(false)
 
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer, "value for angle is out of range: %f", angle);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "value for angle is out of range: %f", angle);
+
+#undef PROPAGATE_ERROR_IMPL
+
+		const DiagnosticSeverity severity_type =
+		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;
 
 		INSERT_SIMPLE_DIAGNOSTIC(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 		                         file_pos, severity_type);
@@ -692,5 +739,3 @@ void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnosti
 
 	return -1;
 }
-
-// TODO: replace FORMAT_STRING_DEFAULT everywhere with error return, where it makes sense!

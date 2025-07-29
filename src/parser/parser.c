@@ -273,10 +273,18 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 				return ErrorTypeFatal;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free(key_name); \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      "unrecognized format key %s in format line in styles section",
-			                      key_name);
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer, "unrecognized format key %s in format line in styles section",
+			    key_name);
 
 			free(key_name);
 
@@ -290,6 +298,8 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 	return ErrorTypeNone;
 }
+
+#undef PROPAGATE_ERROR_IMPL
 
 /*** general note:
     @see keep-going
@@ -325,16 +335,26 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 		if(i >= field_size) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      "error, too many fields in the style line, the format line "
-			                      "specified %lu, but we are already at %lu",
-			                      field_size, (i + 1));
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer,
+			    "error, too many fields in the style line, the format line "
+			    "specified %lu, but we are already at %lu",
+			    field_size, (i + 1));
 
 			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 			                    line_view.position.file_pos);
 			return ErrorTypeFatal;
 		}
+
+#undef PROPAGATE_ERROR_IMPL
 
 		MessageStruct error = EMPTY_MESSAGE_STRUCT();
 
@@ -449,9 +469,21 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 				return ErrorTypeFatal;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free(value_name); \
+		free_message_struct(error); \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
-			                      get_name_for_style_format(format), value_name, error.message);
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer, "While parsing field '%s' with value '%s': %s",
+			    get_name_for_style_format(format), value_name, error.message);
+
+#undef PROPAGATE_ERROR_IMPL
 
 			free(value_name);
 			free_message_struct(error);
@@ -466,11 +498,18 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 	if(i != field_size) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer,
-		                      "error, too few fields in the style line, the format line "
-		                      "specified %lu, but we only have %lu",
-		                      field_size, i);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+		                              "error, too few fields in the style line, the format line "
+		                              "specified %lu, but we only have %lu",
+		                              field_size, i);
 
 		INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 		                    line_view.position.file_pos);
@@ -481,6 +520,8 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 	return ErrorTypeNone;
 }
+
+#undef PROPAGATE_ERROR_IMPL
 
 [[nodiscard]] static ErrorType parse_styles(AssStyles* ass_styles, StrView* data_view,
                                             ParseSettings settings, LineType line_type,
@@ -809,10 +850,23 @@ static FinalStr
 					return ErrorTypeFatal;
 				}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		FREE_AT_END(); \
+		free_message_struct(error); \
+		free(field_name); \
+		free(value_name); \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 				char* result_buffer = NULL;
-				FORMAT_STRING_DEFAULT(&result_buffer,
-				                      "While parsing field '%s' with value '%s': %s", field_name,
-				                      value_name, error.message);
+				FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+				                              "While parsing field '%s' with value '%s': %s",
+				                              field_name, value_name, error.message);
+
+#undef PROPAGATE_ERROR_IMPL
 
 				free_message_struct(error);
 				free(field_name);
@@ -852,9 +906,19 @@ static FinalStr
 
 		} else if(script_info.script_type != ScriptTypeV4Plus) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    script_info_section_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "only scrypt type v4+ is supported but got: %s",
-			                      get_script_type_name(script_info.script_type));
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+			                              "only scrypt type v4+ is supported but got: %s",
+			                              get_script_type_name(script_info.script_type));
+
+#undef PROPAGATE_ERROR_IMPL
 
 			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 			                    script_info_section_pos);
@@ -1036,10 +1100,20 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				return ErrorTypeFatal;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free(key_name); \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      "unrecognized format key %s in format line in events section",
-			                      key_name);
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer, "unrecognized format key %s in format line in events section",
+			    key_name);
+
+#undef PROPAGATE_ERROR_IMPL
 
 			free(key_name);
 
@@ -1078,11 +1152,21 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 		if(i >= field_size) {
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      "error, too many fields in the event line, the format line "
-			                      "specified %lu, but we are already at %lu",
-			                      field_size, (i + 1));
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer,
+			    "error, too many fields in the event line, the format line "
+			    "specified %lu, but we are already at %lu",
+			    field_size, (i + 1));
+
+#undef PROPAGATE_ERROR_IMPL
 
 			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 			                    line_view.position.file_pos);
@@ -1183,9 +1267,21 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				return ErrorTypeFatal;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free_message_struct(error); \
+		free(value_name); \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "While parsing field '%s' with value '%s': %s",
-			                      get_name_for_event_format(format), value_name, error.message);
+			FORMAT_STRING_PROPAGATE_ERROR(
+			    &result_buffer, "While parsing field '%s' with value '%s': %s",
+			    get_name_for_event_format(format), value_name, error.message);
+
+#undef PROPAGATE_ERROR_IMPL
 
 			free_message_struct(error);
 			free(value_name);
@@ -1199,11 +1295,21 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 	}
 
 	if(i != field_size) {
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT(message), \
+		                    line_view.position.file_pos); \
+		return ErrorTypeFatal; \
+	} while(false)
+
 		char* result_buffer = NULL;
-		FORMAT_STRING_DEFAULT(&result_buffer,
-		                      "error, too few fields in the event line, the format line "
-		                      "specified %lu, but we only have %lu",
-		                      field_size, i);
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+		                              "error, too few fields in the event line, the format line "
+		                              "specified %lu, but we only have %lu",
+		                              field_size, i);
+
+#undef PROPAGATE_ERROR_IMPL
 
 		INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
 		                    line_view.position.file_pos);
@@ -1577,12 +1683,19 @@ static void free_ass_result(AssResult data) {
 				RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(error));
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(message)); \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "%s, assuming UTF-8 (ascii also works with that)",
-			                      error);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+			                              "%s, assuming UTF-8 (ascii also works with that)", error);
 
 			INSERT_SIMPLE_WARNING(result->diagnostics.entries,
 			                      DYNAMIC_MESSAGE_STRUCT(result_buffer), EMPTY_POS());
+
+#undef PROPAGATE_ERROR_IMPL
 
 			bom_size = 0;
 			codepoints_result = get_codepoints_from_utf8(data);
@@ -1617,10 +1730,17 @@ static void free_ass_result(AssResult data) {
 		default: {
 			free_sized_ptr(data);
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(message)); \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer,
-			                      "only UTF-8 encoded files supported atm, but got: %s",
-			                      get_file_type_name(file_type));
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+			                              "only UTF-8 encoded files supported atm, but got: %s",
+			                              get_file_type_name(file_type));
+
+#undef PROPAGATE_ERROR_IMPL
 
 			RETURN_ERROR_AT_START(DYNAMIC_MESSAGE_STRUCT(result_buffer));
 		}
@@ -1651,14 +1771,14 @@ static void free_ass_result(AssResult data) {
 	}
 
 	// get line type
-	char* line_type_error = NULL;
+	MessageStruct line_type_error = EMPTY_MESSAGE_STRUCT();
 
 	ConstStrView line_type_view = get_const_str_view_from_str_view(data_view);
 
 	LineType line_type = get_line_type(line_type_view, &line_type_error);
 
-	if(line_type_error != NULL) {
-		RETURN_ERROR_AT_START(DYNAMIC_MESSAGE_STRUCT(line_type_error));
+	if(line_type_error.message != NULL) {
+		RETURN_ERROR_AT_START(line_type_error);
 	}
 
 	// parse script info

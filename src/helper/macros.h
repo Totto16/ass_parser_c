@@ -46,6 +46,10 @@
 #define FORMAT_STRING_DEFAULT(to_store, format, ...) \
 	FORMAT_STRING(to_store, exit(EXIT_FAILURE), format, __VA_ARGS__)
 
+#define FORMAT_STRING_PROPAGATE_ERROR(to_store, format, ...) \
+	FORMAT_STRING(to_store, PROPAGATE_ERROR_IMPL("string format allocation error"), format, \
+	              __VA_ARGS__)
+
 #ifdef NDEBUG
 #define UNREACHABLE() \
 	do { \

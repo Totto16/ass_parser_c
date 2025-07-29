@@ -3,6 +3,8 @@ lib_src_files += files(
     'io.c',
     'io.h',
     'macros.h',
+    'message_struct.c',
+    'message_struct.h',
     'sized_ptr.c',
     'sized_ptr.h',
     'string_view.c',
@@ -14,7 +16,7 @@ lib_src_files += files(
 
 
 install_headers(
-    files('io.h', 'sized_ptr.h', 'string_view.h', 'utf_helper.h'),
+    files('io.h', 'message_struct.h', 'sized_ptr.h', 'string_view.h', 'utf_helper.h'),
     install_dir: install_include_dir / 'helper',
     preserve_path: true,
 )

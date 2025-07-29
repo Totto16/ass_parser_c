@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../helper/message_struct.h"
 #include "./utf_helper.h"
 
 typedef struct {
@@ -79,4 +80,4 @@ typedef enum : uint8_t {
 [[nodiscard]] bool str_view_get_substring_until_eol(StrView* str_view, ConstStrView* result,
                                                     LineType line_type, bool allow_eof);
 
-[[nodiscard]] LineType get_line_type(ConstStrView str_view, char** error_ptr);
+[[nodiscard]] LineType get_line_type(ConstStrView str_view, MessageStruct* msg_ptr);

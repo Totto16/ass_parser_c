@@ -91,9 +91,15 @@
 				return 0;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		*message_ptr = STATIC_MESSAGE_STRUCT(message); \
+		return 0; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "error, not a valid decimal number: %s",
-			                      value_name);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "error, not a valid decimal number: %s",
+			                              value_name);
 
 			if(allow_number_truncating) {
 				assert(diagnostics != NULL);
@@ -139,6 +145,8 @@
 	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return result;
 }
+
+#undef PROPAGATE_ERROR_IMPL
 
 [[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, MessageStruct* message_ptr,
                                                   Diagnostics* diagnostics) {

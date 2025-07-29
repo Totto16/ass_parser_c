@@ -6,12 +6,6 @@
 #include <stb/ds.h>
 #include <stdio.h>
 
-void free_message_struct(MessageStruct msg) {
-	if(msg.dynamic) {
-		free(msg.message);
-	}
-}
-
 static void free_diagnostic_entry(DiagnosticEntry entry) {
 
 	switch(entry.type) {
@@ -61,8 +55,13 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 				return STATIC_MESSAGE_STRUCT("<diagnostic message allocation error>");
 			}
 
-			FORMAT_STRING_DEFAULT(&result_buffer, "unexpected field '%s' in '%s' section",
-			                      field_name, data.section);
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		return STATIC_MESSAGE_STRUCT(message); \
+	} while(false)
+
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "unexpected field '%s' in '%s' section",
+			                              field_name, data.section);
 
 			free(field_name);
 
@@ -78,8 +77,8 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 				return STATIC_MESSAGE_STRUCT("<diagnostic message allocation error>");
 			}
 
-			FORMAT_STRING_DEFAULT(&result_buffer, "duplicate field '%s' in '%s' section",
-			                      field_name, data.section);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "duplicate field '%s' in '%s' section",
+			                              field_name, data.section);
 
 			free(field_name);
 
@@ -102,16 +101,16 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 		final_result = strdup(result_buffer);
 	} else {
 		if(is_empty_pos(entry.position)) {
-			FORMAT_STRING_DEFAULT(&final_result,
-			                      FILE_FORMAT " "
-			                                  "%s",
-			                      source_file, result_buffer);
+			FORMAT_STRING_PROPAGATE_ERROR(&final_result,
+			                              FILE_FORMAT " "
+			                                          "%s",
+			                              source_file, result_buffer);
 		} else {
-			FORMAT_STRING_DEFAULT(&final_result,
-			                      FILE_FORMAT FILE_POS_FORMAT " "
-			                                                  "%s",
-			                      source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
-			                      result_buffer);
+			FORMAT_STRING_PROPAGATE_ERROR(&final_result,
+			                              FILE_FORMAT FILE_POS_FORMAT " "
+			                                                          "%s",
+			                              source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
+			                              result_buffer);
 		}
 	}
 
@@ -119,3 +118,5 @@ MessageStruct get_message_from_entry(DiagnosticEntry entry, const char* source_f
 
 	return DYNAMIC_MESSAGE_STRUCT(final_result);
 }
+
+#undef PROPAGATE_ERROR_IMPL

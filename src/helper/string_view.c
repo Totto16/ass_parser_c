@@ -350,7 +350,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		if(final_result) {
 			str_view_advance_line_count(str_view);
 		}
-		
+
 		return final_result;
 	}
 
@@ -404,7 +404,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	return true;
 }
 
-[[nodiscard]] LineType get_line_type(ConstStrView str_view, char** error_ptr) {
+[[nodiscard]] LineType get_line_type(ConstStrView str_view, MessageStruct* msg_ptr) {
 
 #define LINETYPE_CRLF_INDEX 0
 #define LINETYPE_LF_INDEX 1
@@ -467,13 +467,21 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 error_cond:
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		*msg_ptr = STATIC_MESSAGE_STRUCT(message); \
+		return LineTypeCrLf; \
+	} while(false)
+
 	char* result_buffer = NULL;
-	FORMAT_STRING_DEFAULT(
+	FORMAT_STRING_PROPAGATE_ERROR(
 	    &result_buffer,
 	    "got multiple line endings in file: total: %zu, \\r\\n: %zu, \\r: %zu, \\n: %zu\n", sum,
 	    counters[LINETYPE_CRLF_INDEX], counters[LINETYPE_CR_INDEX], counters[LINETYPE_LF_INDEX]);
 
-	*error_ptr = result_buffer;
+	*msg_ptr = DYNAMIC_MESSAGE_STRUCT(result_buffer);
 
 	return LineTypeCrLf;
 }
+
+#undef PROPAGATE_ERROR_IMPL
