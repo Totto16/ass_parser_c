@@ -30,7 +30,7 @@ jobs:
       - name: Prepare compile_commands.json
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build -y --no-install-recommends
+          sudo apt-get install ninja-build libfontconfig-dev -y --no-install-recommends
 
           meson setup build -Dbuildtype=release --fatal-meson-warnings
 

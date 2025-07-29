@@ -80,7 +80,7 @@ jobs:
               if: matrix.config.os == 'macos'
               run: |
                   brew update
-                  brew install meson
+                  brew install meson fontconfig
 
             # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
             - name: Setup meson
@@ -92,7 +92,7 @@ jobs:
               if: matrix.config.os == 'ubuntu'
               run: |
                   sudo apt-get update
-                  sudo apt-get install ninja-build -y --no-install-recommends
+                  sudo apt-get install ninja-build libfontconfig-dev -y --no-install-recommends
 
 
             - name: Configure
