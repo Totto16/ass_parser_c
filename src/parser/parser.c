@@ -49,6 +49,8 @@ typedef enum : uint8_t {
 	AssStyleFormatMarginV,
 	// AssStyleFormatAlphaLevel, //note: not supported in ass v4+
 	AssStyleFormatEncoding,
+	// rfc needs us to ignore unknown values, we do that here
+	AssStyleFormatUnknownField
 } AssStyleFormat;
 
 [[nodiscard]] static const char* get_name_for_style_format(AssStyleFormat format) {
@@ -76,6 +78,7 @@ typedef enum : uint8_t {
 		case AssStyleFormatMarginR: return "MarginR";
 		case AssStyleFormatMarginV: return "MarginV";
 		case AssStyleFormatEncoding: return "Encoding";
+		case AssStyleFormatUnknownField: return "UnknownField";
 		default: return "<unknown>";
 	}
 }
@@ -91,6 +94,8 @@ typedef enum : uint8_t {
 	AssEventFormatMarginV,
 	AssEventFormatEffect,
 	AssEventFormatText,
+	// rfc needs us to ignore unknown values, we do that here
+	AssEventFormatUnknownField
 } AssEventFormat;
 
 [[nodiscard]] static const char* get_name_for_event_format(AssEventFormat format) {
@@ -105,6 +110,7 @@ typedef enum : uint8_t {
 		case AssEventFormatMarginV: return "MarginV";
 		case AssEventFormatEffect: return "Effect";
 		case AssEventFormatText: return "Text";
+		case AssEventFormatUnknownField: return "UnknownField";
 		default: return "<unknown>";
 	}
 }
@@ -293,17 +299,17 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 		                    line_view.position.file_pos); \
 		return ErrorTypeFatal; \
 	} while(false)
-
 			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(
-			    &result_buffer, "unrecognized format key %s in format line in styles section",
+			    &result_buffer, "unrecognized format key '%s' in format line in styles section",
 			    key_name);
 
 			free(key_name);
 
-			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-			                    line_view.position.file_pos);
-			return ErrorTypeFatal;
+			INSERT_SIMPLE_WARNING(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                      line_view.position.file_pos);
+
+			format = AssStyleFormatUnknownField;
 		}
 
 		stbds_arrput(*format_result, format);
@@ -467,6 +473,12 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 				entry.encoding = parse_str_as_unsigned_number(value, &error, diagnostics);
 				break;
 			}
+			case AssStyleFormatUnknownField: {
+				INSERT_SIMPLE_WARNING(diagnostics->entries,
+				                      STATIC_MESSAGE_STRUCT("ignoring unknown style field entry"),
+				                      value.file_pos);
+				goto skip_entry_style;
+			}
 			default: {
 				UNREACHABLE();
 			}
@@ -507,6 +519,8 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 			/*** @see keep-going */
 			continue;
 		}
+
+	skip_entry_style:
 	}
 
 	if(i != field_size) {
@@ -1134,16 +1148,17 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(
-			    &result_buffer, "unrecognized format key %s in format line in events section",
+			    &result_buffer, "unrecognized format key '%s' in format line in events section",
 			    key_name);
 
 #undef PROPAGATE_ERROR_IMPL
 
 			free(key_name);
 
-			INSERT_SIMPLE_ERROR(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
-			                    line_view.position.file_pos);
-			return ErrorTypeFatal;
+			INSERT_SIMPLE_WARNING(diagnostics->entries, DYNAMIC_MESSAGE_STRUCT(result_buffer),
+			                      line_view.position.file_pos);
+
+			format = AssEventFormatUnknownField;
 		}
 
 		stbds_arrput(*format_result, format);
@@ -1276,6 +1291,12 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				entry.text = value;
 				break;
 			}
+			case AssEventFormatUnknownField: {
+				INSERT_SIMPLE_WARNING(diagnostics->entries,
+				                      STATIC_MESSAGE_STRUCT("ignoring unknown event field entry"),
+				                      value.file_pos);
+				goto skip_entry_event;
+			}
 			default: {
 				UNREACHABLE();
 			}
@@ -1316,6 +1337,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			/*** @see keep-going */
 			continue;
 		}
+	skip_entry_event:
 	}
 
 	if(i != field_size) {
