@@ -203,6 +203,8 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 		if(matches_font(font_name, received_name, settings.font_match_res)) {
 			stbds_arrput(names, entry.name);
 		}
+
+		free(received_name);
 	}
 
 	if(names == STBDS_ARRAY_EMPTY) {
@@ -513,8 +515,11 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
 	}
 
 	if(!matches_font(font_name, received_name, settings.font_match_res)) {
+		free(received_name);
 		return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 	}
+
+	free(received_name);
 
 	FontStyleType received_type = get_style_type_for_ass_font_name(name);
 
@@ -601,6 +606,8 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 	if(result.error) {
 		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("font retrieval error"),
 		                    EMPTY_POS());
+
+		FREE_AT_END();
 		return;
 	}
 
