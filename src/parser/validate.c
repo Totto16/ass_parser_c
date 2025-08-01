@@ -15,193 +15,27 @@
 
 #include <fontconfig/fontconfig.h>
 
-typedef struct {
-	FcPattern* pattern;
-	FcObjectSet* object_set;
-	FcFontSet* font_list;
-} FontResultOk;
-
-typedef struct {
-	bool error;
-	union {
-		FontResultOk ok;
-	} data;
-} FontResultObject;
-
-static void free_font_result_ok(FontResultOk result) {
-	FcPatternDestroy(result.pattern);
-	FcObjectSetDestroy(result.object_set);
-	FcFontSetDestroy(result.font_list);
-}
-
-static void free_font_result(FontResultObject result) {
-	if(!result.error) {
-		free_font_result_ok(result.data.ok);
-	}
-}
-
-static FontResultObject fontconfig_find_fonts_by_family_name(const char* font_name) {
-	// Build a pattern to search for
-	FcPattern* pattern = FcPatternCreate();
-
-	if(pattern == NULL) {
-		return (FontResultObject){ .error = true };
-	}
-
-#define FREE_AT_END() \
-	do { \
-		FcPatternDestroy(pattern); \
-	} while(false)
-
-	if(!FcPatternAddString(pattern, FC_FAMILY, (const FcChar8*)font_name)) {
-		FREE_AT_END();
-
-		return (FontResultObject){ .error = true };
-	}
-
-	FcObjectSet* object_set = FcObjectSetBuild(FC_FAMILY, FC_FILE, FC_STYLE, FC_SLANT, NULL);
-
-	if(object_set == NULL) {
-		FREE_AT_END();
-
-		return (FontResultObject){ .error = true };
-	}
-
-#undef FREE_AT_END
-#define FREE_AT_END() \
-	do { \
-		FcPatternDestroy(pattern); \
-		FcObjectSetDestroy(object_set); \
-	} while(false)
-
-	FcConfig* config = NULL; // use the default one
-
-	FcFontSet* font_list = FcFontList(config, pattern, object_set);
-
-	if(!font_list) {
-		FREE_AT_END();
-
-		return (FontResultObject){ .error = true };
-	}
-
-	return (FontResultObject){ .error = false,
-		                       .data = { .ok = (FontResultOk){ .pattern = pattern,
-		                                                       .object_set = object_set,
-		                                                       .font_list = font_list } } };
-}
-
-#undef FREE_AT_END
-
-typedef enum : uint8_t {
-	FontStyleTypeNormal,
-	FontStyleTypeBold,
-	FontStyleTypeItalic,
-	FontStyleTypeBoldItalic,
-} FontStyleType;
-
-[[nodiscard]] const char* get_search_type_name(FontStyleType type) {
-	switch(type) {
-		case FontStyleTypeNormal: return "Normal";
-		case FontStyleTypeBold: return "Bold";
-		case FontStyleTypeItalic: return "Italic";
-		case FontStyleTypeBoldItalic: return "Bold Italic";
-		default: return "<unknown>";
-	}
-}
-
-[[nodiscard]] FontStyleType get_style_type_for_font(AssStyleEntry entry) {
-
-	// TODO: support  strike_out and  underline
-
-	if(entry.bold && entry.italic) {
-		return FontStyleTypeBoldItalic;
-	}
-
-	if(entry.bold) {
-		return FontStyleTypeBold;
-	}
-
-	if(entry.italic) {
-		return FontStyleTypeItalic;
-	}
-
-	return FontStyleTypeNormal;
-}
-
-typedef struct {
-	size_t size;
-	const char** values;
-} StaticStringArray;
-
-[[nodiscard]]
-bool is_valid_name_for_type(FontStyleType type, FcChar8* name) {
-
-	StaticStringArray array = { .size = 0, .values = NULL };
-
-	switch(type) {
-		case FontStyleTypeNormal: {
-			static const char* s_strings[] = { "Regular", "Normal", "Standard" };
-
-			array.values = s_strings;
-			array.size = sizeof(s_strings) / sizeof(*s_strings);
-			break;
-		}
-		case FontStyleTypeBold: {
-			static const char* s_strings[] = { "Bold" };
-
-			array.values = s_strings;
-			array.size = sizeof(s_strings) / sizeof(*s_strings);
-			break;
-		}
-		case FontStyleTypeItalic: {
-			static const char* s_strings[] = { "Italic" };
-
-			array.values = s_strings;
-			array.size = sizeof(s_strings) / sizeof(*s_strings);
-			break;
-		}
-		case FontStyleTypeBoldItalic: {
-			static const char* s_strings[] = { "Bold Italic" };
-
-			array.values = s_strings;
-			array.size = sizeof(s_strings) / sizeof(*s_strings);
-			break;
-		}
-		default: return false;
-	}
-
-	for(size_t i = 0; i < array.size; ++i) {
-		const char* value = array.values[i];
-
-		if(strcasecmp((char*)name, value) == 0) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 typedef enum : uint8_t {
 	MatchResolutionExact,
 	MatchResolutionIncludes,
 	MatchResolutionLikeIs
 } MatchResolution;
 
-[[nodiscard]] bool matches_font(const char* family, const char* font_name,
-                                MatchResolution resolution) {
+[[nodiscard]] static bool matches_font(const char* font_name, const char* received_name,
+                                       MatchResolution resolution) {
 
 	switch(resolution) {
 		case MatchResolutionExact: {
-			return strcasecmp(family, font_name) == 0;
+			return strcasecmp(received_name, font_name) == 0;
 		}
 		case MatchResolutionIncludes: {
-			const char* pos1 = strcasestr(family, font_name);
+			const char* pos1 = strcasestr(received_name, font_name);
 
 			if(pos1 != NULL) {
 				return true;
 			}
 
-			const char* pos2 = strcasestr(font_name, family);
+			const char* pos2 = strcasestr(font_name, received_name);
 
 			return pos2 != NULL;
 		}
@@ -251,6 +85,338 @@ get_detailed_font_settings_from_presset(FontPreset preset) {
 	}
 }
 
+typedef struct {
+	FcPattern* pattern;
+	FcObjectSet* object_set;
+	FcFontSet* font_list;
+} FontConfigFontResultOk;
+
+typedef struct {
+	bool error;
+	union {
+		FontConfigFontResultOk ok;
+		MessageStruct error;
+	} data;
+} FontConfigFontResultObject;
+
+static void free_fontconfig_font_result_ok(FontConfigFontResultOk result) {
+	FcPatternDestroy(result.pattern);
+	FcObjectSetDestroy(result.object_set);
+	FcFontSetDestroy(result.font_list);
+}
+
+static void free_fontconfig_font_result(FontConfigFontResultObject result) {
+	if(!result.error) {
+		free_fontconfig_font_result_ok(result.data.ok);
+	} else {
+		free_message_struct(result.data.error);
+	}
+}
+
+static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const char* font_name) {
+	// Build a pattern to search for
+	FcPattern* pattern = FcPatternCreate();
+
+	if(pattern == NULL) {
+		return (FontConfigFontResultObject){
+			.error = true,
+			.data = { .error = STATIC_MESSAGE_STRUCT("fontconfig: error in pattern creation") }
+		};
+	}
+
+#define FREE_AT_END() \
+	do { \
+		FcPatternDestroy(pattern); \
+	} while(false)
+
+	if(!FcPatternAddString(pattern, FC_FAMILY, (const FcChar8*)font_name)) {
+		FREE_AT_END();
+
+		return (FontConfigFontResultObject){
+			.error = true,
+			.data = { .error = STATIC_MESSAGE_STRUCT("fontconfig: error in pattern setup") }
+		};
+	}
+
+	FcObjectSet* object_set = FcObjectSetBuild(FC_FAMILY, FC_FILE, FC_STYLE, FC_SLANT, NULL);
+
+	if(object_set == NULL) {
+		FREE_AT_END();
+
+		return (FontConfigFontResultObject){ .error = true,
+			                                 .data = { .error = STATIC_MESSAGE_STRUCT(
+			                                               "fontconfig: error in set build") } };
+	}
+
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		FcPatternDestroy(pattern); \
+		FcObjectSetDestroy(object_set); \
+	} while(false)
+
+	FcConfig* config = NULL; // use the default one
+
+	FcFontSet* font_list = FcFontList(config, pattern, object_set);
+
+	if(!font_list) {
+		FREE_AT_END();
+
+		return (FontConfigFontResultObject){
+			.error = true,
+			.data = { .error = STATIC_MESSAGE_STRUCT("fontconfig: error in list retrieval") }
+		};
+	}
+
+	return (FontConfigFontResultObject){ .error = false,
+		                                 .data = { .ok = (FontConfigFontResultOk){
+		                                               .pattern = pattern,
+		                                               .object_set = object_set,
+		                                               .font_list = font_list } } };
+}
+
+#undef FREE_AT_END
+
+typedef STBDS_ARRAY(AssFontName) AssFontNames;
+
+static AssFontNames
+embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_name,
+                                         DetailedFontValidateSettings settings) {
+
+	AssFontNames names = STBDS_ARRAY_EMPTY;
+
+#define FREE_AT_END() \
+	do { \
+		stbds_arrfree(names); \
+	} while(false)
+
+	for(size_t i = 0; i < stbds_arrlenu(ass_fonts.entries); ++i) {
+		AssFontEntry entry = ass_fonts.entries[i];
+
+		char* received_name = get_normalized_string(entry.name.name);
+
+		if(!received_name) {
+			FREE_AT_END();
+			return NULL;
+		}
+
+		if(matches_font(font_name, received_name, settings.font_match_res)) {
+			stbds_arrput(names, entry.name);
+		}
+	}
+
+	if(names == STBDS_ARRAY_EMPTY) {
+		// forces the length to be 0, but the pointer to not be null!
+		stbds_arrsetcap(names, 1);
+	}
+
+	return names;
+}
+
+#undef FREE_AT_END
+
+typedef enum : uint8_t {
+	FontHandleTypeFontConfig,
+	FontHandleTypeEmbedded,
+} FontHandleType;
+
+typedef struct {
+	size_t index_in_list;
+} FontHandleDataFontConfig;
+
+typedef struct {
+	AssFontName font_name;
+} FontHandleDataEmbedded;
+
+typedef struct {
+	FontHandleType type;
+	union {
+		FontHandleDataFontConfig font_config;
+		FontHandleDataEmbedded embedded;
+	} data;
+} FontHandle;
+
+typedef struct {
+	FontConfigFontResultOk fontconfig;
+	AssFontNames embedded;
+} FontConfigRefs;
+
+typedef STBDS_ARRAY(FontHandle) FontHandles;
+
+typedef struct {
+	FontHandles handles;
+	FontConfigRefs refs;
+} FontResultOk;
+
+typedef struct {
+	bool error;
+	union {
+		FontResultOk ok;
+		MessageStruct error;
+	} data;
+} FontResultObject;
+
+static void free_font_result_ok(FontResultOk result) {
+	free_fontconfig_font_result_ok(result.refs.fontconfig);
+	stbds_arrfree(result.refs.embedded);
+	stbds_arrfree(result.handles);
+}
+
+static void free_font_result(FontResultObject result) {
+	if(!result.error) {
+		free_font_result_ok(result.data.ok);
+	} else {
+		free_message_struct(result.data.error);
+	}
+}
+
+static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char* font_name,
+                                                  DetailedFontValidateSettings settings) {
+
+	FontConfigFontResultObject font_config_result = fontconfig_find_fonts_by_family_name(font_name);
+
+	if(font_config_result.error) {
+		return (FontResultObject){ .error = true,
+			                       .data = { .error = font_config_result.data.error } };
+	}
+
+	AssFontNames embedded_result =
+	    embedded_fonts_find_fonts_by_family_name(ass_fonts, font_name, settings);
+
+	if(embedded_result == STBDS_ARRAY_EMPTY) {
+		free_fontconfig_font_result(font_config_result);
+		return (FontResultObject){ .error = true,
+			                       .data = { .error = STATIC_MESSAGE_STRUCT(
+			                                     "embedded fonts, error in retrieval") } };
+	}
+
+	FontConfigFontResultOk font_config_ok = font_config_result.data.ok;
+
+	FontHandles handles = STBDS_ARRAY_EMPTY;
+
+	for(int i = 0; i < font_config_ok.font_list->nfont; ++i) {
+
+		FontHandle handle = { .type = FontHandleTypeFontConfig,
+			                  .data = { .font_config = { .index_in_list = i } } };
+
+		stbds_arrput(handles, handle);
+	}
+
+	for(size_t i = 0; i < stbds_arrlenu(embedded_result); ++i) {
+		FontHandle handle = { .type = FontHandleTypeEmbedded,
+			                  .data = { .embedded = { .font_name = embedded_result[i] } } };
+
+		stbds_arrput(handles, handle);
+	}
+
+	FontResultOk ok_result = {
+		.handles = handles, .refs = { .fontconfig = font_config_ok, .embedded = embedded_result }
+	};
+
+	FontResultObject result = { .error = false, .data = { .ok = ok_result } };
+
+	return result;
+}
+
+// note: strike_out and underline are not specifically supported by fonts, but they work for all
+// fonts (at least I did understand it that way, also see specs for embedded font, who don#t even
+// care about those two flags)
+typedef enum : uint8_t {
+	FontStyleTypeNormal,
+	FontStyleTypeBold,
+	FontStyleTypeItalic,
+	FontStyleTypeBoldItalic,
+} FontStyleType;
+
+[[nodiscard]] static const char* get_search_type_name(FontStyleType type) {
+	switch(type) {
+		case FontStyleTypeNormal: return "Normal";
+		case FontStyleTypeBold: return "Bold";
+		case FontStyleTypeItalic: return "Italic";
+		case FontStyleTypeBoldItalic: return "Bold Italic";
+		default: return "<unknown>";
+	}
+}
+
+[[nodiscard]] static FontStyleType get_style_type_impl(bool bold, bool italic) {
+
+	if(bold && italic) {
+		return FontStyleTypeBoldItalic;
+	}
+
+	if(bold) {
+		return FontStyleTypeBold;
+	}
+
+	if(italic) {
+		return FontStyleTypeItalic;
+	}
+
+	return FontStyleTypeNormal;
+}
+
+[[nodiscard]] static FontStyleType get_style_type_for_font(AssStyleEntry entry) {
+	return get_style_type_impl(entry.bold, entry.italic);
+}
+
+[[nodiscard]] static FontStyleType get_style_type_for_ass_font_name(AssFontName name) {
+
+	return get_style_type_impl(name.bold, name.italic);
+}
+
+typedef struct {
+	size_t size;
+	const char** values;
+} StaticStringArray;
+
+[[nodiscard]]
+static bool is_valid_name_for_type(FontStyleType type, char* name) {
+
+	StaticStringArray array = { .size = 0, .values = NULL };
+
+	switch(type) {
+		case FontStyleTypeNormal: {
+			static const char* s_strings[] = { "Regular", "Normal", "Standard" };
+
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
+			break;
+		}
+		case FontStyleTypeBold: {
+			static const char* s_strings[] = { "Bold" };
+
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
+			break;
+		}
+		case FontStyleTypeItalic: {
+			static const char* s_strings[] = { "Italic" };
+
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
+			break;
+		}
+		case FontStyleTypeBoldItalic: {
+			static const char* s_strings[] = { "Bold Italic" };
+
+			array.values = s_strings;
+			array.size = sizeof(s_strings) / sizeof(*s_strings);
+			break;
+		}
+		default: return false;
+	}
+
+	for(size_t i = 0; i < array.size; ++i) {
+		const char* value = array.values[i];
+
+		if(strcasecmp(name, value) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 typedef enum : uint8_t {
 	FontSearchResultTypeFound,
 	FontSearchResultTypeNotFound,
@@ -270,52 +436,49 @@ static void free_font_search_result(FontSearchResult result) {
 	}
 }
 
-[[nodiscard]] FontSearchResult find_type_for_fonts(const char* font_name, FcFontSet* font_list,
-                                                   FontStyleType font_type,
-                                                   DetailedFontValidateSettings settings) {
-	for(int i = 0; i < font_list->nfont; ++i) {
-		FcPattern* font = font_list->fonts[i];
+[[nodiscard]] static FontSearchResult
+fontconfig_find_type_for_fonts(const char* font_name, FcPattern* font, FontStyleType font_type,
+                               DetailedFontValidateSettings settings) {
 
-		FcChar8* family = NULL;
+	FcChar8* family = NULL;
 
-		FcResult res = FcPatternGetString(font, FC_FAMILY, 0, &family);
+	FcResult res = FcPatternGetString(font, FC_FAMILY, 0, &family);
 
-		if(res != FcResultMatch) {
+	if(res != FcResultMatch) {
 
-			return (FontSearchResult){ .type = FontSearchResultTypeError,
-				                       .data = { .error = STATIC_MESSAGE_STRUCT(
-				                                     "couldn't get font family") } };
-		}
+		return (FontSearchResult){ .type = FontSearchResultTypeError,
+			                       .data = { .error = STATIC_MESSAGE_STRUCT(
+			                                     "couldn't get font family") } };
+	}
 
-		if(!matches_font((char*)family, font_name, settings.font_match_res)) {
-			continue;
-		}
+	if(!matches_font(font_name, (char*)family, settings.font_match_res)) {
+		return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
+	}
 
-		for(int i = 0;; ++i) {
-			FcChar8* result = NULL;
+	for(int i = 0;; ++i) {
+		FcChar8* result = NULL;
 
-			FcResult res = FcPatternGetString(font, FC_STYLE, i, &result);
+		FcResult res = FcPatternGetString(font, FC_STYLE, i, &result);
 
-			switch(res) {
-				case FcResultMatch: {
-					if(result == NULL) {
+		switch(res) {
+			case FcResultMatch: {
+				if(result == NULL) {
 
-						return (FontSearchResult){
-							.type = FontSearchResultTypeError,
-							.data = { .error = STATIC_MESSAGE_STRUCT(
-							              "result matched but string was null") }
-						};
-					}
-
-					if(is_valid_name_for_type(font_type, result)) {
-						return (FontSearchResult){ .type = FontSearchResultTypeFound };
-					}
-					break;
+					return (
+					    FontSearchResult){ .type = FontSearchResultTypeError,
+						                   .data = { .error = STATIC_MESSAGE_STRUCT(
+						                                 "result matched but string was null") } };
 				}
-				case FcResultNoId: {
-					goto break_for_inner;
+
+				if(is_valid_name_for_type(font_type, (char*)result)) {
+					return (FontSearchResult){ .type = FontSearchResultTypeFound };
 				}
-				default: {
+				break;
+			}
+			case FcResultNoId: {
+				return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
+			}
+			default: {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -323,17 +486,98 @@ static void free_font_search_result(FontSearchResult result) {
 			                       .data = { .error = STATIC_MESSAGE_STRUCT(message) } }; \
 	} while(false)
 
-					char* result_buffer = NULL;
-					FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
-					                              "result for getting the style was: '%d'", res);
+				char* result_buffer = NULL;
+				FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+				                              "result for getting the style was: '%d'", res);
 
-					return (FontSearchResult){ .type = FontSearchResultTypeError,
-						                       .data = { .error = DYNAMIC_MESSAGE_STRUCT(
-						                                     result_buffer) } };
-				}
+				return (
+				    FontSearchResult){ .type = FontSearchResultTypeError,
+					                   .data = { .error = DYNAMIC_MESSAGE_STRUCT(result_buffer) } };
 			}
 		}
-	break_for_inner:
+	}
+
+	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
+}
+
+[[nodiscard]] static FontSearchResult
+embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleType font_type,
+                             DetailedFontValidateSettings settings) {
+
+	char* received_name = get_normalized_string(name.name);
+
+	if(!received_name) {
+		return (
+		    FontSearchResult){ .type = FontSearchResultTypeError,
+			                   .data = { .error = STATIC_MESSAGE_STRUCT("alllocation error") } };
+	}
+
+	if(!matches_font(font_name, received_name, settings.font_match_res)) {
+		return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
+	}
+
+	FontStyleType received_type = get_style_type_for_ass_font_name(name);
+
+	if(font_type == received_type) {
+		return (FontSearchResult){ .type = FontSearchResultTypeFound };
+	}
+
+	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
+}
+
+[[nodiscard]] FontSearchResult find_type_for_fonts(const char* font_name, FontResultOk fonts_result,
+                                                   FontStyleType font_type,
+                                                   DetailedFontValidateSettings settings,
+                                                   bool strict_errors) {
+	for(size_t i = 0; i < stbds_arrlenu(fonts_result.handles); ++i) {
+
+		FontHandle handle = fonts_result.handles[i];
+
+		FontSearchResult res = { .type = FontSearchResultTypeNotFound };
+
+		switch(handle.type) {
+			case FontHandleTypeFontConfig: {
+				size_t index = handle.data.font_config.index_in_list;
+
+				FcPattern* font = fonts_result.refs.fontconfig.font_list->fonts[index];
+
+				res = fontconfig_find_type_for_fonts(font_name, font, font_type, settings);
+				break;
+			}
+			case FontHandleTypeEmbedded: {
+				AssFontName name = handle.data.embedded.font_name;
+
+				res = embedded_find_type_for_fonts(font_name, name, font_type, settings);
+
+				break;
+			}
+			default: {
+				UNREACHABLE();
+			}
+		}
+
+		switch(res.type) {
+			case FontSearchResultTypeFound: {
+				return (FontSearchResult){ .type = FontSearchResultTypeFound };
+			}
+			case FontSearchResultTypeNotFound: {
+				// just search further
+				break;
+			}
+			case FontSearchResultTypeError: {
+				// if we are strict about errors, report it, otherwise discard it and go on
+
+				if(strict_errors) {
+					return res;
+				}
+
+				free_font_search_result(res);
+				break;
+			}
+			default: {
+				UNREACHABLE();
+			}
+		}
 	}
 
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
@@ -341,11 +585,13 @@ static void free_font_search_result(FontSearchResult result) {
 
 #undef PROPAGATE_ERROR_IMPL
 
-static void validate_font(const char* style_name, const char* font_name, FontStyleType search_type,
-                          FilePos file_pos, bool allow_validation_errors, Diagnostics* diagnostics,
-                          DetailedFontValidateSettings settings) {
+static void validate_font(AssFonts ass_fonts, const char* style_name, const char* font_name,
+                          FontStyleType search_type, FilePos file_pos, bool allow_validation_errors,
+                          Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
 
-	FontResultObject result = fontconfig_find_fonts_by_family_name(font_name);
+	bool strict_errors = !allow_validation_errors;
+
+	FontResultObject result = find_fonts_by_family_name(ass_fonts, font_name, settings);
 
 #define FREE_AT_END() \
 	do { \
@@ -353,14 +599,14 @@ static void validate_font(const char* style_name, const char* font_name, FontSty
 	} while(false)
 
 	if(result.error) {
-		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("fontconfig error"),
+		INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("font retrieval error"),
 		                    EMPTY_POS());
 		return;
 	}
 
 	FontResultOk ok_res = result.data.ok;
 
-	if(ok_res.font_list->nfont == 0) {
+	if(stbds_arrlenu(ok_res.handles) == 0) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -384,7 +630,7 @@ static void validate_font(const char* style_name, const char* font_name, FontSty
 	}
 
 	FontSearchResult found_result =
-	    find_type_for_fonts(font_name, ok_res.font_list, search_type, settings);
+	    find_type_for_fonts(font_name, ok_res, search_type, settings, strict_errors);
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
@@ -628,8 +874,8 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 #undef FREE_AT_END
 
-static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
-                           Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
+static void validate_fonts_impl(AssResult ass_result, bool allow_validation_errors,
+                                Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
 
 	if(!FcInit()) {
 
@@ -693,7 +939,7 @@ static void validate_fonts(AssResult ass_result, bool allow_validation_errors,
 
 		FontStyleType search_type = get_style_type_for_font(entry);
 
-		validate_font(style_name, font_name, search_type, entry.fontname.file_pos,
+		validate_font(ass_result.fonts, style_name, font_name, search_type, entry.fontname.file_pos,
 		              allow_validation_errors, diagnostics, settings);
 
 		free(font_name);
@@ -756,14 +1002,22 @@ static void validate_text(AssResult ass_result, bool allow_validation_errors,
 	UNUSED(diagnostics);
 }
 
+void validate_fonts_of_result(AssResult ass_result, bool allow_validation_errors, FontPreset preset,
+                              Diagnostics* diagnostics) {
+
+	DetailedFontValidateSettings font_settings = get_detailed_font_settings_from_presset(preset);
+
+	validate_fonts_impl(ass_result, allow_validation_errors, diagnostics, font_settings);
+}
+
 void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnostics* diagnostics) {
 
 	DetailedFontValidateSettings font_settings =
 	    get_detailed_font_settings_from_presset(settings.validate_settings.font_settings.preset);
 
 	if(font_settings.enabled) {
-		validate_fonts(ass_result, settings.strict_settings.allow_validation_errors, diagnostics,
-		               font_settings);
+		validate_fonts_impl(ass_result, settings.strict_settings.allow_validation_errors,
+		                    diagnostics, font_settings);
 	}
 
 	if(settings.validate_settings.validate_styles) {
@@ -795,3 +1049,7 @@ void validate_ass_result(AssResult ass_result, ParseSettings settings, Diagnosti
 
 	return -1;
 }
+
+// TODO: validate also other events, check if files are existing (e.g. in graphics embeeded
+// section or on disk and check some properties e.g. is valid image (with std_image, is
+// executable fro script and  is valid video (maybe just by checking start bytes  + extension)))
