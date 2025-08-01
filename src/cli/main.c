@@ -451,3 +451,7 @@ int main(int argc, char** argv) {
 	print_usage(argv[0], UsageCommandAll);
 	return EXIT_FAILURE;
 }
+
+
+//TODO: two subcommands, one to handle fonts, one to handle uuencoding + decoding of arbitrary files! (-o + -i , depending on  mod enc or dec, - means stdin or stdout, depending on OP)
+// TODO: dump parsed ass as json option (json is not part of lib, just the cli has a encoder!)

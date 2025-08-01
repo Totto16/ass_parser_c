@@ -47,6 +47,8 @@ typedef enum : uint8_t {
 
 [[nodiscard]] bool str_view_starts_with_ascii(StrView str_view, const char* ascii_str);
 
+[[nodiscard]] bool str_view_ends_with_ascii(StrView str_view, const char* ascii_str);
+
 [[nodiscard]] bool str_view_expect_ascii(StrView* str_view, const char* ascii_str);
 
 [[nodiscard]] bool str_view_expect_newline(StrView* str_view, LineType line_type);

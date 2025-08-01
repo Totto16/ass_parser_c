@@ -5,6 +5,7 @@
 #include "../helper/io.h"
 #include "../helper/macros.h"
 #include "../helper/utf_helper.h"
+#include "./fonts.h"
 #include "./helper.h"
 #include "./validate.h"
 
@@ -978,8 +979,289 @@ static FinalStr
 	// end of script info
 }
 
-[[nodiscard]] static ErrorType skip_section(StrView* data_view, LineType line_type,
-                                            Diagnostics* diagnostics) {
+typedef struct {
+	STBDS_ARRAY(FinalStr) entries;
+} FontDataArray;
+
+typedef struct {
+	FinalStr name_raw;
+	FontDataArray data_raw;
+} TempFontEntry;
+
+#define EMPTY_TEMP_FONT_ENTRY() \
+	((TempFontEntry){ .name_raw = (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
+	                  .data_raw = (FontDataArray){ .entries = STBDS_ARRAY_EMPTY } })
+
+#define IS_EMPTY_FONT_ENTRY_DATA(entry) (stbds_arrlenu((entry).data_raw.entries) == 0)
+
+#define IS_EMPTY_FONT_NAME(entry) ((entry).name_raw.length == 0)
+
+#define IS_EMPTY_FONT_ENTRY(entry) \
+	((IS_EMPTY_FONT_ENTRY_DATA(entry)) && (IS_EMPTY_FONT_NAME(entry)))
+
+#define POS_FROM_FONT_ENTRY(entry) \
+	((!IS_EMPTY_FONT_NAME(entry)) \
+	     ? ((entry).name_raw.file_pos) \
+	     : ((IS_EMPTY_FONT_ENTRY_DATA(entry)) ? (EMPTY_POS()) \
+	                                          : (((entry).data_raw.entries[0]).file_pos)))
+
+[[nodiscard]] static MessageStruct parse_font_name(FinalStr name_raw, AssFontName* result_name) {
+
+	// TODO
+	*result_name = (AssFontName){ .name = name_raw, .bold = false, .italic = true, .encoding = 1 };
+	return EMPTY_MESSAGE_STRUCT();
+}
+
+[[nodiscard]] static MessageStruct parse_font_data(FontDataArray data_raw, SizedPtr* result_data) {
+
+	STBDS_ARRAY(char) final_data = STBDS_ARRAY_EMPTY;
+
+	for(size_t i = 0; i < stbds_arrlenu(data_raw.entries); ++i) {
+		FinalStr entry = data_raw.entries[i];
+
+		char* entry_normalized = get_normalized_string(entry);
+
+		if(!entry_normalized) {
+			stbds_arrfree(final_data);
+			return STATIC_MESSAGE_STRUCT("allocation error");
+		}
+
+		size_t normalized_length = strlen(entry_normalized);
+
+		size_t current_arr_size = stbds_arrlenu(final_data);
+
+		stbds_arrsetcap(final_data, current_arr_size + normalized_length);
+
+		for(size_t j = 0; j < normalized_length; ++j) {
+			stbds_arrput(final_data, entry_normalized[j]);
+		}
+
+		free(entry_normalized);
+	}
+
+	SizedPtr input = { .data = final_data, .len = stbds_arrlenu(final_data) };
+
+	SizedPtr decode_result = uu_decode(input);
+
+	stbds_arrfree(final_data);
+
+	if(is_ptr_error(decode_result)) {
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		return STATIC_MESSAGE_STRUCT(message); \
+	} while(false)
+
+		char* result_buffer = NULL;
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+		                              "Font data parse error: failed to decode uu encoding: %s",
+		                              ptr_get_error(decode_result));
+
+#undef PROPAGATE_ERROR_IMPL
+
+		return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+	}
+
+	*result_data = decode_result;
+
+	return EMPTY_MESSAGE_STRUCT();
+}
+
+[[nodiscard]] static MessageStruct process_font(TempFontEntry entry_data, AssFontEntry* out_entry) {
+
+	if(IS_EMPTY_FONT_NAME(entry_data)) {
+		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font name before data specified");
+	}
+
+	if(IS_EMPTY_FONT_ENTRY_DATA(entry_data)) {
+		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font data specified");
+	}
+
+	MessageStruct font_name_result = parse_font_name(entry_data.name_raw, &(out_entry->name));
+
+	if(font_name_result.message != NULL) {
+		return font_name_result;
+	}
+
+	MessageStruct font_data_result = parse_font_data(entry_data.data_raw, &(out_entry->data));
+
+	if(font_data_result.message != NULL) {
+		return font_data_result;
+	}
+
+	return EMPTY_MESSAGE_STRUCT();
+}
+
+[[nodiscard]] static bool are_all_uu_encodings_fast(ConstStrView str_view) {
+
+	for(size_t i = 0; i < str_view.length; ++i) {
+
+		int32_t val = str_view.start[i];
+
+		// uu encodings start at 33 (so space is under it e.g.)
+		if(val < 33) {
+			return false;
+		}
+
+		// an uu encoding has max 6 bytes (0x3F max value) + 33
+		if(val > (33 + 0x3F)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] static ErrorType parse_fonts(AssFonts* ass_fonts, StrView* data_view,
+                                           LineType line_type, Diagnostics* diagnostics) {
+
+	AssFonts fonts = { .entries = STBDS_ARRAY_EMPTY };
+
+	TempFontEntry temp_entry = EMPTY_TEMP_FONT_ENTRY();
+
+#define PROCESS_FONT(entry, pos) \
+	do { \
+		AssFontEntry result_font = {}; \
+		MessageStruct font_process_result = process_font(entry, &result_font); \
+		if(font_process_result.message != NULL) { \
+			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
+		} else { \
+			stbds_arrput(fonts.entries, result_font); \
+		} \
+	} while(false)
+
+#define FREE_FONT_ENTRY(entry) \
+	do { \
+		stbds_arrfree((entry).data_raw.entries); \
+	} while(false)
+
+#define FREE_AT_END() \
+	do { \
+		FREE_FONT_ENTRY(temp_entry); \
+		stbds_arrfree(fonts.entries); \
+	} while(false)
+
+	// Note: we collect data, as the font data is over multiple
+	// lines, than after we got enough data, which has many
+	// possible ways of occuring, we create a final font entry and
+	// add it to the fonts!
+
+	while(true) {
+
+		// NOTE: we can't just search for a line that starts with "[", since that may occur in the
+		// uu encoding, so we try to eliminate that by checking for valid section starts, that means
+		// lines in this regex:
+		// "^\[.*\]$", this is still not enough, we also check, that the characters in between []
+		// are all valid uu encoding, if this is not the case, we have a section (this is necessary,
+		// as uu encodings may have both charcaters [ and ] inside it, and even if most lines need
+		// to be 80 codepoints long, the last line isn't that long)
+		if(str_view_starts_with_ascii(*data_view, "[")) {
+
+			StrView str_view_copy = { .start = data_view->start,
+				                      .length = data_view->length,
+				                      .position = data_view->position };
+
+			ConstStrView peek_line = {};
+			if(!str_view_get_substring_until_eol(&str_view_copy, &peek_line, line_type, true)) {
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("implementation error"),
+				                    data_view->position.file_pos);
+
+				FREE_AT_END();
+				return ErrorTypeFatal;
+			}
+
+			StrView peek_line_view = get_str_view_from_const_str_view(peek_line);
+
+			if(str_view_ends_with_ascii(peek_line_view, "]")) {
+
+				ConstStrView all_data = { .start = peek_line.start + 1,
+					                      .length = peek_line.length - 2,
+					                      .file_pos = EMPTY_POS() };
+
+				if(!are_all_uu_encodings_fast(all_data)) {
+					goto got_new_section;
+				}
+			}
+		}
+
+		ConstStrView line = {};
+		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
+			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
+			                    data_view->position.file_pos);
+
+			FREE_AT_END();
+			return ErrorTypeFatal;
+		}
+
+		{
+
+			if(line.length == 0) {
+				// if we already have a font, process that, otherwise skip this line
+				if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
+					PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+					FREE_FONT_ENTRY(temp_entry);
+					temp_entry = EMPTY_TEMP_FONT_ENTRY();
+				}
+				continue;
+			}
+
+			StrView line_view = get_str_view_from_const_str_view(line);
+
+			if(str_view_expect_ascii(&line_view, "fontname:")) {
+
+				if(!str_view_skip_optional_whitespace(&line_view)) {
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+					                    line_view.position.file_pos);
+
+					FREE_AT_END();
+					return ErrorTypeFatal;
+				}
+
+				ConstStrView fontname_raw = get_const_str_view_from_str_view(line_view);
+
+				// if we already have a font, process that first,
+				// before creating a new font
+				if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
+					PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+					FREE_FONT_ENTRY(temp_entry);
+					temp_entry = EMPTY_TEMP_FONT_ENTRY();
+				}
+
+				temp_entry.name_raw = fontname_raw;
+			} else {
+
+				// add to the raw data!
+
+				stbds_arrput(temp_entry.data_raw.entries, line);
+			}
+		}
+
+		if(str_view_is_eof(*data_view)) {
+			break;
+		}
+	}
+
+got_new_section:
+
+	// if we just run out of lines and we didn't process the
+	// current font, do that
+	if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
+		PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+		FREE_FONT_ENTRY(temp_entry);
+		temp_entry = EMPTY_TEMP_FONT_ENTRY();
+	}
+
+	*ass_fonts = fonts;
+
+	return ErrorTypeNone;
+}
+
+#undef FREE_FONT_ENTRY
+#undef FREE_AT_END
+
+[[nodiscard]] static ErrorType parse_graphics(StrView* data_view, LineType line_type,
+                                              Diagnostics* diagnostics) {
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -1039,8 +1321,8 @@ static FinalStr
 			if(!str_view_get_substring_by_char_delimiter(&line_view, &field, ':', false)) {
 
 				INSERT_SIMPLE_ERROR(diagnostics->entries,
-				                    STATIC_MESSAGE_STRUCT(
-				                        "end of line before ':' in line parsing in extra section"),
+				                    STATIC_MESSAGE_STRUCT("end of line before ':' in line parsing "
+				                                          "in extra section"),
 				                    data_view->position.file_pos);
 
 				/*** @see keep-going */
@@ -1147,9 +1429,10 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 	} while(false)
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_PROPAGATE_ERROR(
-			    &result_buffer, "unrecognized format key '%s' in format line in events section",
-			    key_name);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+			                              "unrecognized format key '%s' in format line in "
+			                              "events section",
+			                              key_name);
 
 #undef PROPAGATE_ERROR_IMPL
 
@@ -1199,11 +1482,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 	} while(false)
 
 			char* result_buffer = NULL;
-			FORMAT_STRING_PROPAGATE_ERROR(
-			    &result_buffer,
-			    "error, too many fields in the event line, the format line "
-			    "specified %lu, but we are already at %lu",
-			    field_size, (i + 1));
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
+			                              "error, too many fields in the event line, the "
+			                              "format line "
+			                              "specified %lu, but we are already at %lu",
+			                              field_size, (i + 1));
 
 #undef PROPAGATE_ERROR_IMPL
 
@@ -1214,18 +1497,18 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 		AssEventFormat format = format_spec[i];
 
-		// special handling fot the text field, as it may contain ","
+		// special handling fot the text field, as it may contain
+		// ","
 
 		ConstStrView value = {};
 
 		if(format == AssEventFormatText) {
 			if(i != field_size - 1) {
 
-				INSERT_SIMPLE_ERROR(
-				    diagnostics->entries,
-				    STATIC_MESSAGE_STRUCT(
-				        "'Text' field of event lines may only occur at the last position!"),
-				    line_view.position.file_pos);
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("'Text' field of event lines may only "
+				                                          "occur at the last position!"),
+				                    line_view.position.file_pos);
 				return ErrorTypeFatal;
 			}
 
@@ -1351,7 +1634,8 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 		char* result_buffer = NULL;
 		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
-		                              "error, too few fields in the event line, the format line "
+		                              "error, too few fields in the event line, the format "
+		                              "line "
 		                              "specified %lu, but we only have %lu",
 		                              field_size, i);
 
@@ -1406,8 +1690,8 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				FREE_AT_END();
 
 				INSERT_SIMPLE_ERROR(diagnostics->entries,
-				                    STATIC_MESSAGE_STRUCT(
-				                        "end of line before ':' in line parsing in events section"),
+				                    STATIC_MESSAGE_STRUCT("end of line before ':' in line parsing "
+				                                          "in events section"),
 				                    data_view->position.file_pos);
 				return ErrorTypeFatal;
 			}
@@ -1415,12 +1699,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			if(str_view_eq_ascii(field, "Format")) {
 
 				if(stbds_arrlenu(event_format) != 0) {
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "multiple format fields detected in the events section, this is not "
-					        "allowed"),
-					    data_view->position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("multiple format fields detected in "
+					                                          "the events section, this is not "
+					                                          "allowed"),
+					                    data_view->position.file_pos);
 
 					/*** @see keep-going */
 					continue;
@@ -1439,12 +1722,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1462,12 +1744,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1485,12 +1766,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1508,12 +1788,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1531,12 +1810,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1554,12 +1832,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				if(stbds_arrlenu(event_format) == 0) {
 					FREE_AT_END();
 
-					INSERT_SIMPLE_ERROR(
-					    diagnostics->entries,
-					    STATIC_MESSAGE_STRUCT(
-					        "no format line occurred before the style line in the events section, "
-					        "this is an error"),
-					    line_view.position.file_pos);
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("no format line occurred before the "
+					                                          "style line in the events section, "
+					                                          "this is an error"),
+					                    line_view.position.file_pos);
 					return ErrorTypeFatal;
 				}
 
@@ -1633,11 +1910,11 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 	}
 
 	if(str_view_eq_ascii(section_name, "Fonts")) {
-		return skip_section(data_view, line_type, diagnostics);
+		return parse_fonts(&(ass_result->fonts), data_view, line_type, diagnostics);
 	}
 
 	if(str_view_eq_ascii(section_name, "Graphics")) {
-		return skip_section(data_view, line_type, diagnostics);
+		return parse_graphics(data_view, line_type, diagnostics);
 	}
 
 	return extra_section(section_name, data_view, &(ass_result->extra_sections), line_type,
@@ -1785,7 +2062,8 @@ static void free_ass_result(AssResult data) {
 
 			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
-			                              "only UTF-8 encoded files supported atm, but got: %s",
+			                              "only UTF-8 encoded files supported atm, but "
+			                              "got: %s",
 			                              get_file_type_name(file_type));
 
 #undef PROPAGATE_ERROR_IMPL
@@ -1886,8 +2164,9 @@ static void free_ass_result(AssResult data) {
 
 	validate_ass_result(ass_result, settings, &(result->diagnostics));
 
-	// if we have one error diagnostic, we consider this an error, so we can collect errors until
-	// now, and only now report a fatal error
+	// if we have one error diagnostic, we consider this an error,
+	// so we can collect errors until now, and only now report a
+	// fatal error
 	for(size_t i = 0; i < stbds_arrlenu(result->diagnostics.entries); ++i) {
 		DiagnosticEntry entry = result->diagnostics.entries[i];
 

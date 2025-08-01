@@ -103,6 +103,8 @@ typedef enum : uint8_t {
 	BorderStyleOpaqueBox = 3,
 } BorderStyle;
 
+typedef size_t EncodingType;
+
 typedef enum : uint8_t {
 	// bottom
 	AssAlignmentBL = 1,
@@ -141,7 +143,7 @@ typedef struct {
 	size_t margin_l;
 	size_t margin_r;
 	size_t margin_v;
-	size_t encoding;
+	EncodingType encoding;
 } AssStyleEntry;
 
 typedef struct {
@@ -190,12 +192,31 @@ typedef struct {
 typedef struct {
 	STBDS_ARRAY(AssEventEntry) entries;
 } AssEvents;
-/* typedef struct {
-    int todo;
-} AssFonts;
+
 typedef struct {
-    int todo;
-} AssGraphics; */
+	FinalStr name;
+	bool bold;
+	bool italic;
+	EncodingType encoding;
+} AssFontName;
+
+typedef struct {
+	AssFontName name;
+	SizedPtr data;
+} AssFontEntry;
+
+typedef struct {
+	STBDS_ARRAY(AssFontEntry) entries;
+} AssFonts;
+
+typedef struct {
+	FinalStr name;
+	SizedPtr data;
+} AssGraphicEntry;
+
+typedef struct {
+	STBDS_ARRAY(AssGraphicEntry) entries;
+} AssGraphics;
 
 STBDS_HASH_MAP_TYPE(char*, FinalStr, SectionFieldEntry);
 
@@ -227,8 +248,12 @@ typedef struct {
 	AssScriptInfo script_info;
 	AssStyles styles;
 	AssEvents events;
-	//	AssFonts fonts;
+	AssFonts fonts;
 	//	AssGraphics graphics;
 	ExtraSections extra_sections;
 	FileProps file_props;
 } AssResult;
+
+// TODO: windows support
+//  todo fonts + graphics
+//  todo: text parsing, not in validation!

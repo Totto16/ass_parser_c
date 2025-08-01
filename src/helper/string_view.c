@@ -56,9 +56,9 @@ inline static void str_view_advance_unchecked(StrView* str_view, size_t len) {
 
 typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
 
-[[nodiscard]] static bool str_view_starts_with_ascii_sized(StrView str_view, const char* ascii_str,
-                                                           size_t ascii_length,
-                                                           CharCompareFn compare_fn) {
+[[nodiscard]] static bool str_view_starts_with_sized(StrView str_view, const char* ascii_str,
+                                                     size_t ascii_length,
+                                                     CharCompareFn compare_fn) {
 
 	if(ascii_length + str_view.position.offset > str_view.length) {
 		return false;
@@ -78,16 +78,43 @@ typedef bool (*CharCompareFn)(int32_t utf8_char, char ascii_char);
 
 	size_t ascii_length = strlen(ascii_str);
 
-	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
-	                                        is_utf8_char_eq_to_ascii_char);
+	return str_view_starts_with_sized(str_view, ascii_str, ascii_length,
+	                                  is_utf8_char_eq_to_ascii_char);
+}
+
+[[nodiscard]] static bool str_view_ends_with_sized(StrView str_view, const char* ascii_str,
+                                                   size_t ascii_length, CharCompareFn compare_fn) {
+
+	if(ascii_length + str_view.position.offset > str_view.length) {
+		return false;
+	}
+
+	size_t start_point = str_view.length - ascii_length;
+
+	for(size_t i = 0; i < ascii_length; ++i) {
+		size_t offset = start_point + i;
+
+		if(!compare_fn(str_view.start[offset], ascii_str[i])) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool str_view_ends_with_ascii(StrView str_view, const char* ascii_str) {
+	size_t ascii_length = strlen(ascii_str);
+
+	return str_view_ends_with_sized(str_view, ascii_str, ascii_length,
+	                                is_utf8_char_eq_to_ascii_char);
 }
 
 [[nodiscard]] bool str_view_expect_ascii(StrView* str_view, const char* ascii_str) {
 
 	size_t ascii_length = strlen(ascii_str);
 
-	if(!str_view_starts_with_ascii_sized(*str_view, ascii_str, ascii_length,
-	                                     is_utf8_char_eq_to_ascii_char)) {
+	if(!str_view_starts_with_sized(*str_view, ascii_str, ascii_length,
+	                               is_utf8_char_eq_to_ascii_char)) {
 		return false;
 	}
 
@@ -188,8 +215,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	StrView str_view = get_str_view_from_const_str_view(const_str_view);
 
-	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
-	                                        is_utf8_char_eq_to_ascii_char_case_insensitive);
+	return str_view_starts_with_sized(str_view, ascii_str, ascii_length,
+	                                  is_utf8_char_eq_to_ascii_char_case_insensitive);
 }
 
 [[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str) {
@@ -201,8 +228,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 	StrView str_view = get_str_view_from_const_str_view(const_str_view);
 
-	return str_view_starts_with_ascii_sized(str_view, ascii_str, ascii_length,
-	                                        is_utf8_char_eq_to_ascii_char);
+	return str_view_starts_with_sized(str_view, ascii_str, ascii_length,
+	                                  is_utf8_char_eq_to_ascii_char);
 }
 
 [[nodiscard]] bool str_view_eq_str_view(ConstStrView const_str_view1,
