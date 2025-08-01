@@ -249,7 +249,7 @@ typedef struct {
 	AssStyles styles;
 	AssEvents events;
 	AssFonts fonts;
-	//	AssGraphics graphics;
+	AssGraphics graphics;
 	ExtraSections extra_sections;
 	FileProps file_props;
 } AssResult;

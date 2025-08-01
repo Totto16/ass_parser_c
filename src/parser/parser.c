@@ -981,29 +981,30 @@ static FinalStr
 
 typedef struct {
 	STBDS_ARRAY(FinalStr) entries;
-} FontDataArray;
+} TempDataArray;
 
 typedef struct {
 	FinalStr name_raw;
-	FontDataArray data_raw;
-} TempFontEntry;
+	TempDataArray data_raw;
+} TempEncodingEntry;
 
-#define EMPTY_TEMP_FONT_ENTRY() \
-	((TempFontEntry){ .name_raw = (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
-	                  .data_raw = (FontDataArray){ .entries = STBDS_ARRAY_EMPTY } })
+#define EMPTY_TEMP_ENCODE_ENTRY() \
+	((TempEncodingEntry){ .name_raw = \
+	                          (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
+	                      .data_raw = (TempDataArray){ .entries = STBDS_ARRAY_EMPTY } })
 
-#define IS_EMPTY_FONT_ENTRY_DATA(entry) (stbds_arrlenu((entry).data_raw.entries) == 0)
+#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (stbds_arrlenu((entry).data_raw.entries) == 0)
 
-#define IS_EMPTY_FONT_NAME(entry) ((entry).name_raw.length == 0)
+#define IS_EMPTY_ENCODE_NAME(entry) ((entry).name_raw.length == 0)
 
-#define IS_EMPTY_FONT_ENTRY(entry) \
-	((IS_EMPTY_FONT_ENTRY_DATA(entry)) && (IS_EMPTY_FONT_NAME(entry)))
+#define IS_EMPTY_ENCODE_ENTRY(entry) \
+	((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) && (IS_EMPTY_ENCODE_NAME(entry)))
 
-#define POS_FROM_FONT_ENTRY(entry) \
-	((!IS_EMPTY_FONT_NAME(entry)) \
+#define POS_FROM_ENCODE_ENTRY(entry) \
+	((!IS_EMPTY_ENCODE_NAME(entry)) \
 	     ? ((entry).name_raw.file_pos) \
-	     : ((IS_EMPTY_FONT_ENTRY_DATA(entry)) ? (EMPTY_POS()) \
-	                                          : (((entry).data_raw.entries[0]).file_pos)))
+	     : ((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) ? (EMPTY_POS()) \
+	                                            : (((entry).data_raw.entries[0]).file_pos)))
 
 [[nodiscard]] static MessageStruct parse_font_name_attributes(FinalStr attributes,
                                                               AssFontName* name_result,
@@ -1132,7 +1133,8 @@ typedef struct {
 	return EMPTY_MESSAGE_STRUCT();
 }
 
-[[nodiscard]] static MessageStruct parse_font_data(FontDataArray data_raw, SizedPtr* result_data) {
+[[nodiscard]] static MessageStruct parse_uu_encoded_data(TempDataArray data_raw,
+                                                         SizedPtr* result_data) {
 
 	STBDS_ARRAY(char) final_data = STBDS_ARRAY_EMPTY;
 
@@ -1173,7 +1175,7 @@ typedef struct {
 
 		char* result_buffer = NULL;
 		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
-		                              "Font data parse error: failed to decode uu encoding: %s",
+		                              "encoded data parse error: failed to decode uu encoding: %s",
 		                              ptr_get_error(decode_result));
 
 #undef PROPAGATE_ERROR_IMPL
@@ -1186,14 +1188,14 @@ typedef struct {
 	return EMPTY_MESSAGE_STRUCT();
 }
 
-[[nodiscard]] static MessageStruct process_font(TempFontEntry entry_data, AssFontEntry* out_entry,
-                                                Diagnostics* diagnostics) {
+[[nodiscard]] static MessageStruct process_font(TempEncodingEntry entry_data,
+                                                AssFontEntry* out_entry, Diagnostics* diagnostics) {
 
-	if(IS_EMPTY_FONT_NAME(entry_data)) {
+	if(IS_EMPTY_ENCODE_NAME(entry_data)) {
 		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font name before data specified");
 	}
 
-	if(IS_EMPTY_FONT_ENTRY_DATA(entry_data)) {
+	if(IS_EMPTY_ENCODE_ENTRY_DATA(entry_data)) {
 		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font data specified");
 	}
 
@@ -1204,7 +1206,7 @@ typedef struct {
 		return font_name_result;
 	}
 
-	MessageStruct font_data_result = parse_font_data(entry_data.data_raw, &(out_entry->data));
+	MessageStruct font_data_result = parse_uu_encoded_data(entry_data.data_raw, &(out_entry->data));
 
 	if(!is_empty_message_struct(font_data_result)) {
 		return font_data_result;
@@ -1238,7 +1240,7 @@ typedef struct {
 
 	AssFonts fonts = { .entries = STBDS_ARRAY_EMPTY };
 
-	TempFontEntry temp_entry = EMPTY_TEMP_FONT_ENTRY();
+	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 
 #define PROCESS_FONT(entry, pos) \
 	do { \
@@ -1301,7 +1303,7 @@ typedef struct {
 					                      .file_pos = EMPTY_POS() };
 
 				if(!are_all_uu_encodings_fast(all_data)) {
-					goto got_new_section;
+					goto got_new_section_font;
 				}
 			}
 		}
@@ -1319,10 +1321,10 @@ typedef struct {
 
 			if(line.length == 0) {
 				// if we already have a font, process that, otherwise skip this line
-				if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
-					PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+				if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+					PROCESS_FONT(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
 					FREE_FONT_ENTRY(temp_entry);
-					temp_entry = EMPTY_TEMP_FONT_ENTRY();
+					temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 				}
 				continue;
 			}
@@ -1344,10 +1346,10 @@ typedef struct {
 
 				// if we already have a font, process that first,
 				// before creating a new font
-				if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
-					PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+				if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+					PROCESS_FONT(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
 					FREE_FONT_ENTRY(temp_entry);
-					temp_entry = EMPTY_TEMP_FONT_ENTRY();
+					temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 				}
 
 				temp_entry.name_raw = fontname_raw;
@@ -1364,14 +1366,14 @@ typedef struct {
 		}
 	}
 
-got_new_section:
+got_new_section_font:
 
 	// if we just run out of lines and we didn't process the
 	// current font, do that
-	if(!IS_EMPTY_FONT_ENTRY(temp_entry)) {
-		PROCESS_FONT(temp_entry, POS_FROM_FONT_ENTRY(temp_entry));
+	if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+		PROCESS_FONT(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
 		FREE_FONT_ENTRY(temp_entry);
-		temp_entry = EMPTY_TEMP_FONT_ENTRY();
+		temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 	}
 
 	*ass_fonts = fonts;
@@ -1382,28 +1384,176 @@ got_new_section:
 #undef FREE_FONT_ENTRY
 #undef FREE_AT_END
 
-[[nodiscard]] static ErrorType parse_graphics(StrView* data_view, LineType line_type,
-                                              Diagnostics* diagnostics) {
+[[nodiscard]] static MessageStruct process_graphic(TempEncodingEntry entry_data,
+                                                   AssGraphicEntry* out_entry) {
 
-	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
+	if(IS_EMPTY_ENCODE_NAME(entry_data)) {
+		return STATIC_MESSAGE_STRUCT("Couldn't parse graphic, no file name before data specified");
+	}
+
+	if(IS_EMPTY_ENCODE_ENTRY_DATA(entry_data)) {
+		return STATIC_MESSAGE_STRUCT("Couldn't parse graphic, no graphic data specified");
+	}
+
+	out_entry->name = entry_data.name_raw;
+
+	MessageStruct graphic_data_result = parse_uu_encoded_data(entry_data.data_raw, &(out_entry->data));
+
+	if(!is_empty_message_struct(graphic_data_result)) {
+		return graphic_data_result;
+	}
+
+	return EMPTY_MESSAGE_STRUCT();
+}
+
+[[nodiscard]] static ErrorType parse_graphics(AssGraphics* ass_graphics, StrView* data_view,
+                                              LineType line_type, Diagnostics* diagnostics) {
+
+	AssGraphics graphics = { .entries = STBDS_ARRAY_EMPTY };
+
+	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
+
+#define PROCESS_GRAPHIC(entry, pos) \
+	do { \
+		AssGraphicEntry result_graphic = {}; \
+		MessageStruct graphic_process_result = process_graphic(entry, &result_graphic); \
+		if(!is_empty_message_struct(graphic_process_result)) { \
+			INSERT_SIMPLE_ERROR(diagnostics->entries, graphic_process_result, (pos)); \
+		} else { \
+			stbds_arrput(graphics.entries, result_graphic); \
+		} \
+	} while(false)
+
+#define FREE_GRAPHIC_ENTRY(entry) \
+	do { \
+		stbds_arrfree((entry).data_raw.entries); \
+	} while(false)
+
+#define FREE_AT_END() \
+	do { \
+		FREE_GRAPHIC_ENTRY(temp_entry); \
+		stbds_arrfree(graphics.entries); \
+	} while(false)
+
+	// Note: we collect data, as the graphics data is over multiple
+	// lines, than after we got enough data, which has many
+	// possible ways of occuring, we create a final graphic entry and
+	// add it to the graphics!
+
+	while(true) {
+
+		// NOTE: we can't just search for a line that starts with "[", since that may occur in the
+		// uu encoding, so we try to eliminate that by checking for valid section starts, that means
+		// lines in this regex:
+		// "^\[.*\]$", this is still not enough, we also check, that the characters in between []
+		// are all valid uu encoding, if this is not the case, we have a section (this is necessary,
+		// as uu encodings may have both charcaters [ and ] inside it, and even if most lines need
+		// to be 80 codepoints long, the last line isn't that long)
+		if(str_view_starts_with_ascii(*data_view, "[")) {
+
+			StrView str_view_copy = { .start = data_view->start,
+				                      .length = data_view->length,
+				                      .position = data_view->position };
+
+			ConstStrView peek_line = {};
+			if(!str_view_get_substring_until_eol(&str_view_copy, &peek_line, line_type, true)) {
+				INSERT_SIMPLE_ERROR(diagnostics->entries,
+				                    STATIC_MESSAGE_STRUCT("implementation error"),
+				                    data_view->position.file_pos);
+
+				FREE_AT_END();
+				return ErrorTypeFatal;
+			}
+
+			StrView peek_line_view = get_str_view_from_const_str_view(peek_line);
+
+			if(str_view_ends_with_ascii(peek_line_view, "]")) {
+
+				ConstStrView all_data = { .start = peek_line.start + 1,
+					                      .length = peek_line.length - 2,
+					                      .file_pos = EMPTY_POS() };
+
+				if(!are_all_uu_encodings_fast(all_data)) {
+					goto got_new_section_graphic;
+				}
+			}
+		}
 
 		ConstStrView line = {};
 		if(!str_view_get_substring_until_eol(data_view, &line, line_type, true)) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("implementation error"),
 			                    data_view->position.file_pos);
+
+			FREE_AT_END();
 			return ErrorTypeFatal;
 		}
 
-		// skip the line
-		UNUSED(line);
+		{
+
+			if(line.length == 0) {
+				// if we already have a graphic, process that, otherwise skip this line
+				if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+					PROCESS_GRAPHIC(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
+					FREE_GRAPHIC_ENTRY(temp_entry);
+					temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
+				}
+				continue;
+			}
+
+			StrView line_view = get_str_view_from_const_str_view(line);
+
+			if(str_view_expect_ascii(&line_view, "filename:")) {
+
+				if(!str_view_skip_optional_whitespace(&line_view)) {
+					INSERT_SIMPLE_ERROR(diagnostics->entries,
+					                    STATIC_MESSAGE_STRUCT("skip whitespace error"),
+					                    line_view.position.file_pos);
+
+					FREE_AT_END();
+					return ErrorTypeFatal;
+				}
+
+				ConstStrView filename_raw = get_const_str_view_from_str_view(line_view);
+
+				// if we already have a graphic, process that first,
+				// before creating a new graphic
+				if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+					PROCESS_GRAPHIC(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
+					FREE_GRAPHIC_ENTRY(temp_entry);
+					temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
+				}
+
+				temp_entry.name_raw = filename_raw;
+			} else {
+
+				// add to the raw data!
+
+				stbds_arrput(temp_entry.data_raw.entries, line);
+			}
+		}
 
 		if(str_view_is_eof(*data_view)) {
 			break;
 		}
 	}
 
+got_new_section_graphic:
+
+	// if we just run out of lines and we didn't process the
+	// current graphic, do that
+	if(!IS_EMPTY_ENCODE_ENTRY(temp_entry)) {
+		PROCESS_GRAPHIC(temp_entry, POS_FROM_ENCODE_ENTRY(temp_entry));
+		FREE_GRAPHIC_ENTRY(temp_entry);
+		temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
+	}
+
+	*ass_graphics = graphics;
+
 	return ErrorTypeNone;
 }
+
+#undef FREE_GRAPHIC_ENTRY
+#undef FREE_AT_END
 
 [[nodiscard]] static ErrorType extra_section(ConstStrView section_name, StrView* data_view,
                                              ExtraSections* extra_sections, LineType line_type,
@@ -2036,7 +2186,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 	}
 
 	if(str_view_eq_ascii(section_name, "Graphics")) {
-		return parse_graphics(data_view, line_type, diagnostics);
+		return parse_graphics(&(ass_result->graphics), data_view, line_type, diagnostics);
 	}
 
 	return extra_section(section_name, data_view, &(ass_result->extra_sections), line_type,
@@ -2079,12 +2229,21 @@ static void free_fonts(AssFonts fonts) {
 	stbds_arrfree(fonts.entries);
 }
 
+static void free_graphics(AssGraphics graphics) {
+	for(size_t i = 0; i < stbds_arrlenu(graphics.entries); ++i) {
+		AssGraphicEntry entry = graphics.entries[i];
+		free_sized_ptr(entry.data);
+	}
+	stbds_arrfree(graphics.entries);
+}
+
 static void free_ass_result(AssResult data) {
 	stbds_arrfree(data.styles.entries);
 	stbds_arrfree(data.events.entries);
 
 	free_extra_sections(data.extra_sections);
 	free_fonts(data.fonts);
+	free_graphics(data.graphics);
 }
 
 #define FREE_AT_END() \
@@ -2251,7 +2410,12 @@ static void free_ass_result(AssResult data) {
 	}
 
 	AssResult ass_result = { .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY },
-		                     .file_props = { .file_type = file_type, .line_type = line_type } };
+		                     .file_props =
+		                         (FileProps){ .file_type = file_type, .line_type = line_type },
+		                     .events = (AssEvents){ .entries = STBDS_ARRAY_EMPTY },
+		                     .fonts = (AssFonts){ .entries = STBDS_ARRAY_EMPTY },
+		                     .styles = (AssStyles){ .entries = STBDS_ARRAY_EMPTY },
+		                     .graphics = (AssGraphics){ .entries = STBDS_ARRAY_EMPTY } };
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
