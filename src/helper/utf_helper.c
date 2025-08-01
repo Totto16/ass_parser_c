@@ -9,8 +9,12 @@
 CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 	if(ptr.data == NULL && ptr.len == 0) {
-		return (CodepointsResult){ .has_error = false,
-			                       .data = { .result = (Codepoints){ .size = 0, .data = NULL } } };
+		return (CodepointsResult){
+			.has_error = false,
+			.data = { .result = (Codepoints){ .size = 0,
+			                                  .data = (CodePointsData){ .data_const = NULL,
+			                                                            .data_readable = NULL } } }
+		};
 	}
 
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * ptr.len);
@@ -47,7 +51,9 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 		buffer = new_buffer;
 	}
 
-	Codepoints utf8_data = { .size = result, .data = buffer };
+	Codepoints utf8_data = {
+		.size = result, .data = (CodePointsData){ .data_const = buffer, .data_readable = buffer }
+	};
 
 	return (CodepointsResult){ .has_error = false, .data = { .result = utf8_data } };
 }
@@ -153,15 +159,15 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 	return get_codepoints_from_format(ptr, big_endian ? "UTF-16BE" : "UTF-16LE");
 }
 
-void free_codepoints(Codepoints data) {
-	if(data.data != NULL) {
-		free(data.data);
+void free_codepoints(Codepoints codepoints) {
+	if(codepoints.data.data_readable != NULL) {
+		free(codepoints.data.data_readable);
 	}
 }
 
 #define CHUNK_SIZE_NORMALIZE 256
 
-char* get_normalized_string_from_codepoints(Codepoints codepoints) {
+char* get_normalized_string_from_codepoints(RawCodepoints codepoints) {
 
 	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);

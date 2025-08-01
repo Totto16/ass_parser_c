@@ -39,7 +39,7 @@ void free_diagnostics(Diagnostics diagnostics) {
 
 	switch(inner.type) {
 		case DiagnosticTypeSimple: {
-			return STATIC_MESSAGE_STRUCT(inner.data.simple.message);
+			return STATIC_MESSAGE_STRUCT(get_message(inner.data.simple));
 		}
 		case DiagnosticTypeUnexpectedField: {
 
@@ -134,7 +134,7 @@ MessageStruct get_message_from_entry_pretty(DiagnosticEntry entry, const char* s
 		FORMAT_STRING_PROPAGATE_ERROR(&final_result,
 		                              FILE_FORMAT " "
 		                                          "%s",
-		                              source_file, inner_message.message);
+		                              source_file, get_message(inner_message));
 
 		free_message_struct(inner_message);
 		return DYNAMIC_MESSAGE_STRUCT(final_result);
@@ -145,7 +145,7 @@ MessageStruct get_message_from_entry_pretty(DiagnosticEntry entry, const char* s
 	                              FILE_FORMAT FILE_POS_FORMAT " "
 	                                                          "%s",
 	                              source_file, FORMAT_LINE_FMT_EXPAND_POS(entry.position),
-	                              inner_message.message);
+	                              get_message(inner_message));
 
 	free_message_struct(inner_message);
 	return DYNAMIC_MESSAGE_STRUCT(final_result);

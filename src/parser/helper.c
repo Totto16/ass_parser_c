@@ -35,7 +35,7 @@
 		size_t num = parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view),
 		                                          message_ptr, diagnostics);
 
-		if(message_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return 0.0;
 		}
 
@@ -45,7 +45,7 @@
 
 	size_t prefix_num = parse_str_as_unsigned_number(prefix, message_ptr, diagnostics);
 
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return 0.0;
 	}
 
@@ -64,7 +64,7 @@
 
 	size_t suffix_num = parse_str_as_unsigned_number(suffix, message_ptr, diagnostics);
 
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return 0.0;
 	}
 
@@ -117,7 +117,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 					double unused = parse_str_as_double(value, &local_error, diagnostics);
 					UNUSED(unused);
 
-					if(local_error.message == NULL) {
+					if(is_empty_message_struct(local_error)) {
 
 						INSERT_SIMPLE_WARNING(diagnostics->entries,
 						                      DYNAMIC_MESSAGE_STRUCT(result_buffer),
@@ -268,7 +268,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
                                                     Diagnostics* diagnostics) {
 	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return BorderStyleOutline;
 	}
 
@@ -293,7 +293,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
                                                         Diagnostics* diagnostics) {
 	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return AssAlignmentBL;
 	}
 
@@ -360,7 +360,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 	}
 
 	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return result;
 	}
 
@@ -403,7 +403,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 
 		size_t num = parse_str_as_unsigned_number(hour_str, message_ptr, diagnostics);
 
-		if(message_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return time;
 		}
 
@@ -431,7 +431,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 
 		size_t num = parse_str_as_unsigned_number(min_str, message_ptr, diagnostics);
 
-		if(message_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return time;
 		}
 
@@ -459,7 +459,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 
 		size_t num = parse_str_as_unsigned_number(sec_str, message_ptr, diagnostics);
 
-		if(message_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return time;
 		}
 
@@ -491,7 +491,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 
 		size_t num = parse_str_as_unsigned_number(hundred_str, message_ptr, diagnostics);
 
-		if(message_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return time;
 		}
 
@@ -533,7 +533,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
                                                 Diagnostics* diagnostics) {
 	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(message_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return WrapStyleSmart;
 	}
 

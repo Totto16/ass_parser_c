@@ -394,15 +394,15 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 		switch(entry.severity) {
 			case DiagnosticSeverityWarning: {
-				LOG_MESSAGE(LogLevelWarn, "%s\n", (char*)message.message);
+				LOG_MESSAGE(LogLevelWarn, "%s\n", get_message(message));
 				break;
 			}
 			case DiagnosticSeverityError: {
-				LOG_MESSAGE(LogLevelError, "%s\n", (char*)message.message);
+				LOG_MESSAGE(LogLevelError, "%s\n", get_message(message));
 				break;
 			}
 			default: {
-				LOG_MESSAGE(LogLevelCritical, "Unknown severity: %s\n", (char*)message.message);
+				LOG_MESSAGE(LogLevelCritical, "Unknown severity: %s\n", get_message(message));
 				break;
 			}
 		}
@@ -452,6 +452,6 @@ int main(int argc, char** argv) {
 	return EXIT_FAILURE;
 }
 
-
-//TODO: two subcommands, one to handle fonts, one to handle uuencoding + decoding of arbitrary files! (-o + -i , depending on  mod enc or dec, - means stdin or stdout, depending on OP)
-// TODO: dump parsed ass as json option (json is not part of lib, just the cli has a encoder!)
+// TODO: two subcommands, one to handle fonts, one to handle uuencoding + decoding of arbitrary
+// files! (-o + -i , depending on  mod enc or dec, - means stdin or stdout, depending on OP)
+//  TODO: dump parsed ass as json option (json is not part of lib, just the cli has a encoder!)

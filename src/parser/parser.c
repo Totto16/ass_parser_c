@@ -485,7 +485,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 			}
 		}
 
-		if(error.message != NULL) {
+		if(!is_empty_message_struct(error)) {
 
 			char* value_name = get_normalized_string(value);
 
@@ -507,7 +507,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(
 			    &result_buffer, "While parsing field '%s' with value '%s': %s",
-			    get_name_for_style_format(format), value_name, error.message);
+			    get_name_for_style_format(format), value_name, get_message(error));
 
 #undef PROPAGATE_ERROR_IMPL
 
@@ -867,7 +867,7 @@ static FinalStr
 				continue;
 			}
 
-			if(error.message != NULL) {
+			if(!is_empty_message_struct(error)) {
 
 				char* field_name = get_normalized_string(field);
 
@@ -903,7 +903,7 @@ static FinalStr
 				char* result_buffer = NULL;
 				FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
 				                              "While parsing field '%s' with value '%s': %s",
-				                              field_name, value_name, error.message);
+				                              field_name, value_name, get_message(error));
 
 #undef PROPAGATE_ERROR_IMPL
 
@@ -1005,10 +1005,130 @@ typedef struct {
 	     : ((IS_EMPTY_FONT_ENTRY_DATA(entry)) ? (EMPTY_POS()) \
 	                                          : (((entry).data_raw.entries[0]).file_pos)))
 
-[[nodiscard]] static MessageStruct parse_font_name(FinalStr name_raw, AssFontName* result_name) {
+[[nodiscard]] static MessageStruct parse_font_name_attributes(FinalStr attributes,
+                                                              AssFontName* name_result,
+                                                              Diagnostics* diagnostics) {
 
-	// TODO
-	*result_name = (AssFontName){ .name = name_raw, .bold = false, .italic = true, .encoding = 1 };
+	StrView attributes_view = get_str_view_from_const_str_view(attributes);
+
+	name_result->bold = false;
+	name_result->italic = false;
+
+	if(str_view_starts_with_ascii(attributes_view, "B")) {
+		name_result->bold = true;
+
+		if(!str_view_advance(&attributes_view, 1)) {
+			return STATIC_MESSAGE_STRUCT("implementation error");
+		}
+	}
+
+	if(str_view_starts_with_ascii(attributes_view, "I")) {
+		name_result->italic = true;
+
+		if(!str_view_advance(&attributes_view, 1)) {
+			return STATIC_MESSAGE_STRUCT("implementation error");
+		}
+	}
+
+	MessageStruct error = EMPTY_MESSAGE_STRUCT();
+
+	ConstStrView encoding_value = get_const_str_view_from_str_view(attributes_view);
+
+	size_t encoding = parse_str_as_unsigned_number(encoding_value, &error, diagnostics);
+
+	if(!is_empty_message_struct(error)) {
+
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		free_message_struct(error); \
+		return STATIC_MESSAGE_STRUCT(message); \
+	} while(false)
+
+		char* result_buffer = NULL;
+		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "couldn't parse font encoding: %s",
+		                              get_message(error));
+
+#undef PROPAGATE_ERROR_IMPL
+
+		free_message_struct(error);
+
+		return DYNAMIC_MESSAGE_STRUCT(result_buffer);
+	}
+
+	name_result->encoding = encoding;
+
+	return EMPTY_MESSAGE_STRUCT();
+}
+
+[[nodiscard]] static MessageStruct parse_font_name(FinalStr name_raw, AssFontName* result_name,
+                                                   Diagnostics* diagnostics) {
+
+	// NOTE: <name of file> is the file name that SSA will use when saving the font file. It is:
+	//  the name of the original truetype font,
+	//  plus an underscore,
+	//  plus an optional “B” if Bold,
+	//  plus an optional “I” if Italic,
+	//  plus a number specifying the font encoding (character set),
+	//  plus “.ttf”
+
+	AssFontName name = { .italic = false, .bold = false };
+
+	StrView name_view = get_str_view_from_const_str_view(name_raw);
+
+#define TTF_EXT ".ttf"
+
+	if(!str_view_ends_with_ascii(name_view, TTF_EXT)) {
+		return STATIC_MESSAGE_STRUCT("Only ttf fonts supported, got unknown extension");
+	}
+
+	if(!str_view_advance_from_end(&name_view, (sizeof(TTF_EXT) - 1))) {
+		return STATIC_MESSAGE_STRUCT("implementation error");
+	}
+
+	ConstStrView name_without_ext = get_const_str_view_from_str_view(name_view);
+
+	size_t underscore_idx = 0;
+	bool underscore_found = false;
+
+	for(size_t i = 0; i < name_without_ext.length; ++i) {
+		int32_t value = name_without_ext.start[name_without_ext.length - 1 - i];
+
+		if(value == ((unsigned char)'_')) {
+			underscore_idx = i;
+			underscore_found = true;
+			break;
+		}
+	}
+
+	if(!underscore_found) {
+		return STATIC_MESSAGE_STRUCT("font name requires an underscore, none found");
+	}
+
+	size_t final_name_length = name_without_ext.length - underscore_idx - 1;
+
+	FinalStr final_name = { .start = name_without_ext.start,
+		                    .length = final_name_length,
+		                    .file_pos = name_without_ext.file_pos };
+
+	if(str_view_eq_ascii(final_name, "")) {
+		return STATIC_MESSAGE_STRUCT("empty font name not permitted");
+	}
+
+	name.name = final_name;
+
+	FinalStr attributes = { .start = name_without_ext.start + final_name_length + 1,
+		                    .length = underscore_idx,
+		                    .file_pos = { .line = name_without_ext.file_pos.line,
+		                                  .column = name_without_ext.file_pos.column +
+		                                            final_name_length + 1 } };
+
+	MessageStruct attributes_result = parse_font_name_attributes(attributes, &name, diagnostics);
+
+	if(!is_empty_message_struct(attributes_result)) {
+		return attributes_result;
+	}
+
+	*result_name = name;
 	return EMPTY_MESSAGE_STRUCT();
 }
 
@@ -1066,7 +1186,8 @@ typedef struct {
 	return EMPTY_MESSAGE_STRUCT();
 }
 
-[[nodiscard]] static MessageStruct process_font(TempFontEntry entry_data, AssFontEntry* out_entry) {
+[[nodiscard]] static MessageStruct process_font(TempFontEntry entry_data, AssFontEntry* out_entry,
+                                                Diagnostics* diagnostics) {
 
 	if(IS_EMPTY_FONT_NAME(entry_data)) {
 		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font name before data specified");
@@ -1076,15 +1197,16 @@ typedef struct {
 		return STATIC_MESSAGE_STRUCT("Couldn't parse font, no font data specified");
 	}
 
-	MessageStruct font_name_result = parse_font_name(entry_data.name_raw, &(out_entry->name));
+	MessageStruct font_name_result =
+	    parse_font_name(entry_data.name_raw, &(out_entry->name), diagnostics);
 
-	if(font_name_result.message != NULL) {
+	if(!is_empty_message_struct(font_name_result)) {
 		return font_name_result;
 	}
 
 	MessageStruct font_data_result = parse_font_data(entry_data.data_raw, &(out_entry->data));
 
-	if(font_data_result.message != NULL) {
+	if(!is_empty_message_struct(font_data_result)) {
 		return font_data_result;
 	}
 
@@ -1121,8 +1243,8 @@ typedef struct {
 #define PROCESS_FONT(entry, pos) \
 	do { \
 		AssFontEntry result_font = {}; \
-		MessageStruct font_process_result = process_font(entry, &result_font); \
-		if(font_process_result.message != NULL) { \
+		MessageStruct font_process_result = process_font(entry, &result_font, diagnostics); \
+		if(!is_empty_message_struct(font_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
 		} else { \
 			stbds_arrput(fonts.entries, result_font); \
@@ -1585,7 +1707,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			}
 		}
 
-		if(error.message != NULL) {
+		if(!is_empty_message_struct(error)) {
 
 			char* value_name = get_normalized_string(value);
 
@@ -1607,7 +1729,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			char* result_buffer = NULL;
 			FORMAT_STRING_PROPAGATE_ERROR(
 			    &result_buffer, "While parsing field '%s' with value '%s': %s",
-			    get_name_for_event_format(format), value_name, error.message);
+			    get_name_for_event_format(format), value_name, get_message(error));
 
 #undef PROPAGATE_ERROR_IMPL
 
@@ -1995,7 +2117,9 @@ static void free_ass_result(AssResult data) {
 	}
 
 	result->diagnostics = (Diagnostics){ .entries = STBDS_ARRAY_EMPTY };
-	result->allocated_codepoints = (Codepoints){ .data = NULL, .size = 0 };
+	result->allocated_codepoints =
+	    (Codepoints){ .data = (CodePointsData){ .data_const = NULL, .data_readable = NULL },
+		              .size = 0 };
 
 	SizedPtr data = get_data_from_source(source);
 
@@ -2089,7 +2213,7 @@ static void free_ass_result(AssResult data) {
 
 	Codepoints final_data = codepoints_result.data.result;
 
-	if(final_data.data == NULL && final_data.size == 0) {
+	if(final_data.data.data_const == NULL && final_data.size == 0) {
 		RETURN_ERROR_AT_START(
 		    STATIC_MESSAGE_STRUCT("file conversion resulted in empty UTF-8 string"));
 	}
@@ -2112,7 +2236,7 @@ static void free_ass_result(AssResult data) {
 
 	LineType line_type = get_line_type(line_type_view, &line_type_error);
 
-	if(line_type_error.message != NULL) {
+	if(!is_empty_message_struct(line_type_error)) {
 		RETURN_ERROR_AT_START(line_type_error);
 	}
 

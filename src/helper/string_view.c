@@ -13,7 +13,7 @@
 }
 
 [[nodiscard]] StrView str_view_from_data(Codepoints data) {
-	return (StrView){ .start = data.data,
+	return (StrView){ .start = data.data.data_const,
 		              .length = data.size,
 		              .position = (StrViewPos){ .offset = 0,
 		                                        .file_pos = (FilePos){ .column = 0, .line = 0 } } };
@@ -33,6 +33,20 @@ inline static void str_view_advance_unchecked(StrView* str_view, size_t len) {
 
 	str_view_advance_unchecked(str_view, len);
 
+	return true;
+}
+
+[[nodiscard]] bool str_view_advance_from_end(StrView* str_view, size_t len) {
+
+	if(len > str_view->length) {
+		return false;
+	}
+
+	if(str_view->position.offset > str_view->length - len) {
+		return false;
+	}
+
+	str_view->length -= len;
 	return true;
 }
 
@@ -333,7 +347,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 
 [[nodiscard]] char* get_normalized_string(ConstStrView str_view) {
 	return get_normalized_string_from_codepoints(
-	    (Codepoints){ .data = str_view.start, .size = str_view.length });
+	    (RawCodepoints){ .data = str_view.start, .size = str_view.length });
 }
 
 [[nodiscard]] bool str_view_get_substring_by_amount(StrView* str_view, ConstStrView* result,

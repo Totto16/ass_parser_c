@@ -397,7 +397,7 @@ static void validate_font(const char* style_name, const char* font_name, FontSty
 		char* result_buffer = NULL; // NOLINT(clang-analyzer-unix.Malloc)
 		FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
 		                              "an error occurred while trying to find font '%s': %s",
-		                              font_name, found_result.data.error.message);
+		                              font_name, get_message(found_result.data.error));
 
 		const DiagnosticSeverity severity_type =
 		    allow_validation_errors ? DiagnosticSeverityWarning : DiagnosticSeverityError;

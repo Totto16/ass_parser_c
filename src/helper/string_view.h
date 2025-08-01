@@ -16,13 +16,13 @@ typedef struct {
 } StrViewPos;
 
 typedef struct {
-	int32_t* start;
+	const int32_t* start;
 	size_t length;
 	StrViewPos position;
 } StrView;
 
 typedef struct {
-	int32_t* start;
+	const int32_t* start;
 	size_t length;
 	FilePos file_pos;
 } ConstStrView;
@@ -44,6 +44,8 @@ typedef enum : uint8_t {
 [[nodiscard]] StrView str_view_from_data(Codepoints data);
 
 [[nodiscard]] bool str_view_advance(StrView* str_view, size_t len);
+
+[[nodiscard]] bool str_view_advance_from_end(StrView* str_view, size_t len);
 
 [[nodiscard]] bool str_view_starts_with_ascii(StrView str_view, const char* ascii_str);
 
