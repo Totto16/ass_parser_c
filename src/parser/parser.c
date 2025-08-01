@@ -1949,11 +1949,20 @@ static void free_extra_sections(ExtraSections sections) {
 	stbds_shfree(sections.entries);
 }
 
+static void free_fonts(AssFonts fonts) {
+	for(size_t i = 0; i < stbds_arrlenu(fonts.entries); ++i) {
+		AssFontEntry entry = fonts.entries[i];
+		free_sized_ptr(entry.data);
+	}
+	stbds_arrfree(fonts.entries);
+}
+
 static void free_ass_result(AssResult data) {
 	stbds_arrfree(data.styles.entries);
 	stbds_arrfree(data.events.entries);
 
 	free_extra_sections(data.extra_sections);
+	free_fonts(data.fonts);
 }
 
 #define FREE_AT_END() \
