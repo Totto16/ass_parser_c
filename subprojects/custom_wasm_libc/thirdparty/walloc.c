@@ -20,6 +20,8 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+
 typedef __SIZE_TYPE__ size_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
 typedef __UINT8_TYPE__ uint8_t;
@@ -83,6 +85,7 @@ enum chunk_kind {
   LARGE_OBJECT = 255
 };
 
+__attribute__((__unused__))
 static const uint8_t small_object_granule_sizes[] = 
 {
 #define SMALL_OBJECT_GRANULE_SIZE(i) i,
@@ -145,7 +148,7 @@ struct large_object {
 
 #define LARGE_OBJECT_HEADER_SIZE (sizeof (struct large_object))
 
-static inline void* get_large_object_payload(struct large_object *obj) {
+static inline char* get_large_object_payload(struct large_object *obj) {
   return ((char*) obj) + LARGE_OBJECT_HEADER_SIZE;
 }
 static inline struct large_object* get_large_object(void *ptr) {
@@ -155,7 +158,7 @@ static inline struct large_object* get_large_object(void *ptr) {
 static struct freelist *small_object_freelists[SMALL_OBJECT_CHUNK_KINDS];
 static struct large_object *large_objects;
 
-extern void __heap_base;
+extern char __heap_base[];
 static size_t walloc_heap_size;
 
 static struct page*
@@ -179,7 +182,7 @@ allocate_pages(size_t payload_size, size_t *n_allocated) {
     grow = align(max(walloc_heap_size / 2, needed - preallocated),
                  PAGE_SIZE);
     ASSERT(grow);
-    if (__builtin_wasm_memory_grow(0, grow >> PAGE_SIZE_LOG_2) == -1) {
+    if ((int)__builtin_wasm_memory_grow(0, grow >> PAGE_SIZE_LOG_2) == -1) {
       return NULL;
     }
     walloc_heap_size += grow;
