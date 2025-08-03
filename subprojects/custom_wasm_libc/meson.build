@@ -17,6 +17,7 @@ project(
 custom_wasm_libc_src_files = files(
     'thirdparty/walloc.c',
     'assert.h',
+    'libc_impl.c',
     'limits.h',
     'platform.h',
     'stdbool.h',

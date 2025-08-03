@@ -2,4 +2,4 @@
 
 #pragma once
 
-#include "./platform.h"
+#define NULL ((void *) 0)
