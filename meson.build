@@ -120,10 +120,10 @@ if is_wasm
             internal_c_args,
         ],
         link_args: [
-            '-Wl,--export-all',
-            '-Wl,--no-entry',
-            '-Wl,--allow-undefined-file=' + meson.project_source_root() / 'cross/wasm-external-symbols.txt',
-            '-Wl,--import-memory',
+            '--export-all',
+            '--no-entry',
+            '--allow-undefined-file=' + meson.project_source_root() / 'cross/wasm-external-symbols.txt',
+            '--import-memory',
         ],
         name_suffix: 'wasm',
     )
