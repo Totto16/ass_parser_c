@@ -14,6 +14,17 @@ project(
     version: '0.0.3',
 )
 
+is_wasm = false
+
+if meson.is_cross_build()
+    if host_machine.system() == 'wasm'
+        is_wasm = true
+    else
+        error('Not supported cross build system: ' + host_machine.system())
+    endif
+endif
+
+
 deps = []
 
 deps += dependency(
@@ -33,42 +44,6 @@ deps += cc.find_library(
 
 deps += dependency('threads')
 
-
-iconv_dep = cc.find_library(
-    'iconv',
-    required: false,
-)
-if iconv_dep.found()
-    deps += iconv_dep
-elif cc.has_function('iconv_open')
-    message('iconv already provided by libc')
-else
-    deps += dependency('iconv')
-endif
-
-deps += dependency(
-    'fontconfig',
-    allow_fallback: true,
-)
-
-deps += dependency(
-    'freetype2',
-    allow_fallback: true,
-)
-
-
-lib_src_files = []
-cli_files = []
-inc_dirs = []
-lib_inc_dirs = []
-
-# so that the version of the lib can be different than the cli version
-ass_parser_lib_version = '0.0.3'
-
-ass_parser_lib_header_install_dir = 'ass_parser'
-
-subdir('src')
-
 internal_c_args = []
 
 
@@ -86,43 +61,110 @@ internal_c_args += cc.get_supported_arguments(
     '-Wenum-compare-conditional',
 )
 
-ass_parser_lib = library(
-    'ass_parser',
-    lib_src_files,
-    dependencies: deps,
-    include_directories: inc_dirs,
-    c_args: [
-        '-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"',
-        internal_c_args,
-    ],
-    install: true,
-    version: ass_parser_lib_version,
+iconv_dep = cc.find_library(
+    'iconv',
+    required: false,
 )
+if iconv_dep.found()
+    internal_c_args += '-DASS_PARSER_HAVE_ICONV'
+    deps += iconv_dep
+elif cc.has_function('iconv_open')
+    message('iconv already provided by libc')
+    internal_c_args += '-DASS_PARSER_HAVE_ICONV'
+else
+    iconv_dep = dependency('iconv', required: not is_wasm)
+    if iconv_dep.found()
+        internal_c_args += '-DASS_PARSER_HAVE_ICONV'
+        deps += iconv_dep
+    endif
+endif
 
-pkg = import('pkgconfig')
+if not is_wasm
 
-pkg.generate(
-    ass_parser_lib,
-    description: 'An ass parser library',
-    name: 'ass_parser',
-    filebase: 'ass_parser',
-    subdirs: [
-        ass_parser_lib_header_install_dir / 'public',
-        ass_parser_lib_header_install_dir / 'thirdparty',
-    ],
-)
+    deps += dependency(
+        'fontconfig',
+        allow_fallback: true,
+    )
+    internal_c_args += '-DASS_PARSER_HAVE_FONTCONFIG'
 
-ass_parser_dep = declare_dependency(
-    link_with: ass_parser_lib,
-    include_directories: lib_inc_dirs,
-    dependencies: deps,
-    version: ass_parser_lib_version,
-)
+    deps += dependency(
+        'freetype2',
+        allow_fallback: true,
+    )
+    internal_c_args += '-DASS_PARSER_HAVE_FREETYPE'
+endif
 
-executable(
-    'ass_parser',
-    cli_files,
-    dependencies: [ass_parser_dep],
-    install: true,
-    c_args: ['-DPROGRAM_NAME=' + meson.project_name()],
-)
+
+lib_src_files = []
+cli_files = []
+inc_dirs = []
+lib_inc_dirs = []
+
+# so that the version of the lib can be different than the cli version
+ass_parser_lib_version = '0.0.3'
+
+ass_parser_lib_header_install_dir = 'ass_parser'
+
+subdir('src')
+
+
+if is_wasm
+
+    executable(
+        'ass_parser',
+        lib_src_files,
+        dependencies: deps,
+        include_directories: inc_dirs,
+        install: true,
+        c_args: [
+            '-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"',
+            internal_c_args,
+        ],
+        name_suffix: 'wasm',
+    )
+
+else
+
+    ass_parser_lib = library(
+        'ass_parser',
+        lib_src_files,
+        dependencies: deps,
+        include_directories: inc_dirs,
+        c_args: [
+            '-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"',
+            internal_c_args,
+        ],
+        install: true,
+        version: ass_parser_lib_version,
+    )
+
+    pkg = import('pkgconfig')
+
+    pkg.generate(
+        ass_parser_lib,
+        description: 'An ass parser library',
+        name: 'ass_parser',
+        filebase: 'ass_parser',
+        subdirs: [
+            ass_parser_lib_header_install_dir / 'public',
+            ass_parser_lib_header_install_dir / 'thirdparty',
+        ],
+    )
+
+    ass_parser_dep = declare_dependency(
+        link_with: ass_parser_lib,
+        include_directories: lib_inc_dirs,
+        dependencies: deps,
+        version: ass_parser_lib_version,
+    )
+
+    executable(
+        'ass_parser',
+        cli_files,
+        dependencies: [ass_parser_dep],
+        install: true,
+        c_args: ['-DPROGRAM_NAME=' + meson.project_name()],
+    )
+
+
+endif
