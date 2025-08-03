@@ -100,8 +100,7 @@ cli_files = []
 inc_dirs = []
 lib_inc_dirs = []
 
-# so that the version of the lib can be different than the cli version
-ass_parser_lib_version = '0.0.3'
+ass_parser_lib_version = meson.project_version()
 
 ass_parser_lib_header_install_dir = 'ass_parser'
 
@@ -157,6 +156,8 @@ else
         dependencies: deps,
         version: ass_parser_lib_version,
     )
+
+    meson.override_dependency('ass_parser', ass_parser_dep)
 
     executable(
         'ass_parser',
