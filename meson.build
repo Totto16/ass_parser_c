@@ -51,6 +51,12 @@ deps += dependency(
     allow_fallback: true,
 )
 
+deps += dependency(
+    'freetype2',
+    allow_fallback: true,
+)
+
+
 lib_src_files = []
 cli_files = []
 inc_dirs = []
@@ -85,7 +91,10 @@ ass_parser_lib = library(
     lib_src_files,
     dependencies: deps,
     include_directories: inc_dirs,
-    c_args: ['-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
+    c_args: [
+        '-DLIB_VERSION_STRING="' + ass_parser_lib_version + '"',
+        internal_c_args,
+    ],
     install: true,
     version: ass_parser_lib_version,
 )

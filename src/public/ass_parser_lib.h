@@ -8,6 +8,7 @@ extern "C" {
 
 #include "../helper/io.h"
 #include "../lib/lib.h"
+#include "../parser/fonts.h"
 #include "../parser/parser.h"
 #include "../parser/validate.h"
 

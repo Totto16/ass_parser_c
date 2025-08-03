@@ -1397,7 +1397,8 @@ got_new_section_font:
 
 	out_entry->name = entry_data.name_raw;
 
-	MessageStruct graphic_data_result = parse_uu_encoded_data(entry_data.data_raw, &(out_entry->data));
+	MessageStruct graphic_data_result =
+	    parse_uu_encoded_data(entry_data.data_raw, &(out_entry->data));
 
 	if(!is_empty_message_struct(graphic_data_result)) {
 		return graphic_data_result;
@@ -1843,7 +1844,47 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 				break;
 			}
 			case AssEventFormatText: {
-				entry.text = value;
+				switch(type) {
+					case EventTypeDialogue: {
+
+						// TODO
+						AssText todo = { .todo = value };
+
+						entry.text_union.dialogue = todo;
+						break;
+					}
+					case EventTypeComment: {
+						// TODO
+						AssText todo = { .todo = value };
+
+						entry.text_union.comment = todo;
+						break;
+					}
+					case EventTypePicture: {
+						entry.text_union.picture = value;
+						break;
+					}
+					case EventTypeSound: {
+						entry.text_union.sound = value;
+						break;
+					}
+					case EventTypeMovie: {
+						entry.text_union.movie = value;
+						break;
+					}
+					case EventTypeCommand: {
+
+						// TODO
+						CommandEvent todo = { .ssa_command = false, .data = { .string = value } };
+
+						entry.text_union.command = todo;
+						break;
+					}
+					default: {
+						UNREACHABLE();
+					}
+				}
+
 				break;
 			}
 			case AssEventFormatUnknownField: {

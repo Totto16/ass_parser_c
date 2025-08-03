@@ -10,6 +10,7 @@
 typedef enum : uint8_t {
 	UsageCommandAll,
 	UsageCommandCheck,
+	UsageCommandUUConversion,
 } UsageCommand;
 
 // note: this usage printing is from the simple http server, that I wrote, so it might be overkill
@@ -19,20 +20,25 @@ typedef enum : uint8_t {
 #define IDENT2 IDENT1 IDENT1
 #define IDENT3 IDENT2 IDENT1
 
-static void print_check_usage(bool is_subcommand) {
-	if(is_subcommand) {
-		printf("<file> [options]\n");
-	} else {
-		printf(IDENT1 "check <file> [options]\n");
-	}
+#define COMMAND_CHECK "check"
+#define COMMAND_UU_CONVERSION "uu_conversion"
 
-	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
-	printf(IDENT1 "options:\n");
-
+static void print_general_usage(void) {
 	printf(IDENT2 "general options:\n");
 
 	printf(IDENT3 "-v, --version: print the version and exit\n");
 	printf(IDENT3 "-h, -?, --help: print the help message for commands or the entire program\n");
+}
+
+static void print_check_usage(bool is_subcommand) {
+	if(is_subcommand) {
+		printf("<file> [options]\n");
+	} else {
+		printf(IDENT1 COMMAND_CHECK " <file> [options]\n");
+	}
+
+	printf(IDENT1 "file: the file to use, can be '-' for stdin (required)\n");
+	printf(IDENT1 "options:\n");
 
 	printf(IDENT2 "common options:\n");
 
@@ -42,7 +48,7 @@ static void print_check_usage(bool is_subcommand) {
 
 	printf(IDENT3 "-n, --non-strict: don't enable strict checking of the '.ass' file, this "
 	              "disables all checks\n");
-	printf(IDENT3 "-s, --strict: don't enable strict checking of the '.ass' file, this "
+	printf(IDENT3 "-s, --strict: enable strict checking of the '.ass' file, this "
 	              "enables all checks\n");
 
 	printf(IDENT2 "single strictness options\n");
@@ -83,20 +89,35 @@ static void print_check_usage(bool is_subcommand) {
 	printf(IDENT3 "--font-validate-preset <preset>: set the preset for font validation\n");
 }
 
+static void print_uu_conversion_usage(bool is_subcommand) {
+	// TODO
+
+	(void)(is_subcommand);
+	COMMAND_UU_CONVERSION;
+}
+
 // prints the usage, if argc is not the right amount!
 static void print_usage(const char* program_name, UsageCommand usage_command) {
 	switch(usage_command) {
 		case UsageCommandCheck: {
-			printf("usage: %s check ", program_name);
+			printf("usage: %s " COMMAND_CHECK " ", program_name);
+			print_general_usage();
 			print_check_usage(true);
 			break;
 		}
-
+		case UsageCommandUUConversion: {
+			printf("usage: %s " COMMAND_UU_CONVERSION " ", program_name);
+			print_general_usage();
+			print_uu_conversion_usage(true);
+			break;
+		}
 		case UsageCommandAll:
 		default: {
 			printf("usage: %s <command>\n", program_name);
-			printf("commands: check\n");
+			print_general_usage();
+			printf("commands: " COMMAND_CHECK ", " COMMAND_UU_CONVERSION "\n");
 			print_check_usage(false);
+			print_uu_conversion_usage(false);
 			break;
 		}
 	}
@@ -130,8 +151,8 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	return false;
 }
 
-[[nodiscard]] static bool get_optional_bool_value(bool default_value, int* processed_args, int argc,
-                                                  char* argv[]) {
+[[nodiscard]] static bool get_optional_bool_value(const char* program_name, bool default_value,
+                                                  int* processed_args, int argc, char* argv[]) {
 
 	if(*processed_args + 1 > argc) {
 		// no more values to use
@@ -169,7 +190,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	}
 
 	fprintf(stderr, "Invalid bool argument: %s\n", value);
-	print_usage(argv[0], UsageCommandCheck);
+	print_usage(program_name, UsageCommandCheck);
 	exit(EXIT_FAILURE);
 }
 
@@ -182,7 +203,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	}
 
 	if(is_help_string(argv[0])) {
-		printf("'check' command help menu:\n");
+		printf("'" COMMAND_CHECK "' command help menu:\n");
 		print_usage(program_name, UsageCommandCheck);
 		return EXIT_SUCCESS;
 	}
@@ -256,42 +277,42 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		} else if((strcmp(arg, "--allow-duplicate-fields-in-script-info") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.script_info.allow_duplicate_fields = value;
 
 		} else if((strcmp(arg, "--allow-missing-script-type-in-script-info") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.script_info.allow_missing_script_type = value;
 
 		} else if((strcmp(arg, "--allow-additional-fields") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_additional_fields = value;
 
 		} else if((strcmp(arg, "--allow-number-truncating") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_number_truncating = value;
 
 		} else if((strcmp(arg, "--allow-unrecognized-file-encoding") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_unrecognized_file_encoding = value;
 
 		} else if((strcmp(arg, "--allow-validation-errors") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.strict_settings.allow_validation_errors = value;
 
@@ -311,7 +332,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'font-validate-preset' option\n");
-				print_usage(argv[0], UsageCommandCheck);
+				print_usage(program_name, UsageCommandCheck);
 				return EXIT_FAILURE;
 			}
 
@@ -322,7 +343,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 				    stderr,
 				    "Wrong option for the 'font-validate-preset' option, unrecognized preset: %s\n",
 				    argv[processed_args + 1]);
-				print_usage(argv[0], UsageCommandCheck);
+				print_usage(program_name, UsageCommandCheck);
 				return EXIT_FAILURE;
 			}
 
@@ -333,21 +354,21 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		} else if((strcmp(arg, "--validate-styles") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.validate_settings.validate_styles = value;
 
 		} else if((strcmp(arg, "--validate-text") == 0)) {
 			processed_args++;
 
-			bool value = get_optional_bool_value(true, &processed_args, argc, argv);
+			bool value = get_optional_bool_value(program_name, true, &processed_args, argc, argv);
 
 			settings.validate_settings.validate_text = value;
 
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
-				print_usage(argv[0], UsageCommandCheck);
+				print_usage(program_name, UsageCommandCheck);
 				return EXIT_FAILURE;
 			}
 
@@ -356,7 +377,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
 				        argv[processed_args + 1]);
-				print_usage(argv[0], UsageCommandCheck);
+				print_usage(program_name, UsageCommandCheck);
 				return EXIT_FAILURE;
 			}
 
@@ -365,7 +386,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
-			print_usage(argv[0], UsageCommandCheck);
+			print_usage(program_name, UsageCommandCheck);
 			return EXIT_FAILURE;
 		}
 	}
@@ -416,29 +437,62 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 		return EXIT_FAILURE;
 	}
 
-	LOG_MESSAGE(LogLevelInfo, "File is valid %lu diagnostics occurred\n", diagnostics_length);
+	LOG_MESSAGE(LogLevelInfo, "File is valid: %lu diagnostics occurred\n", diagnostics_length);
 	free_parse_result(result);
 	return EXIT_SUCCESS;
 }
 
+[[nodiscard]] static int subcommand_uu_conversion(const char* program_name, int argc,
+                                                  char* argv[]) {
+
+	// TODO
+
+	(void)program_name;
+	(void)argc;
+	(void)argv;
+
+	SizedPtr input = read_entire_stdin();
+
+	SizedPtr result = uu_encode(input);
+
+	for(size_t i = 0; i < result.len; i += 80) {
+
+		int len = result.len - i < 80 ? result.len - i : 80;
+
+		fprintf(stdout, "%.*s\n", len, (char*)result.data + i);
+	}
+
+	return 0;
+}
+
 int main(int argc, char** argv) {
+
+	const char* program_name = "<unknown program>";
+
+	if(argc >= 1) {
+		program_name = argv[0];
+	}
 
 	// checking if there are enough arguments
 	if(argc < 2) {
 		fprintf(stderr, "No command specified\n");
-		print_usage(argv[0], UsageCommandAll);
+		print_usage(program_name, UsageCommandAll);
 		return EXIT_FAILURE;
 	}
 
 	const char* command = argv[1];
 
-	if(strcmp(command, "check") == 0) {
-		return subcommand_check(argv[0], argc - 2, argv + 2);
+	if(strcmp(command, COMMAND_CHECK) == 0) {
+		return subcommand_check(program_name, argc - 2, argv + 2);
+	}
+
+	if(strcmp(command, COMMAND_UU_CONVERSION "uu_encoding") == 0) {
+		return subcommand_uu_conversion(program_name, argc - 2, argv + 2);
 	}
 
 	if(is_help_string(command)) {
 		printf("General help menu:\n");
-		print_usage(argv[0], UsageCommandAll);
+		print_usage(program_name, UsageCommandAll);
 		return EXIT_SUCCESS;
 	}
 
@@ -448,10 +502,27 @@ int main(int argc, char** argv) {
 	}
 
 	fprintf(stderr, "Invalid command '%s'\n", command);
-	print_usage(argv[0], UsageCommandAll);
+	print_usage(program_name, UsageCommandAll);
 	return EXIT_FAILURE;
 }
 
 // TODO: two subcommands, one to handle fonts, one to handle uuencoding + decoding of arbitrary
 // files! (-o + -i , depending on  mod enc or dec, - means stdin or stdout, depending on OP)
 //  TODO: dump parsed ass as json option (json is not part of lib, just the cli has a encoder!)
+
+// make helpe for enums e.g. log level
+// // better report errors in cli
+
+// don't use simple error as often, make more categories
+
+// make stles also avldiate when dont prsete is dosabled!
+
+// parse embedded fotns with freetype2
+
+// also report the style, for fron with type not found, maybe deuplicate (make it a setting!)
+
+// wasm compatibility (not emscripten), make webiste liek assgramher.srs...
+
+// type in end print
+
+// program name is wrong!

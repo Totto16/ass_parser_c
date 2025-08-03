@@ -174,6 +174,31 @@ typedef struct {
 } MarginValue;
 
 typedef struct {
+	FinalStr todo;
+} AssText;
+
+typedef enum : uint8_t {
+	SSACommandTypePause,
+	SSACommandTypeWaitForTrigger,
+} SSACommandType;
+
+typedef struct {
+	bool recognized_command;
+	union {
+		SSACommandType recognized;
+		FinalStr unrecognized;
+	} data;
+} SSACommand;
+
+typedef struct {
+	bool ssa_command;
+	union {
+		SSACommand command;
+		FinalStr string;
+	} data;
+} CommandEvent;
+
+typedef struct {
 	// marks different event_types
 	EventType type;
 	// original fields
@@ -186,7 +211,14 @@ typedef struct {
 	MarginValue margin_r;
 	MarginValue margin_v;
 	FinalStr effect;
-	FinalStr text;
+	union {
+		AssText dialogue;
+		AssText comment;
+		FinalStr picture; // not only png is supported
+		FinalStr sound;   // only wav is supported
+		FinalStr movie;   // only avi supported
+		CommandEvent command;
+	} text_union;
 } AssEventEntry;
 
 typedef struct {
