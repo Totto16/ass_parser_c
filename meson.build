@@ -119,6 +119,12 @@ if is_wasm
             '-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"',
             internal_c_args,
         ],
+        link_args: [
+            '-Wl,--export-all',
+            '-Wl,--no-entry',
+            '-Wl,--allow-undefined-file=' + meson.project_source_root() / 'cross/wasm-external-symbols.txt',
+            '-Wl,--import-memory',
+        ],
         name_suffix: 'wasm',
     )
 

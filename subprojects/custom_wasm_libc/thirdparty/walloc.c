@@ -21,6 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma GCC diagnostic ignored "-Wswitch-enum"
+#include "../stdlib.h"
 
 typedef __SIZE_TYPE__ size_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
@@ -440,6 +441,7 @@ allocate_large(size_t size) {
   return obj ? get_large_object_payload(obj) : NULL;
 }
   
+__attribute__((export_name("malloc"))) 
 void*
 malloc(size_t size) {
   size_t granules = size_to_granules(size);
@@ -447,6 +449,7 @@ malloc(size_t size) {
   return (kind == LARGE_OBJECT) ? allocate_large(size) : allocate_small(kind);
 }
 
+__attribute__((export_name("free"))) 
 void
 free(void *ptr) {
   if (!ptr) return;
