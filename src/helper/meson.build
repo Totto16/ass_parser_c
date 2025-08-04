@@ -1,5 +1,7 @@
 
 lib_src_files += files(
+    'assert.h',
+    'assert.c',
     'io.c',
     'io.h',
     'macros.h',
@@ -16,7 +18,7 @@ lib_src_files += files(
 
 
 install_headers(
-    files('io.h', 'message_struct.h', 'sized_ptr.h', 'string_view.h', 'utf_helper.h'),
+    files('assert.h', 'io.h', 'message_struct.h', 'sized_ptr.h', 'string_view.h', 'utf_helper.h'),
     install_dir: install_include_dir / 'helper',
     preserve_path: true,
 )

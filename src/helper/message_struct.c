@@ -1,8 +1,8 @@
 
 
 #include "./message_struct.h"
+#include "./macros.h"
 
-#include <assert.h>
 #include <stdlib.h>
 
 [[nodiscard]] bool is_empty_message_struct(MessageStruct message) {
@@ -10,7 +10,7 @@
 }
 
 [[nodiscard]] char* get_message(MessageStruct message) {
-	assert(message.message_internal != NULL);
+	ASSERT(message.message_internal != NULL, "empty message");
 	return message.message_internal;
 }
 

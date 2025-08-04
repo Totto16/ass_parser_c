@@ -395,7 +395,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		return final_result;
 	}
 
-	assert(line_type == LineTypeCrLf);
+	ASSERT(line_type == LineTypeCrLf, "linetype is crlf");
 
 #define LINE_CHARACTER_SIZE 2
 

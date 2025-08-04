@@ -5,13 +5,16 @@
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
-#define assert(x) /* NOLINT(readability-identifier-naming) */ \
+#define ASSERT(x, msg) /* NOLINT(readability-identifier-naming) */ \
 	do { \
 		UNUSED((x)); \
+		UNUSE((msg)); \
 	} while(false)
+
 #else
 
-#include <assert.h>
+#include "./assert.h"
+#define ASSERT(cond, message) custom_assert(__FILE__, __LINE__, cond, message)
 
 #endif
 
@@ -58,11 +61,9 @@
 	} while(false)
 #else
 
-// TODO custom assert with file an line num + msg plus value sperate!, use assert(val && message by defsault!)
-
 #define UNREACHABLE() \
 	do { \
-		assert(false && "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \
+		ASSERT(false, "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \
 	} while(false)
 
 #endif

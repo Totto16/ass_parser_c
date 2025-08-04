@@ -4,4 +4,4 @@
 
 #include "./platform.h"
 
-#define assert(val, msg) platform_assert(val, msg)
+#define ASSERT(val, msg) platform_assert(val, msg)

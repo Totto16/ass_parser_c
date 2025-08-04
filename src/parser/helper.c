@@ -106,7 +106,7 @@ parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-r
 			                              value_name);
 
 			if(allow_number_truncating) {
-				assert(diagnostics != NULL);
+				ASSERT(diagnostics != NULL, "diagnostics is specified");
 				// check if the number is not empty
 				if(i > 0) {
 
