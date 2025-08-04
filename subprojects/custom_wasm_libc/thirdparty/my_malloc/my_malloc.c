@@ -125,6 +125,8 @@ INTERNAL_FUNCTION bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
 	return (blockSize - size) < (currentSize - size);
 }
 
+// TODO: align allocations to 8 bytes!
+
 /**
  * @brief internal malloc, used by realloc and malloc, but doesn't lock mutexes, that is done by the
  * parent functions, DO NOT us outside of the internals of this file!
@@ -139,22 +141,20 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 	}
 
 	BlockInformation* bestFit = NULL;
-	if(bestFit == NULL && __my_malloc_globalObject.global_block.start != NULL) {
 
-		bestFit = (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
-		BlockInformation* nextFreeBlock = (BlockInformation*)bestFit->nextBlock;
+	bestFit = (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
+	BlockInformation* nextFreeBlock = (BlockInformation*)bestFit->nextBlock;
 
-		while(nextFreeBlock != NULL) {
-			if(__my_malloc_block_fitsBetter(nextFreeBlock, bestFit, size)) {
-				bestFit = nextFreeBlock;
-				// shorthand evaluation, so if it fits perfectly don't look for a better one
-				const uint64_t blockSize = size_of_double_pointer_block(bestFit);
-				if(blockSize == size) {
-					break;
-				}
+	while(nextFreeBlock != NULL) {
+		if(__my_malloc_block_fitsBetter(nextFreeBlock, bestFit, size)) {
+			bestFit = nextFreeBlock;
+			// shorthand evaluation, so if it fits perfectly don't look for a better one
+			const uint64_t blockSize = size_of_double_pointer_block(bestFit);
+			if(blockSize == size) {
+				break;
 			}
-			nextFreeBlock = nextFreeBlock->nextBlock;
 		}
+		nextFreeBlock = nextFreeBlock->nextBlock;
 	}
 
 	const uint64_t blockSize = __my_malloc_globalObject.global_block.start == NULL
