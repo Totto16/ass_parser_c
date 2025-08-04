@@ -21,9 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-#include "../stddef.h"
-#include "../stdint.h"
-#include "../stdlib.h"
+#include "./walloc.h"
 
 #define STATIC_ASSERT_EQ(a, b) _Static_assert((a) == (b), "eq")
 
@@ -429,13 +427,13 @@ static void* allocate_large(size_t size) {
 	return obj ? get_large_object_payload(obj) : NULL;
 }
 
-__attribute__((export_name("malloc"))) void* malloc(size_t size) {
+void* w_malloc(size_t size) {
 	size_t granules = size_to_granules(size);
 	enum chunk_kind kind = granules_to_chunk_kind(granules);
 	return (kind == LARGE_OBJECT) ? allocate_large(size) : allocate_small(kind);
 }
 
-__attribute__((export_name("free"))) void free(void* ptr) {
+void w_free(void* ptr) {
 	if(!ptr) return;
 	struct page* page = get_page(ptr);
 	unsigned chunk = get_chunk_index(ptr);

@@ -22,15 +22,17 @@ custom_wasm_libc_src_files = files(
     'stdbool.h',
     'stddef.h',
     'stdint.h',
-    'stdio.h',
     'stdio.c',
+    'stdio.h',
     'stdlib.h',
     'string.c',
     'string.h',
-    'thirdparty/walloc.c',
 )
+wasm_inc_dirs = []
 
-wasm_inc_dirs = include_directories('.')
+wasm_inc_dirs += include_directories('.')
+
+subdir('thirdparty')
 
 wasm_libc_version = meson.project_version()
 
