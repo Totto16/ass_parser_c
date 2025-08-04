@@ -1,9 +1,7 @@
 
 lib_src_files += files(
-    'assert.h',
     'assert.c',
-    'io.c',
-    'io.h',
+    'assert.h',
     'macros.h',
     'message_struct.c',
     'message_struct.h',
@@ -14,6 +12,10 @@ lib_src_files += files(
     'utf_helper.c',
     'utf_helper.h',
 )
+
+if not is_wasm
+    lib_src_files += files('io.c', 'io.h')
+endif
 
 
 

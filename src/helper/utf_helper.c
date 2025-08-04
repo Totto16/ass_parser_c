@@ -2,9 +2,12 @@
 
 #include "./utf_helper.h"
 
+#include <utf8proc.h>
+
+#ifdef ASS_PARSER_HAVE_ICONV
 #include <errno.h>
 #include <iconv.h>
-#include <utf8proc.h>
+#endif
 
 CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
@@ -57,6 +60,8 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 	return (CodepointsResult){ .has_error = false, .data = { .result = utf8_data } };
 }
+
+#ifdef ASS_PARSER_HAVE_ICONV
 
 #define CHUNK_SIZE_CONVERSION (1 << 14)
 
@@ -158,6 +163,8 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 [[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian) {
 	return get_codepoints_from_format(ptr, big_endian ? "UTF-16BE" : "UTF-16LE");
 }
+
+#endif
 
 void free_codepoints(Codepoints codepoints) {
 	if(codepoints.data.data_readable != NULL) {

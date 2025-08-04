@@ -15,16 +15,19 @@ project(
 )
 
 custom_wasm_libc_src_files = files(
-    'thirdparty/walloc.c',
     'assert.h',
-    'libc_impl.c',
+    'ctype.h',
     'limits.h',
     'platform.h',
     'stdbool.h',
     'stddef.h',
     'stdint.h',
+    'stdio.h',
+    'stdio.c',
     'stdlib.h',
+    'string.c',
     'string.h',
+    'thirdparty/walloc.c',
 )
 
 wasm_inc_dirs = include_directories('.')

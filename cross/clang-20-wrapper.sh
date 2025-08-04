@@ -54,7 +54,7 @@ if [[ "$USE_WASM_LD" == true && "$IS_LINKING" == true ]]; then
         *.c | *.cpp)
             continue
             ;;
-        -Wl,--as-needed|-Wl,--no-undefined|-nostdlib)
+        -Wl,--as-needed | -Wl,--no-undefined | -Wl,--start-group | -Wl,--end-group | -nostdlib)
             continue
             ;;
         -Wl,*)

@@ -42,8 +42,6 @@ deps += cc.find_library(
     required: false,
 )
 
-deps += dependency('threads')
-
 internal_c_args = []
 
 

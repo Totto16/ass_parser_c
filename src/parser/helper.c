@@ -8,11 +8,30 @@
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
+#ifndef __WASM__
 #include <math.h>
+
+#define POW_10(arg) pow(10.0, (double)(arg))
+
+#else
+
+static double pow_10_manual_d(size_t amount) {
+
+	double result = 1.0;
+
+	for(size_t i = 0; i < amount; ++i) {
+		result *= 10.0;
+	}
+
+	return result;
+}
+
+#define POW_10(arg) pow_10_manual_d(arg)
+
+#endif
+
 #include <stb/ds.h>
 #include <stdio.h>
-
-#define BASE_10_DOUBLE 10.0
 
 [[nodiscard]] double parse_str_as_double(ConstStrView value, // NOLINT(misc-no-recursion)
                                          MessageStruct* message_ptr, Diagnostics* diagnostics) {
@@ -70,8 +89,7 @@
 
 	size_t suffix_power_of_10 = suffix.length;
 
-	final_value =
-	    final_value + (double)suffix_num / (pow(BASE_10_DOUBLE, (double)suffix_power_of_10));
+	final_value = final_value + (double)suffix_num / (POW_10(suffix_power_of_10));
 
 	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return final_value;

@@ -13,7 +13,9 @@
 #include <stb/ds.h>
 #include <stdio.h>
 
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 #include <fontconfig/fontconfig.h>
+#endif
 
 typedef enum : uint8_t {
 	MatchResolutionExact,
@@ -84,6 +86,8 @@ get_detailed_font_settings_from_presset(FontPreset preset) {
 		default: UNREACHABLE();
 	}
 }
+
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 
 typedef struct {
 	FcPattern* pattern;
@@ -177,6 +181,8 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 
 #undef FREE_AT_END
 
+#endif
+
 typedef STBDS_ARRAY(AssFontName) AssFontNames;
 
 static AssFontNames
@@ -239,7 +245,9 @@ typedef struct {
 } FontHandle;
 
 typedef struct {
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 	FontConfigFontResultOk fontconfig;
+#endif
 	AssFontNames embedded;
 } FontConfigRefs;
 
@@ -259,7 +267,9 @@ typedef struct {
 } FontResultObject;
 
 static void free_font_result_ok(FontResultOk result) {
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 	free_fontconfig_font_result_ok(result.refs.fontconfig);
+#endif
 	stbds_arrfree(result.refs.embedded);
 	stbds_arrfree(result.handles);
 }
@@ -275,6 +285,8 @@ static void free_font_result(FontResultObject result) {
 static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char* font_name,
                                                   DetailedFontValidateSettings settings) {
 
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
+
 	FontConfigFontResultObject font_config_result = fontconfig_find_fonts_by_family_name(font_name);
 
 	if(font_config_result.error) {
@@ -282,19 +294,24 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 			                       .data = { .error = font_config_result.data.error } };
 	}
 
+#endif
+
 	AssFontNames embedded_result =
 	    embedded_fonts_find_fonts_by_family_name(ass_fonts, font_name, settings);
 
 	if(embedded_result == STBDS_ARRAY_EMPTY) {
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 		free_fontconfig_font_result(font_config_result);
+#endif
 		return (FontResultObject){ .error = true,
 			                       .data = { .error = STATIC_MESSAGE_STRUCT(
 			                                     "embedded fonts, error in retrieval") } };
 	}
 
-	FontConfigFontResultOk font_config_ok = font_config_result.data.ok;
-
 	FontHandles handles = STBDS_ARRAY_EMPTY;
+
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
+	FontConfigFontResultOk font_config_ok = font_config_result.data.ok;
 
 	for(int i = 0; i < font_config_ok.font_list->nfont; ++i) {
 
@@ -304,6 +321,8 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 		stbds_arrput(handles, handle);
 	}
 
+#endif
+
 	for(size_t i = 0; i < stbds_arrlenu(embedded_result); ++i) {
 		FontHandle handle = { .type = FontHandleTypeEmbedded,
 			                  .data = { .embedded = { .font_name = embedded_result[i] } } };
@@ -311,9 +330,12 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 		stbds_arrput(handles, handle);
 	}
 
-	FontResultOk ok_result = {
-		.handles = handles, .refs = { .fontconfig = font_config_ok, .embedded = embedded_result }
-	};
+	FontResultOk ok_result = { .handles = handles,
+		                       .refs = {
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
+		                           .fontconfig = font_config_ok,
+#endif
+		                           .embedded = embedded_result } };
 
 	FontResultObject result = { .error = false, .data = { .ok = ok_result } };
 
@@ -371,8 +393,8 @@ typedef struct {
 	const char** values;
 } StaticStringArray;
 
-[[nodiscard]]
-static bool is_valid_name_for_type(FontStyleType type, char* name) {
+[[nodiscard]] __attribute__((__unused__)) static bool is_valid_name_for_type(FontStyleType type,
+                                                                            char* name) {
 
 	StaticStringArray array = { .size = 0, .values = NULL };
 
@@ -438,6 +460,8 @@ static void free_font_search_result(FontSearchResult result) {
 	}
 }
 
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
+
 [[nodiscard]] static FontSearchResult
 fontconfig_find_type_for_fonts(const char* font_name, FcPattern* font, FontStyleType font_type,
                                DetailedFontValidateSettings settings) {
@@ -502,6 +526,8 @@ fontconfig_find_type_for_fonts(const char* font_name, FcPattern* font, FontStyle
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
 
+#endif
+
 [[nodiscard]] static FontSearchResult
 embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleType font_type,
                              DetailedFontValidateSettings settings) {
@@ -542,11 +568,17 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
 
 		switch(handle.type) {
 			case FontHandleTypeFontConfig: {
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 				size_t index = handle.data.font_config.index_in_list;
 
 				FcPattern* font = fonts_result.refs.fontconfig.font_list->fonts[index];
 
 				res = fontconfig_find_type_for_fonts(font_name, font, font_type, settings);
+#else
+				res = (FontSearchResult){ .type = FontSearchResultTypeError,
+					                      .data = { .error = STATIC_MESSAGE_STRUCT(
+					                                    "fontconfig not supported") } };
+#endif
 				break;
 			}
 			case FontHandleTypeEmbedded: {
@@ -699,7 +731,7 @@ static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 	stbds_shfree(*style_to_font_hm);
 }
 
-#if defined(__clang__)
+#if defined(__clang__) && !defined(__WASM__)
 typedef struct {
 } MonoState;
 
@@ -884,6 +916,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 static void validate_fonts_impl(AssResult ass_result, bool allow_validation_errors,
                                 Diagnostics* diagnostics, DetailedFontValidateSettings settings) {
 
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 	if(!FcInit()) {
 
 		const DiagnosticSeverity severity_type =
@@ -894,14 +927,22 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		                         severity_type);
 		return;
 	}
+#endif
 
 	UsedFontsHM used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
 
+#ifdef ASS_PARSER_HAVE_FONTCONFIG
 #define FREE_AT_END() \
 	do { \
 		free_used_fonts_hm(&used_fonts); \
 		FcFini(); \
 	} while(false)
+#else
+#define FREE_AT_END() \
+	do { \
+		free_used_fonts_hm(&used_fonts); \
+	} while(false)
+#endif
 
 	if(used_fonts == NULL) {
 		// an error was already reported

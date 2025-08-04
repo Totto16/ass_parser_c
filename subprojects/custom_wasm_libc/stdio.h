@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "./stddef.h"
+
 typedef struct FileImpl FILE;
 
 /* Standard streams.  */
