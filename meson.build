@@ -117,9 +117,7 @@ if is_wasm
         install: true,
         c_args: ['-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
         link_args: [
-            '--export-all',
             '--no-entry',
-            '--allow-undefined-file=' + meson.project_source_root() / 'cross/wasm-external-symbols.txt',
             '--import-memory',
         ],
         name_suffix: 'wasm',
