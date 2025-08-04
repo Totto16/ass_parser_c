@@ -19,6 +19,7 @@ custom_wasm_libc_src_files = files(
     'ctype.h',
     'limits.h',
     'platform.h',
+    'stdarg.h',
     'stdbool.h',
     'stddef.h',
     'stdint.h',
