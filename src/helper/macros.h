@@ -58,6 +58,8 @@
 	} while(false)
 #else
 
+// TODO custom assert with file an line num + msg plus value sperate!, use assert(val && message by defsault!)
+
 #define UNREACHABLE() \
 	do { \
 		assert(false && "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \

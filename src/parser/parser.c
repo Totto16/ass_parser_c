@@ -13,8 +13,8 @@
 
 #include <stb/ds.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
