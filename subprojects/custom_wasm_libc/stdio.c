@@ -63,7 +63,7 @@ static int vfprintf(FILE* restrict f, const char* restrict fmt, va_list ap) {
 
 // see
 // https://github.com/esmil/musl/blob/194f9cf93da8ae62491b7386edf481ea8565ae4e/src/stdio/fprintf.c
-__attribute__((export_name("fprintf"))) int fprintf(FILE* restrict stream,
+int fprintf(FILE* restrict stream,
                                                     const char* restrict format, ...) {
 
 	int ret;
@@ -76,7 +76,7 @@ __attribute__((export_name("fprintf"))) int fprintf(FILE* restrict stream,
 
 // see
 // https://github.com/esmil/musl/blob/194f9cf93da8ae62491b7386edf481ea8565ae4e/src/stdio/snprintf.c
-__attribute__((export_name("snprintf"))) int snprintf(char* restrict s, size_t n,
+int snprintf(char* restrict s, size_t n,
                                                const char* restrict format, ...) {
 
 	int ret;

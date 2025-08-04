@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "../helper/decl.h"
 #include "../helper/sized_ptr.h"
 
 // note: line endings are not inserted, that has to be done on the caller site, if necessary
-[[nodiscard]] SizedPtr uu_encode(SizedPtr input);
+[[nodiscard]] PUBLIC("uu_encode") SizedPtr uu_encode(SizedPtr input);
 
-[[nodiscard]] SizedPtr uu_decode(SizedPtr input);
+[[nodiscard]] PUBLIC("uu_decode") SizedPtr uu_decode(SizedPtr input);
