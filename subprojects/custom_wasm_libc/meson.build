@@ -16,6 +16,7 @@ project(
 
 custom_wasm_libc_src_files = files(
     'assert.h',
+    'ctype.c',
     'ctype.h',
     'limits.h',
     'platform.h',
@@ -25,6 +26,7 @@ custom_wasm_libc_src_files = files(
     'stdint.h',
     'stdio.c',
     'stdio.h',
+    'stdlib.c',
     'stdlib.h',
     'string.c',
     'string.h',

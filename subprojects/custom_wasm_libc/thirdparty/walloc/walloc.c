@@ -452,3 +452,7 @@ void w_free(void* ptr) {
 		*loc = obj;
 	}
 }
+
+size_t w_get_allocated_size(void* ptr){
+	return TODO;
+}
