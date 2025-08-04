@@ -1,6 +1,15 @@
 
 #include "./ctype.h"
 
-int tolower(int c) {
-	// TODO
+// from musl: https://github.com/esmil/musl/blob/master/src/ctype/isupper.c
+
+static int isupper(int c) {
+	return (unsigned)c - 'A' < 26;
+}
+
+// from musl: https://github.com/esmil/musl/blob/master/src/ctype/tolower.c
+
+__attribute__((export_name("tolower"))) int tolower(int c) {
+	if(isupper(c)) return c | 32;
+	return c;
 }

@@ -69,7 +69,10 @@ elif cc.has_function('iconv_open')
     message('iconv already provided by libc')
     internal_c_args += '-DASS_PARSER_HAVE_ICONV'
 else
-    iconv_dep = dependency('iconv', required: not is_wasm)
+    iconv_dep = dependency(
+        'iconv',
+        required: not is_wasm,
+    )
     if iconv_dep.found()
         internal_c_args += '-DASS_PARSER_HAVE_ICONV'
         deps += iconv_dep
@@ -112,10 +115,7 @@ if is_wasm
         dependencies: deps,
         include_directories: inc_dirs,
         install: true,
-        c_args: [
-            '-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"',
-            internal_c_args,
-        ],
+        c_args: ['-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
         link_args: [
             '--export-all',
             '--no-entry',
@@ -132,10 +132,7 @@ else
         lib_src_files,
         dependencies: deps,
         include_directories: inc_dirs,
-        c_args: [
-            '-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"',
-            internal_c_args,
-        ],
+        c_args: ['-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
         install: true,
         version: ass_parser_lib_version,
     )
@@ -165,7 +162,7 @@ else
     executable(
         'ass_parser',
         cli_files,
-        dependencies: [ass_parser_dep],
+        dependencies: [ass_parser_dep, dependency('threads')],
         install: true,
         c_args: ['-DPROGRAM_NAME=' + meson.project_name()],
     )

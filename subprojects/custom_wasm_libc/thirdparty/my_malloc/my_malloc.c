@@ -1,160 +1,85 @@
-/*
-Author: Totto16
-*/
 
-#include <errno.h>
-#include <pthread.h>
+
+#include <assert.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/mman.h>
+#include <string.h>
 
-#include <utils.h>
+#include "./my_malloc.h"
 
-// some possible configurations, these can be done with defines during compilation
-#if !defined(_USE_BIFIELDS)
-#define _USE_BIFIELDS 1
-#endif
+#define INTERNAL_FUNCTION static
 
-#if _USE_BIFIELDS < 0 || _USE_BIFIELDS > 1
-// this is a c preprocessor macro, it throws a compiler error with the given message
-#error "NOT SUPPORTED USE_BIFIELDS: not between 0 and 1!"
-#endif
+// the variables that start with __ can be visible globally, so they're  prefixed by __my_malloc_ so
+// that it doesn't pollute the global scope additionally these are made static! (meaning no outside
+// file can see them, on global variables this only makes them inivisible to other files )
 
-#if !defined(_VALIDATE_BLOCKS)
-#define _VALIDATE_BLOCKS 0
-#endif
-
-#if _VALIDATE_BLOCKS < 0 || _VALIDATE_BLOCKS > 1
-// this is a c preprocessor macro, it throws a compiler error with the given message
-#error "NOT SUPPORTED VALIDATE_BLOCKS: not between 0 and 1!"
-#endif
-
-// for exercise 3, see the explanation down below!
-#if !defined(_PER_THREAD_ALLOCATOR)
-#define _PER_THREAD_ALLOCATOR 0
-#endif
-
-#if _PER_THREAD_ALLOCATOR < 0 || _PER_THREAD_ALLOCATOR > 1
-// this is a c preprocessor macro, it throws a compiler error with the given message
-#error "NOT SUPPORTED PER_THREAD_ALLOCATOR: not between 0 and 1!"
-#endif
-
-// the variables that start with __ can be visible globally, so they're  prefixed by __my_malloc_
-// (normally a standard naming, that is reserved for the standard, but here I "define my own
-// standard" meaning. that this "malloc" is part of that) so that it doesn't pollute the global
-// scope
-
-// for calculations and also internal status
 typedef uint8_t status_t;
 
 typedef uint8_t pseudoByte;
 
 // FREE is 0, so each mmap (so initialized to 0) region has set every block to FREE
-enum __my_malloc_status { FREE = 0, ALLOCED = 1 };
-
-#if _USE_BIFIELDS == 1
+enum __my_malloc_alloc_status : uint8_t {
+	FREE = 0,
+	ALLOCED = 1,
+};
 
 typedef struct {
-	status_t status : 1;
-	// later identify this block as meta information, so that isValidBlock is better at recognizing
-	// void* next_block
-	// using only 63 and 1 bit, so it all fits into one byte  and the max real value is the same as
-	// int64_max alias 9,223,372,036,854,775,807, if you have more memory then that to allocate then
-	// you sure can afford to not use this bitfield
-	uint64_t size : 63;
-	// here either the size or the pointer to next can be used, depending on what
-	// is choosen, the calculations to make are different
-} BlockInformation;
-
-#else
-
-// bitfield access is slow, but here the storage takes 16 BYets  9 + alignment, that is double the
-// bytes from the one with bitfield, but its really faster, so you can choose which one you want
-// (generally you don't make thousands of mallocs, so it is done with a bitfield as default)
-typedef struct {
+	void* nextBlock;
+	void* previousBlock;
 	status_t status;
-	uint64_t size;
 } BlockInformation;
 
-#endif
+// every MemoryBlock starts with this
+// [  BlockInformation | .....  ]
 
 typedef struct {
-	void* data;
-	uint64_t dataSize;
-	pthread_mutex_t mutex;
+	void* start;
+	uint64_t size;
+} GlobalMemoryBlockinformation;
+
+typedef struct {
+	GlobalMemoryBlockinformation global_block;
 } GlobalObject;
 
-#if _PER_THREAD_ALLOCATOR == 0
-static GlobalObject __my_malloc_globalObject;
-#else
-// if _PER_THREAD_ALLOCATOR is 1 it allocates one such structure per Thread, this is done with teh
-// keyword "_Thread_local" (underscore Uppercase, and double underscore  + any case are reserved
-// words for the c standard, so this was introduced in c11, there exists a typedef thread_local for
-// that, but I rather use the Keyword directly )
-// ATTENTION: each Thread also has to call my_allocator_init, otherwise this is NULL and I DON'T
-// check if it's NULL ANYWHERE, meaning it will crash rather instantly trying to read from or store
-// to address 0!! from the data entry in the struct, that is 0 initialized!)
-static _Thread_local GlobalObject __my_malloc_globalObject;
-#endif
+static GlobalObject __my_malloc_globalObject = { .global_block = (GlobalMemoryBlockinformation){
+	                                                 .size = 0, .start = NULL } };
 
-#if _VALIDATE_BLOCKS == 1
-// checks wether a block can really be one, not that reliable, but the behavior of the programm is
-// undefined, if not passing valid adresses into the malloc functions, so that is just a little
-// security mechanims
-static bool __my_malloc_isValidBlock(void* blockPointer) {
-	if(blockPointer == NULL) {
-		return false;
+#define PAGE_SIZE (1 << 16)
+
+#define WASM_MEMORY_ID 0
+
+/**
+ * @brief INTERNAL FUNCTION: DO NOT USE
+ *
+ * @note Needs to be called with the mutex locked, in order to be thread safe!
+ *
+ */
+INTERNAL_FUNCTION uint64_t size_of_double_pointer_block(BlockInformation* block) {
+	if(block == NULL) {
+		PANIC("INTERNAL: This is an allocator ERROR, this shouldn't occur: block is NULL");
+	} else if(block->nextBlock == NULL) {
+		const GlobalMemoryBlockinformation currentMemoryBlock =
+		    __my_malloc_globalObject.global_block;
+
+		return (((pseudoByte*)currentMemoryBlock.start + currentMemoryBlock.size) -
+		        (pseudoByte*)block) -
+		       sizeof(BlockInformation);
+	} else {
+		return ((pseudoByte*)block->nextBlock - (pseudoByte*)block) - sizeof(BlockInformation);
 	}
-
-	BlockInformation* blockInformation = ((BlockInformation*)blockPointer);
-	bool hasValidStatus = blockInformation->status == FREE || blockInformation->status == ALLOCED;
-	bool nextIsInRange =
-	    __my_malloc_globalObject.dataSize - sizeof(BlockInformation) >= blockInformation->size;
-	return nextIsInRange && hasValidStatus;
 }
 
-#endif
-
-// some helpers to get the nextBlock, this has to be done, since this implementation is done without
-// pointers, but with sizes, it also can return NUll if it has no next block
-static BlockInformation* __my_malloc_nextBlock(BlockInformation* currentBlock) {
-
-	if(((pseudoByte*)currentBlock) - (pseudoByte*)__my_malloc_globalObject.data +
-	       currentBlock->size + sizeof(BlockInformation) ==
-	   __my_malloc_globalObject.dataSize) {
-		return NULL;
-	}
-
-	BlockInformation* nextBlock =
-	    (BlockInformation*)((pseudoByte*)currentBlock + sizeof(BlockInformation) +
-	                        currentBlock->size);
-
-	return nextBlock;
-}
-
-// this is incredibly slow, but it has to be done like that without previous Pointer!
-static BlockInformation* __my_malloc_previousBlock(BlockInformation* currentBlock) {
-
-	if((pseudoByte*)currentBlock == (pseudoByte*)__my_malloc_globalObject.data) {
-		return NULL;
-	}
-
-	BlockInformation* previousFreeBlock = (BlockInformation*)__my_malloc_globalObject.data;
-	BlockInformation* nextFreeBlock = __my_malloc_nextBlock(previousFreeBlock);
-	while(nextFreeBlock != NULL) {
-		nextFreeBlock = __my_malloc_nextBlock(previousFreeBlock);
-		if((pseudoByte*)nextFreeBlock == (pseudoByte*)currentBlock) {
-			return previousFreeBlock;
-		}
-		previousFreeBlock = nextFreeBlock;
-	}
-	printSingleErrorAndExit("INTERNAL: FATAL: this is an implementation Error, if reached!");
-}
-
-// checks if the block toCompare fits better then the block currentBlock, with  requested size size
-static bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
-                                         BlockInformation* currentBlock, uint64_t size) {
+/**
+ * @brief INTERNAL FUNCTION; DO NOT USE
+ *
+ * @note Needs to be called with the mutex locked, in order to be thread safe!
+ *
+ */
+INTERNAL_FUNCTION bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
+                                                    BlockInformation* currentBlock, uint64_t size) {
 
 	if(toCompare->status != FREE) {
 		return false;
@@ -164,7 +89,24 @@ static bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
 		return true;
 	}
 
-	uint64_t blockSize = toCompare->size;
+	const uint64_t blockSize = size_of_double_pointer_block(toCompare);
+
+	// if a new block has to be "allocated" then there has to be space for that!
+	if(toCompare->nextBlock == NULL) {
+
+		if(blockSize == size) {
+			return true;
+		}
+
+		if(blockSize < sizeof(BlockInformation) + size) {
+			return false;
+		}
+
+		if(blockSize == sizeof(BlockInformation) + size) {
+			return true;
+		}
+	}
+
 	if(blockSize < size) {
 		return false;
 	}
@@ -173,172 +115,478 @@ static bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
 		return true;
 	}
 
-	// if no BlockInformation can fit in there, but also the block isn't exactly the right size it
-	// doesn't fit, e.g if there are 7 bytes between the size to search the no structure can fit in,
-	// but also the next one can't be used (alias just be leaved unmodified and used as next, this
-	// can be solved by using next pointers  to the next BlockInformation, which consumes another 8
-	// bytes :( but also since the size is only 8 bytes this shouldn't occur that often!)
+	const uint64_t currentSize = size_of_double_pointer_block(currentBlock);
 
-	// this can make an allocation impossible, or just use another block
-	if(blockSize - size < sizeof(BlockInformation)) {
-		// this warning is not the best, but shouldn't occur when normally using this!
-		printf("INTERNAL: WARNING: could be solved (better) with more memory hungry "
-		       "BlockInformation!\n");
-
-		return false;
+	if(currentSize > size + sizeof(BlockInformation)) {
+		if(blockSize <= size + sizeof(BlockInformation)) {
+			return false;
+		}
 	}
-	uint64_t currentSize = currentBlock->size;
-
-	return blockSize - size < currentSize - size;
+	return (blockSize - size) < (currentSize - size);
 }
 
-// alloc a certain size,  if no space was in the global data struct a NULL pointer is
-// returned, rather then allocating more memory, this malloc can't grow it's internal buffer
-// dynamically!
+/**
+ * @brief internal malloc, used by realloc and malloc, but doesn't lock mutexes, that is done by the
+ * parent functions, DO NOT us outside of the internals of this file!
+ */
+INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 
-void* my_malloc(uint64_t size) {
-	// lock mutex, so it's thread safe!
-	int result = pthread_mutex_lock(&__my_malloc_globalObject.mutex);
-	// mutex errors are better when being asserted, since no real errors can occur, only when the
-	// system is already malfunctioning
-	checkResultForThreadErrorAndExit(
-	    "INTERNAL: An Error occurred while trying to lock the mutex in the internal allocator");
-
-	// iterating over all blocks and saving the best fit, has shorthand computation, meaning that if
-	// a block fits exactly it takes that block immediately!
-	BlockInformation* bestFit = (BlockInformation*)__my_malloc_globalObject.data;
-	BlockInformation* nextFreeBlock = __my_malloc_nextBlock(bestFit);
-
-	while(nextFreeBlock != NULL) {
-
-		if(__my_malloc_block_fitsBetter(nextFreeBlock, bestFit, size)) {
-			bestFit = nextFreeBlock;
-			// shorthand evaluation, so if it fits perfectly don't look for better
-			if(bestFit->size == size) {
-				break;
-			}
-		}
-		nextFreeBlock = __my_malloc_nextBlock(nextFreeBlock);
+	// calling my_malloc without initializing the allocator doesn't work, if that is the case,
+	// likely the uninitialized mutex access before this will crash the program, but that is here
+	// for safety measures! AND ALSO in the case of uninitialized allocator in the thread local case
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		PANIC("Calling malloc before initializing the allocator is prohibited!");
 	}
-	// if the one that fit the best is not big enough, it means no block is big enough, or if that
-	// block isn't free, so that means teh same
-	if(bestFit->size < size || bestFit->status != FREE) {
-		// unlocking mutex before returning
-		result = pthread_mutex_unlock(&__my_malloc_globalObject.mutex);
-		checkResultForThreadErrorAndExit(
-		    "INTERNAL: An Error occurred while trying to unlock the internal allocator mutex");
 
-		return NULL;
+	BlockInformation* bestFit = NULL;
+	if(bestFit == NULL && __my_malloc_globalObject.global_block.start != NULL) {
+
+		bestFit = (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
+		BlockInformation* nextFreeBlock = (BlockInformation*)bestFit->nextBlock;
+
+		while(nextFreeBlock != NULL) {
+			if(__my_malloc_block_fitsBetter(nextFreeBlock, bestFit, size)) {
+				bestFit = nextFreeBlock;
+				// shorthand evaluation, so if it fits perfectly don't look for a better one
+				const uint64_t blockSize = size_of_double_pointer_block(bestFit);
+				if(blockSize == size) {
+					break;
+				}
+			}
+			nextFreeBlock = nextFreeBlock->nextBlock;
+		}
+	}
+
+	const uint64_t blockSize = __my_malloc_globalObject.global_block.start == NULL
+	                               ? 0
+	                               : size_of_double_pointer_block(bestFit);
+
+	// if the one that fit the best is not big enough, it means no block is big enough! If it's not
+	// free, than there was no free block
+	if(__my_malloc_globalObject.global_block.start == NULL || bestFit == NULL ||
+	   bestFit->status != FREE || blockSize < size) {
+
+		// grow the one memory block
+
+		uint64_t preferredSize = PAGE_SIZE;
+
+		if(preferredSize - sizeof(BlockInformation) < size) {
+			preferredSize = size + -sizeof(BlockInformation);
+		}
+
+		// round up, /add PAGE_SIZE - 1 and then do a trunacting divide
+		size_t pages_amount = (preferredSize + (PAGE_SIZE - 1)) / PAGE_SIZE;
+
+		size_t old_pages = __builtin_wasm_memory_grow(WASM_MEMORY_ID, pages_amount);
+
+		if(old_pages == ((size_t)-1)) {
+			// don't fail, just return NULL ,indicating Out of memory
+			return NULL;
+		}
+
+		if(old_pages * PAGE_SIZE != __my_malloc_globalObject.global_block.size) {
+			PANIC("Old memory pages size was wrong, out of sync?");
+		}
+
+		size_t heap_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
+
+		if(heap_size < __my_malloc_globalObject.global_block.size) {
+			PANIC("memory grow resulted in smaller memory, how did that happen?");
+		}
+
+		__my_malloc_globalObject.global_block.size = heap_size;
+
+		// Now call internal malloc with the new block as hint, to use it, without duplicating
+		// code and searching for it, if we already have it
+
+		return __internal__my_malloc(size);
 	};
 
-	// now either making a new block or just setting the old to status ALLOCED, this depends on the
-	// size that has to be malloced
+	if(blockSize - size <= (sizeof(BlockInformation))) {
+		// block size and size needed for allocation is the same, only need to set the status to
+		// allocated
 
-	if(bestFit->size == size) {
+		// OR
+
+		// block size and size needed for allocation is nearly the same, but can't allocate a new
+		// block at the end, since it hasn't enough space for another BlockInformation, so only need
+		// to set the status to allocated, but some size is wasted, it can create a gap of 1 or
+		// more, that is fine, but gaps of 0 or less just "waste" that memory -- this handling
+		// implicates, that no position of previous or next block may be calculated by using the
+		// size!!
+
 		bestFit->status = ALLOCED;
+
 	} else {
-		// caluclate the position of teh new block, then store there the necessary infromation
-		uint64_t blockSize = sizeof(BlockInformation) + size;
-		BlockInformation* newBlock = (BlockInformation*)((pseudoByte*)bestFit + blockSize);
+		BlockInformation* newBlock =
+		    (BlockInformation*)(((pseudoByte*)bestFit + sizeof(BlockInformation)) + size);
+
+		// the new gap is at least 1 byte big, see above!
+
 		newBlock->status = FREE;
-		newBlock->size = bestFit->size - blockSize;
+		newBlock->nextBlock = bestFit->nextBlock; // can be NULL
+		newBlock->previousBlock = bestFit;
 
 		bestFit->status = ALLOCED;
-		bestFit->size = size;
+		bestFit->nextBlock = newBlock;
+
+		if(newBlock->nextBlock != NULL) {
+			((BlockInformation*)newBlock->nextBlock)->previousBlock = newBlock;
+		}
 	}
 
 	void* returnValue = (pseudoByte*)bestFit + sizeof(BlockInformation);
 
-	// unlocking mutex before returning
-	result = pthread_mutex_unlock(&__my_malloc_globalObject.mutex);
-	checkResultForThreadErrorAndExit(
-	    "INTERNAL: An Error occurred while trying to unlock the internal allocator mutex");
-
-	// returning the area that is designed to store the data ( it has an offset of
-	// sizeof(BlockInformation))
 	return returnValue;
 }
 
-void my_free(void* ptr) {
-	// lock mutex, so it's thread safe!
-	int result = pthread_mutex_lock(&__my_malloc_globalObject.mutex);
-	// mutex errors are better when being asserted, since no real errors can occur, only when the
-	// system is already malfunctioning
-	checkResultForThreadErrorAndExit(
-	    "INTERNAL: An Error occurred while trying to lock the mutex in the internal allocator");
+/**
+ * @note MT-safe - with thread_local storage, this only accesses that, otherwise a mutex is
+ * used, if this is called without initializing the underlying allocator beforehand, it is
+ * undefined behaviour, however this function crashes the program in that case
+ */
+void* my_malloc(uint64_t size) {
 
-	// get the 	BlockInformation*  where the status is stored, here some security checks are done,
-	// the system malloc doesn't do that, but I do it nevertheless
-	BlockInformation* information =
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		PANIC("Calling malloc before initializing the allocator is prohibited!");
+	}
+
+	void* returnValue = __internal__my_malloc(size);
+
+	return returnValue;
+}
+
+/**
+ * @brief internal free, used by realloc and free, but doesn't lock mutexes, that is done by the
+ * parent functions, DO NOT us outside of the internals of this file!
+ */
+INTERNAL_FUNCTION void __internal__my_free(void* ptr) {
+
+	// calling my_free without initializing the allocator doesn't work, if that is the case,
+	// likely the uninitialized mutex access before this will crash the program, but that is here
+	// for safety measures! AND ALSO in the case of uninitialized allocator in the thread local case
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		PANIC("Calling free before initializing the allocator is prohibited!");
+	}
+
+	BlockInformation* currentBlock =
 	    (BlockInformation*)((pseudoByte*)ptr - sizeof(BlockInformation));
-#if _VALIDATE_BLOCKS == 1
-	if(!__my_malloc_isValidBlock(information)) {
-		printErrorAndExit("INTERNAL: you tried to free a invalid Block at address: %p\n", ptr);
-	}
-#endif
-	if(information->status == FREE) {
-		printErrorAndExit("INTERNAL: you tried to free a already freed Block: %p\n", ptr);
-	}
-	// finally setting the status to FREE
-	information->status = FREE;
 
-	// now checking if some  free blocks can be merged
-	BlockInformation* nextBlock = __my_malloc_nextBlock(information);
-	BlockInformation* previousBlock = __my_malloc_previousBlock(information);
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		// no block is not free, since we have no block anymore xD
+		PANIC("ERROR: You tried to free a already freed Block");
+	}
+
+	if(currentBlock->status == FREE) {
+		PANIC("ERROR: You tried to free a already freed Block");
+	}
+
+	currentBlock->status = FREE;
+
+	BlockInformation* nextBlock = (BlockInformation*)currentBlock->nextBlock;
+	BlockInformation* previousBlock = (BlockInformation*)currentBlock->previousBlock;
+
+	// merge with previous free block, if in 5the same memory block!
 	if(previousBlock != NULL && previousBlock->status == FREE) {
+
+		// MERGE three free blocks into one: layout Previous | Current | Next => New Free one
 		if(nextBlock != NULL && nextBlock->status == FREE) {
-			previousBlock->size = previousBlock->size + information->size + nextBlock->size +
-			                      (sizeof(BlockInformation) * 2);
+			previousBlock->nextBlock = nextBlock->nextBlock; // Can be NULL
+
+			if(nextBlock->nextBlock != NULL) {
+				((BlockInformation*)nextBlock->nextBlock)->previousBlock = previousBlock;
+			}
+			// merge previous free block with current one
 		} else {
-			previousBlock->size =
-			    previousBlock->size + information->size + sizeof(BlockInformation);
+
+			previousBlock->nextBlock = nextBlock; // can be NULL
+			if(nextBlock != NULL) {
+				nextBlock->previousBlock = previousBlock;
+			}
 		}
+
+		// merge next free block with current one, if in the same memory block
 	} else if(nextBlock != NULL && nextBlock->status == FREE) {
-		information->size = information->size + nextBlock->size + sizeof(BlockInformation);
-	}
+		currentBlock->nextBlock = nextBlock->nextBlock; // can be NULL
 
-	// unlocking mutex before returning
-	result = pthread_mutex_unlock(&__my_malloc_globalObject.mutex);
-	checkResultForThreadErrorAndExit(
-	    "INTERNAL: An Error occurred while trying to unlock the internal allocator mutex");
+		if(nextBlock->nextBlock != NULL) {
+			((BlockInformation*)nextBlock->nextBlock)->previousBlock = currentBlock;
+		}
+	}
 }
 
-void my_allocator_init(uint64_t size, bool force_alloc) {
-	__my_malloc_globalObject.dataSize = size;
+/**
+ * @brief frees a pointer, a NULL pointer is ignored and a safe noop,
+ * if the pointer is not allocated with my_malloc, this call is undefined behaviour. It likely will
+ * crash or create a blockInformation structure, that will crash in later stages, since it tries to
+ * interpret some random garbage memory as block-structure, so be aware of that!
+ * DOUBLE Frees crash the program, so remember to always set freed pointer sto NULL :)
+ *
+ * @note MT-safe, using the mutex, or the thread local storage, the same principles as in my_malloc
+ * apply, so calling this with an uninitialized allocator is undefined behaviour and crashes the
+ * program
+ *
+ */
+void my_free(void* ptr) {
 
-	// DOES NOTHING
-	(void)force_alloc;
-
-	// MAP_ANONYMOUS means, that
-	//  "The mapping is not backed by any file; its contents are initialized to zero.  The fd
-	//  argument is ignored; however, some implementations require fd to be -1 if MAP_ANONYMOUS (or
-	//  MAP_ANON)  is  specified, and portable applications should ensure this.  The offset
-	//  argument should be zero." ~ man page
-
-	// this memory region is initalized with 0s
-	__my_malloc_globalObject.data =
-	    mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if(__my_malloc_globalObject.data == MAP_FAILED) {
-		printErrorAndExit("INTERNAL: Failed to mmap for the allocator: %s\n", strerror(errno));
+	// so that if you pass a wrong argument just nothing happens!
+	if(ptr == NULL) {
+		return;
 	}
-	// FREE is set with the 0 initialized region automatically (only here the block is initialzed
-	// with 0, not after freeing!)
 
-	((BlockInformation*)__my_malloc_globalObject.data)->size = size - sizeof(BlockInformation);
-
-	// initialize the mutex, use default as attr
-	int result = pthread_mutex_init(&__my_malloc_globalObject.mutex, NULL);
-	checkResultForThreadErrorAndExit("INTERNAL: An Error occurred while trying to initializing the "
-	                                 "internal mutex for the allocator");
+	__internal__my_free(ptr);
 }
 
-void my_allocator_destroy(void) {
-	// un,mapping the mapped memory and destroy the mutex
-	int result = munmap(__my_malloc_globalObject.data, __my_malloc_globalObject.dataSize);
-	checkResultForThreadErrorAndExit("INTERNAL: Failed to munmap for the allocator:");
+/**
+ * @brief If ptr is NULL, this behaves as my_malloc
+ * If size == 0 it behaves as my_free and returns NULL
+ *
+ * Otherwise it reallocates the memory, it may have a different address than before, but the return
+ * value may also be the same as ptr. If the new size is greater than the previous size, the whole
+ * content of the previous ptr is preserves and copied to the new ptr, if needed, the rest of the
+ * data is undefined. If the new size is smaller, the data beyond that is potentially overwritten,
+ * at least it's not accessible anymore, the returned ptr can be the same, but doesn't have to be
+ * the same, since realloc may chose a better suited block for it, if that'S the case, the data up
+ * to the new size is the same as the old one
+ */
+void* my_realloc(void* ptr, uint64_t size) {
 
-	result = pthread_mutex_destroy(&__my_malloc_globalObject.mutex);
-	checkResultForThreadErrorAndExit(
-	    "INTERNAL: An Error occurred while trying to destroy the internal mutex "
-	    "in cleaning up for the allocator");
+	// if ptr == NULL, it is the same as my_malloc(size);
+	if(ptr == NULL) {
+		return my_malloc(size);
+	}
+
+	// if size == 0, it is the same as my_free(size);
+	if(size == 0) {
+		my_free(ptr);
+		return NULL;
+	}
+
+	// calling my_malloc without initializing the allocator doesn't work, if that is the case,
+	// likely the uninitialized mutex access before this will crash the program, but that is here
+	// for safety measures! AND ALSO in the case of uninitialized allocator in the thread local case
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		PANIC("Calling realloc before initializing the allocator is prohibited!");
+	}
+
+	BlockInformation* currentBlock =
+	    (BlockInformation*)((pseudoByte*)ptr - sizeof(BlockInformation));
+
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		// no block is not free, since we have no block anymore xD
+		PANIC("ERROR: You tried to realloc a freed Block");
+	}
+
+	if(currentBlock->status == FREE) {
+		PANIC("ERROR: You tried to realloc a freed Block");
+	}
+
+	// ATTENTION: this size isn't always the correct size, of the previous alloc! since some amount
+	// of dread space can be at the end, it can be between 0 and sizeof(BlockInformation) bytes,
+	// since there's no room for a new block in there. So every calculation here has to pay
+	// attention to that
+
+	// It is fine, to copy the undefined memory, since it's  at the end, where the new memory would
+	// be undefined nevertheless
+	const uint64_t blockSize = size_of_double_pointer_block(currentBlock);
+
+	// CASE 1: the new size is smaller or the same (it may be also the same, if the blockSize is
+	// slightly bigger, since there might be end padding!)
+	if(size <= blockSize) {
+
+		// CASE 1.1: no new block can be placed after the new size, so just returning the old size
+		// and doing some valgrind house keeping
+		if(blockSize - size <= sizeof(BlockInformation)) {
+
+			// just return the old pointer
+			return ptr;
+
+		} else {
+
+			// CASE 1.2: make a new block, that is free, and is at the end of size
+
+			// If applicable we search a better block, that is better suited for that cause, that
+			// is computational intensive, but it may create less holes in the end also pay
+			// attention to padding, so it has to be at least sizeof(BlockInformation) smaller, to
+			// allocate a new block!
+
+			// CASE 1.2.1: the new areas is significantly smaller than the last one, so using free +
+			// malloc to get a better spot for the significantly smaller size, use 50% as threshold,
+			// so that if it's 50% smaller, use malloc to get a new block
+			// small NOTE: since we don't free this block before issuing a malloc, this block might
+			// be suited better, but we have to use another xD, it might even return NULL, so it'S
+			// out of memory xD
+			if(size * 2 < blockSize) {
+
+				void* newRegion = __internal__my_malloc(size);
+
+				// out of memory, so just use the current nevertheless xD
+				// ATTENTION: code duplication, since no good pattern emerges, to reuse code via
+				// call or control flow :(
+				if(newRegion == NULL) {
+
+					BlockInformation* newBlock =
+					    (BlockInformation*)(((pseudoByte*)currentBlock + sizeof(BlockInformation)) +
+					                        size);
+					newBlock->nextBlock = currentBlock->nextBlock; // may be NULL
+					newBlock->previousBlock = currentBlock;
+					newBlock->status = FREE;
+
+					currentBlock->nextBlock = newBlock;
+					if(newBlock->nextBlock != NULL) {
+						((BlockInformation*)newBlock->nextBlock)->previousBlock = newBlock;
+					}
+
+					// just return the old pointer
+					return ptr;
+				}
+
+				// copy the subset of data into the new region
+				void* dest = memcpy(newRegion, ptr, size);
+
+				if(dest != newRegion) {
+					PANIC("Error during memcpy, dest pointer is not the same as the given dest "
+					      "pointer");
+				}
+
+				// free the previous section
+				__internal__my_free(ptr);
+
+				// return the new region
+				return newRegion;
+
+			} else {
+
+				// CASE 1.2.2: just divide the block and use the current One
+
+				BlockInformation* newBlock =
+				    (BlockInformation*)(((pseudoByte*)currentBlock + sizeof(BlockInformation)) +
+				                        size);
+
+				newBlock->nextBlock = currentBlock->nextBlock; // may be NULL
+				newBlock->previousBlock = currentBlock;
+				newBlock->status = FREE;
+
+				currentBlock->nextBlock = newBlock;
+				if(newBlock->nextBlock != NULL) {
+					((BlockInformation*)newBlock->nextBlock)->previousBlock = newBlock;
+				}
+
+				// just return the old pointer
+				return ptr;
+			}
+		}
+
+	} else {
+		// CASE 2: the size is bigger
+
+		// it is enough to look forward one block, since there is per guarantee no block that is
+		// also free, after a free block
+
+		BlockInformation* nextBlock = (BlockInformation*)currentBlock->nextBlock; // may be NULL
+
+		// Case 2.1: the current block with the next block can fit the new size!
+		if(nextBlock != NULL && nextBlock->status == FREE) {
+			const uint64_t nextBlockSize = size_of_double_pointer_block(nextBlock);
+
+			const uint64_t totalPotentialSize =
+			    nextBlockSize + sizeof(BlockInformation) + blockSize;
+
+			if(totalPotentialSize >= size) {
+
+				// figure out, if theres space for another block inside the new larger area!
+
+				// CASE 2.1.1: no new block can be placed inside the new larger area, just deleting
+				// the old in the middle (nextBlock)
+				if(totalPotentialSize - size <= (sizeof(BlockInformation))) {
+
+					currentBlock->nextBlock = nextBlock->nextBlock; // can be NULL
+					if(nextBlock->nextBlock != NULL) {
+						((BlockInformation*)nextBlock->nextBlock)->previousBlock = currentBlock;
+					}
+
+					// just return the old pointer, it has now space for the size
+					return ptr;
+
+				} else {
+
+					// CASE 2.1.2: delete the current one and create a new one at the end, that is
+					// free
+
+					BlockInformation* newBlock =
+					    (BlockInformation*)(((pseudoByte*)currentBlock + sizeof(BlockInformation)) +
+					                        size);
+
+					newBlock->previousBlock = currentBlock;
+					newBlock->nextBlock = nextBlock->nextBlock; // can be NULL
+					newBlock->status = FREE;
+
+					currentBlock->nextBlock = newBlock;
+
+					if(nextBlock->nextBlock != NULL) {
+						((BlockInformation*)nextBlock->nextBlock)->previousBlock = newBlock;
+					}
+
+					// just return the old pointer, it has now space for the size
+					return ptr;
+				}
+			}
+		}
+
+		// CASE 2.2 we need to issue a new malloc and copy the data over
+		void* newRegion = __internal__my_malloc(size);
+
+		if(newRegion == NULL) {
+
+			return NULL;
+		}
+
+		// copy the data into the new region, the blockSize is not 100%% accurate, but as said
+		// above, the rest is undefined memory, as the rest of the newRegion region
+		void* dest = memcpy(newRegion, ptr, blockSize);
+
+		if(dest != newRegion) {
+			PANIC("Error during memcpy, dest pointer is not the same as the given dest pointer");
+		}
+
+		// free the previous section
+		__internal__my_free(ptr);
+
+		// return the new region
+		return newRegion;
+	}
+}
+
+/**
+ * @note NOT MT-safe. this function HAS TO BE called exactly once at the start of every program,
+ * that uses this. If using thread_local storage, you have to call it once per thread. After that
+ * every call to free and malloc is thread safe in both cases. If this fails, the program crashes.
+ * No error is returned
+ *
+ * By default the allocator doesn't allocate a memory block, it creates a block in the first called
+ * malloc. But you can force the creation of, one, if you wish so, but free may remove the last one,
+ * no guarantee there. This whole thing would largely benefit programs, that don't use any dynamic
+ * memory, but use this malloc, so no mmap call will be issued and no memory is required, if they
+ * don't opt in into it
+ *
+ */
+
+extern void* __heap_base;
+
+void my_allocator_init(void) {
+	__my_malloc_globalObject.global_block =
+	    (GlobalMemoryBlockinformation){ .size = 0, .start = NULL };
+
+	GlobalMemoryBlockinformation global_block = { .start = __heap_base, .size = 0 };
+
+	size_t heap_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
+
+	global_block.size = heap_size;
+
+	// initialize the first block
+	BlockInformation* firstBlock = (BlockInformation*)((pseudoByte*)global_block.start);
+
+	firstBlock->nextBlock = NULL;
+	firstBlock->previousBlock = NULL;
+	firstBlock->status = FREE;
 }
