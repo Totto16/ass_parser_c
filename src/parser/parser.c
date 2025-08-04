@@ -2,7 +2,10 @@
 #define ASS_PARSER_C_INTERNAL_USAGE
 
 #include "./parser.h"
+#ifndef __WASM__
 #include "../helper/io.h"
+#endif
+
 #include "../helper/macros.h"
 #include "../helper/utf_helper.h"
 #include "./fonts.h"
@@ -13,8 +16,8 @@
 
 #include <stb/ds.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
@@ -128,7 +131,11 @@ struct AssParseResultImpl {
 [[nodiscard]] static SizedPtr get_data_from_source(AssSource source) {
 	switch(source.type) {
 		case AssSourceTypeFile: {
+#ifndef __WASM__
 			return read_entire_file(source.data.file);
+#else
+			return ptr_error("file not suported in wasm builds");
+#endif
 		}
 		case AssSourceTypeStr: {
 			return source.data.str;

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "./stddef.h"
+
 // js needs to provide these things, when using the resulting wasm file
 
 __attribute__((import_module("env"), import_name("platform_panic")))
@@ -13,3 +15,7 @@ platform_log(const char* message);
 
 __attribute__((import_module("env"), import_name("platform_error"))) extern void
 platform_error(const char* message);
+
+__attribute__((import_module("env"), import_name("platform_string_conversion"))) extern void
+platform_string_conversion(void* data, size_t len, const char* format, void** out_data,
+                           size_t* out_len);

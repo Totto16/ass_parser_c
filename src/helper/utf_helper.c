@@ -140,6 +140,21 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 	return result_ptr;
 }
 
+#else
+
+#include <platform.h>
+
+static SizedPtr convert_to_utf8_from_format(SizedPtr ptr, const char* format) {
+
+	SizedPtr result = {};
+
+	platform_string_conversion(ptr.data, ptr.len, format, &result.data, &result.len);
+
+	return result;
+}
+
+#endif
+
 [[nodiscard]] CodepointsResult get_codepoints_from_format(SizedPtr ptr, const char* format) {
 	SizedPtr converted_result = convert_to_utf8_from_format(ptr, format);
 
@@ -163,8 +178,6 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 [[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian) {
 	return get_codepoints_from_format(ptr, big_endian ? "UTF-16BE" : "UTF-16LE");
 }
-
-#endif
 
 void free_codepoints(Codepoints codepoints) {
 	if(codepoints.data.data_readable != NULL) {
