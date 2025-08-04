@@ -17,7 +17,6 @@ __attribute__((export_name("realloc"))) void* realloc(void* ptr, size_t size) {
 	return my_realloc(ptr, size);
 }
 
-__attribute__((visibility("default"), export_name("stdlib_constructor"))) void
-stdlib_constructor(void) {
+__attribute__((constructor)) void stdlib_constructor(void) {
 	my_allocator_init();
 }
