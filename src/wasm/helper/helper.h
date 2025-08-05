@@ -9,7 +9,7 @@
 
 // expose allocator statistics
 
-PUBLIC("allocator_get_statistics") AllocatorStatistics allocator_get_statistics(void);
+PUBLIC("allocator_get_statistics") extern AllocatorStatistics  allocator_get_statistics(void);
 
 PUBLIC("allocator_statistics_get_free")
 uint64_t allocator_statistics_get_free(AllocatorStatistics statistics);

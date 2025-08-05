@@ -593,12 +593,25 @@ void my_allocator_init(void) {
 
 #include "./statistics.h"
 
-AllocatorStatistics my_malloc_get_statistics(void) {
+#include <stdio.h>
 
-	AllocatorStatistics statistics = { .free = 0, .total = 0, .used = 0, .metadata = 0 };
+AllocatorStatistics allocator_get_statistics(void) {
+
+	if(__my_malloc_globalObject.global_block.start == NULL) {
+		PANIC("allocator not initialized!");
+	}
+
+	AllocatorStatistics statistics = {
+		.free = 0,
+		.used = 0,
+		.metadata = 0,
+		.total = __my_malloc_globalObject.global_block.size,
+	};
 
 	BlockInformation* currentBlock =
 	    (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
+
+	uint64_t total_available_for_user = 0;
 
 	while(currentBlock != NULL) {
 
@@ -610,12 +623,12 @@ AllocatorStatistics my_malloc_get_statistics(void) {
 			statistics.used += size;
 		}
 
-		statistics.total += size;
+		total_available_for_user += size;
 
 		currentBlock = currentBlock->nextBlock;
 	}
 
-	statistics.metadata = __my_malloc_globalObject.global_block.size - statistics.total;
+	statistics.metadata = statistics.total - total_available_for_user;
 
 	return statistics;
 }

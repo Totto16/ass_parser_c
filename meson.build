@@ -123,6 +123,7 @@ if is_wasm
             '--import-memory',
             '--initial-memory=' + (PAGE_SIZE * 8).to_string(),
             '--max-memory=' + (PAGE_SIZE * 128).to_string(),
+            '--export=_initialize'
         ],
         name_suffix: 'wasm',
     )

@@ -75,6 +75,7 @@ interface WASMExports extends WebAssembly.Exports, Allocator {
 	allocator_statistics_get_metadata: (
 		statistics: WasmStructRef<AllocatorStatistics>
 	) => UInt64T
+	_initialize: () => void
 }
 
 interface WASMInstance extends WebAssembly.Instance {
@@ -92,6 +93,7 @@ export class WasmBinding {
 
 	private constructor(wasm: WASM) {
 		this.wasm = wasm
+		this.wasm.instance.exports._initialize()
 	}
 
 	private get_memory_buffer(): MemBuf {

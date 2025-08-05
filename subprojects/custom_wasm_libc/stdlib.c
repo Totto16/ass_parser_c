@@ -17,11 +17,6 @@ void* realloc(void* ptr, size_t size) {
 	return my_realloc(ptr, size);
 }
 
-static bool stdlib_initialized = false;
-
 __attribute__((constructor)) void stdlib_constructor(void) {
-	if(!stdlib_initialized) {
-		my_allocator_init();
-		stdlib_initialized = true;
-	}
+	my_allocator_init();
 }

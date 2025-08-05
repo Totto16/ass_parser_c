@@ -1,9 +1,5 @@
 #include "./helper.h"
 
-AllocatorStatistics allocator_get_statistics(void) {
-	return my_malloc_get_statistics();
-}
-
 uint64_t allocator_statistics_get_free(AllocatorStatistics statistics) {
 	return statistics.free;
 }

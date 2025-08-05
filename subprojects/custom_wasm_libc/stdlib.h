@@ -4,6 +4,8 @@
 
 #include "./stddef.h"
 
-void* malloc(size_t size);
-void free(void* ptr);
-void* realloc(void* ptr, size_t size);
+// expose allocators
+
+__attribute__((export_name("malloc"))) void* malloc(size_t size);
+__attribute__((export_name("free"))) void free(void* ptr);
+__attribute__((export_name("realloc"))) void* realloc(void* ptr, size_t size);
