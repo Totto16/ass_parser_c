@@ -20,6 +20,20 @@ const SizeT_SYM = Symbol("SizeT")
 
 export type SizeT = typeof SizeT_SYM
 
+const UInt64T_SYM = Symbol("UInt64T")
+
+export type UInt64T = typeof UInt64T_SYM
+
+export type UInt64TJs = BigInt
+
+const WasmStructRef_SYM = Symbol("WasmStructRef")
+
+const WasmStructRef_Key_SYM = Symbol("WasmStructRef_Key")
+
+export type WasmStructRef<a> = { [WasmStructRef_SYM]: boolean } & {
+	[WasmStructRef_Key_SYM]: a
+}
+
 export type Mem = Uint8Array
 
 export type MemBuf = ArrayBuffer
@@ -39,6 +53,10 @@ export function get_int(int_r: Int): number {
 
 export function get_size_t(size_t_r: SizeT): number {
 	return size_t_r as unknown as number
+}
+
+export function get_uint64_t(val_r: UInt64T): UInt64TJs {
+	return val_r as unknown as UInt64TJs
 }
 
 function to_size_t(num: number): SizeT {

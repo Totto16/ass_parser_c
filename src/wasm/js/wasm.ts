@@ -13,6 +13,10 @@ import {
 	type Ptr,
 	type SizeT,
 	type Void,
+	type WasmStructRef,
+	type UInt64T,
+	type UInt64TJs,
+	get_uint64_t,
 } from "./c_helper"
 
 const AssParseResult_SYM = Symbol("AssParseResult")
@@ -27,18 +31,46 @@ const ParseSettings_SYM = Symbol("ParseSettings")
 
 type ParseSettings = typeof ParseSettings_SYM
 
-interface ParseSettingsJS {
+const AllocatorStatistics_SYM = Symbol("AllocatorStatistics")
+
+type AllocatorStatistics = typeof AllocatorStatistics_SYM
+
+export interface ParseSettingsJS {
 	todo: number
 }
 
+interface AllocatorStatisticsImpl<A> {
+	total: A
+	free: A
+	used: A
+	metadata: A
+}
+
+export type AllocatorStatisticsJS = AllocatorStatisticsImpl<UInt64TJs>
+
 interface WASMExports extends WebAssembly.Exports, Allocator {
 	memory: WebAssembly.Memory
-	parse_ass_wrapper: (
-		source: Ptr<AssSource>,
-		settings: Ptr<ParseSettings>
+	parse_ass: (
+		source: WasmStructRef<AssSource>,
+		settings: WasmStructRef<ParseSettings>
 	) => Ptr<AssParseResult>
-	source_from_string: (source: string) => Ptr<AssSource>
-	settings_from_js: (settings: ParseSettingsJS) => Ptr<ParseSettings>
+	source_from_string: (source: string) => WasmStructRef<AssSource>
+	settings_from_js: (
+		settings: ParseSettingsJS
+	) => WasmStructRef<ParseSettings>
+	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
+	allocator_statistics_get_free: (
+		statistics: WasmStructRef<AllocatorStatistics>
+	) => UInt64T
+	allocator_statistics_get_total: (
+		statistics: WasmStructRef<AllocatorStatistics>
+	) => UInt64T
+	allocator_statistics_get_used: (
+		statistics: WasmStructRef<AllocatorStatistics>
+	) => UInt64T
+	allocator_statistics_get_metadata: (
+		statistics: WasmStructRef<AllocatorStatistics>
+	) => UInt64T
 }
 
 interface WASMInstance extends WebAssembly.Instance {
@@ -181,6 +213,36 @@ export async function startWasm() {
 	)) as WASM
 
 	wasm = result
+}
+
+export function allocator_get_statistics(): AllocatorStatisticsJS {
+	if (!wasm) {
+		throw new Error("Wasm is not initialized")
+	}
+
+	const c_statictics: WasmStructRef<AllocatorStatistics> =
+		wasm.instance.exports.allocator_get_statistics()
+
+	const result: AllocatorStatisticsImpl<UInt64T> = {
+		free: wasm.instance.exports.allocator_statistics_get_free(c_statictics),
+		total: wasm.instance.exports.allocator_statistics_get_total(
+			c_statictics
+		),
+		used: wasm.instance.exports.allocator_statistics_get_used(c_statictics),
+		metadata:
+			wasm.instance.exports.allocator_statistics_get_metadata(
+				c_statictics
+			),
+	}
+
+	const js_result: AllocatorStatisticsJS = {
+		free: get_uint64_t(result.free),
+		total: get_uint64_t(result.total),
+		used: get_uint64_t(result.used),
+		metadata: get_uint64_t(result.metadata),
+	}
+
+	return js_result
 }
 
 export function parse_ass(source: string): { todo: number } {

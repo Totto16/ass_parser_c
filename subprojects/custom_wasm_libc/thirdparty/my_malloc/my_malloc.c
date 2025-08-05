@@ -591,11 +591,9 @@ void my_allocator_init(void) {
 	firstBlock->status = FREE;
 }
 
-#ifndef NDEBUG
-
 #include "./statistics.h"
 
-AllocatorStatistics allocator_get_statistics(void) {
+AllocatorStatistics my_malloc_get_statistics(void) {
 
 	AllocatorStatistics statistics = { .free = 0, .total = 0, .used = 0, .metadata = 0 };
 
@@ -621,5 +619,3 @@ AllocatorStatistics allocator_get_statistics(void) {
 
 	return statistics;
 }
-
-#endif

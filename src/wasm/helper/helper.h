@@ -3,14 +3,11 @@
 #pragma once
 
 #include "../helper/decl.h"
+#include <my_malloc/statistics.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef NDEBUG
-
 // expose allocator statistics
-
-#include <my_malloc/statistics.h>
 
 PUBLIC("allocator_get_statistics") AllocatorStatistics allocator_get_statistics(void);
 
@@ -25,5 +22,3 @@ uint64_t allocator_statistics_get_used(AllocatorStatistics statistics);
 
 PUBLIC("allocator_statistics_get_metadata")
 uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics);
-
-#endif

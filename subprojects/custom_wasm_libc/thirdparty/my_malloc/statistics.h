@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 
-#ifndef NDEBUG
-
 typedef struct {
 	uint64_t total;
 	uint64_t free;
@@ -11,6 +9,4 @@ typedef struct {
 	uint64_t metadata;
 } AllocatorStatistics;
 
-AllocatorStatistics allocator_get_statistics(void);
-
-#endif
+AllocatorStatistics my_malloc_get_statistics(void);
