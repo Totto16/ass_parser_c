@@ -51,6 +51,10 @@ function get_pointer<a>(ptr_r: Ptr<a>): number {
 	return ptr_r as unknown as number
 }
 
+export function ptr_cast<a, b>(ptr_r: Ptr<a>): Ptr<b> {
+	return ptr_r as unknown as Ptr<b>
+}
+
 export function get_bool(value_r: Bool): boolean {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 	return !!(value_r as unknown as boolean)

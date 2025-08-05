@@ -19,6 +19,7 @@ import {
 	get_uint64_t,
 	type Bool,
 	get_bool,
+	ptr_cast,
 } from './c_helper'
 
 declare const _AssParseResult_SYM: unique symbol
@@ -59,10 +60,11 @@ interface WASMExports extends WebAssembly.Exports, Allocator {
 		source: WasmStructRef<AssSource>,
 		settings: WasmStructRef<ParseSettings>
 	) => Ptr<AssParseResult>
-	source_from_string: (source: string) => WasmStructRef<AssSource>
-	settings_from_js: (
-		settings: ParseSettingsJS
-	) => WasmStructRef<ParseSettings>
+	source_from_string: (
+		source: Ptr<Char>,
+		len: SizeT
+	) => WasmStructRef<AssSource>
+	default_parse_settings: () => WasmStructRef<ParseSettings>
 	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
 	allocator_statistics_get_free: (
 		statistics: WasmStructRef<AllocatorStatistics>
@@ -353,11 +355,19 @@ export class WasmBinding {
 		source: string,
 		settings: ParseSettingsJS
 	): AssParseResultJS {
+		const buffer = this.get_memory_buffer()
+		const allocator = this.get_allocator()
+
+		const source_string = allocate_js_utf8_string(buffer, allocator, source)
+
 		const ass_source: WasmStructRef<AssSource> =
-			this.wasm.instance.exports.source_from_string(source)
+			this.wasm.instance.exports.source_from_string(
+				ptr_cast<Void, Char>(source_string.data_ptr),
+				source_string.len
+			)
 
 		const parse_settings: WasmStructRef<ParseSettings> =
-			this.wasm.instance.exports.settings_from_js(settings)
+			this.wasm.instance.exports.default_parse_settings()
 
 		const result = this.wasm.instance.exports.parse_ass(
 			ass_source,
@@ -365,7 +375,7 @@ export class WasmBinding {
 		)
 
 		//TODO
-		console.log(result)
+		console.log(result, settings)
 
 		return {
 			todo: 0,

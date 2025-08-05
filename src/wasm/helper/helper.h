@@ -2,14 +2,16 @@
 
 #pragma once
 
-#include "../helper/decl.h"
+#include "../../helper/decl.h"
 #include <my_malloc/statistics.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include "../../public/ass_parser_lib.h"
+
 // expose allocator statistics
 
-PUBLIC("allocator_get_statistics") extern AllocatorStatistics  allocator_get_statistics(void);
+PUBLIC("allocator_get_statistics") extern AllocatorStatistics allocator_get_statistics(void);
 
 PUBLIC("allocator_statistics_get_free")
 uint64_t allocator_statistics_get_free(AllocatorStatistics statistics);
@@ -22,3 +24,8 @@ uint64_t allocator_statistics_get_used(AllocatorStatistics statistics);
 
 PUBLIC("allocator_statistics_get_metadata")
 uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics);
+
+PUBLIC("source_from_string")
+AssSource source_from_string(char* source, size_t len);
+
+PUBLIC("default_parse_settings") ParseSettings default_parse_settings(void);
