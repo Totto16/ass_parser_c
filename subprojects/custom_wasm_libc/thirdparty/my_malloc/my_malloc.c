@@ -571,7 +571,7 @@ void* my_realloc(void* ptr, uint64_t size) {
  *
  */
 
-extern void* __heap_base;
+extern char __heap_base[];
 
 void my_allocator_init(void) {
 	__my_malloc_globalObject.global_block =
@@ -583,6 +583,8 @@ void my_allocator_init(void) {
 
 	global_block.size = heap_size;
 
+	__my_malloc_globalObject.global_block = global_block;
+
 	// initialize the first block
 	BlockInformation* firstBlock = (BlockInformation*)((pseudoByte*)global_block.start);
 
@@ -592,8 +594,6 @@ void my_allocator_init(void) {
 }
 
 #include "./statistics.h"
-
-#include <stdio.h>
 
 AllocatorStatistics allocator_get_statistics(void) {
 
@@ -627,9 +627,6 @@ AllocatorStatistics allocator_get_statistics(void) {
 
 		currentBlock = currentBlock->nextBlock;
 	}
-
-	fprintf(stderr, "here total: %lu # %lu", __my_malloc_globalObject.global_block.size,
-	        statistics.total);
 
 	statistics.metadata = statistics.total - total_available_for_user;
 

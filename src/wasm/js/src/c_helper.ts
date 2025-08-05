@@ -52,6 +52,7 @@ function get_pointer<a>(ptr_r: Ptr<a>): number {
 }
 
 export function get_bool(value_r: Bool): boolean {
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
 	return !!(value_r as unknown as boolean)
 }
 

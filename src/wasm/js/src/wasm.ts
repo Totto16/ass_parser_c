@@ -55,7 +55,6 @@ interface AllocatorStatisticsImpl<A> {
 export type AllocatorStatisticsJS = AllocatorStatisticsImpl<UInt64TJs>
 
 interface WASMExports extends WebAssembly.Exports, Allocator {
-	memory: WebAssembly.Memory
 	parse_ass: (
 		source: WasmStructRef<AssSource>,
 		settings: WasmStructRef<ParseSettings>
@@ -117,17 +116,22 @@ interface LogState {
 
 export class WasmBinding {
 	private wasm: WASM
+	private memory: WebAssembly.Memory
 
 	private log_prefix = '[ASS_PARSER] '
 	private log_state: LogState = { state: 'empty', buffer: '', error: false }
 
-	private constructor(wasm: WASM) {
+	private constructor(wasm: WASM, memory: WebAssembly.Memory) {
 		this.wasm = wasm
+		this.memory = memory
+	}
+
+	private initialize(): void {
 		this.wasm.instance.exports._initialize()
 	}
 
 	private get_memory_buffer(): MemBuf {
-		return this.wasm.instance.exports.memory.buffer
+		return this.memory.buffer
 	}
 
 	private get_allocator(): Allocator {
@@ -144,9 +148,8 @@ export class WasmBinding {
 		const file_path = cstr_by_ptr(buffer, file_path_ptr)
 		const message = cstr_by_ptr(buffer, message_ptr)
 		console.error(
-			`${this.log_prefix}${file_path}:${get_int(line).toString()}:${message}`
+			`${this.log_prefix}${file_path}:${get_int(line).toString()}: ${message}`
 		)
-		// TODO: WASM platform_panic() does not halt the game
 	}
 
 	// void platform_log_start(bool error)
@@ -265,20 +268,37 @@ export class WasmBinding {
 		const memory = new WebAssembly.Memory({ initial: 8, maximum: 128 })
 
 		const env: TypedWasmEnv = {
-			platform_panic: () => {
-				wasm.platform_panic.bind(wasm)
+			platform_panic: (
+				file_path_ptr: Ptr<Char>,
+				line: Int,
+				message_ptr: Ptr<Char>
+			) => {
+				wasm.platform_panic.call(wasm, file_path_ptr, line, message_ptr)
 			},
-			platform_log_start: () => {
-				wasm.platform_log_start.bind(wasm)
+			platform_log_start: (error: Bool): void => {
+				wasm.platform_log_start.call(wasm, error)
 			},
-			platform_log_add: () => {
-				wasm.platform_log_add.bind(wasm)
+			platform_log_add: (message_ptr: Ptr<Char>): void => {
+				wasm.platform_log_add.call(wasm, message_ptr)
 			},
-			platform_log_end: () => {
-				wasm.platform_log_end.bind(wasm)
+			platform_log_end: (): void => {
+				wasm.platform_log_end.call(wasm)
 			},
-			platform_string_conversion: () => {
-				wasm.platform_string_conversion.bind(wasm)
+			platform_string_conversion: (
+				data_ptr: Ptr<Void>,
+				len: SizeT,
+				format_ptr: Ptr<Char>,
+				out_data_ptr: Ptr<Ptr<Void>>,
+				out_len_ptr: Ptr<SizeT>
+			): void => {
+				wasm.platform_string_conversion.call(
+					wasm,
+					data_ptr,
+					len,
+					format_ptr,
+					out_data_ptr,
+					out_len_ptr
+				)
 			},
 			memory,
 		}
@@ -292,7 +312,9 @@ export class WasmBinding {
 			}
 		)) as WASM
 
-		const wasm = new WasmBinding(result)
+		const wasm = new WasmBinding(result, memory)
+
+		wasm.initialize()
 
 		return wasm
 	}
