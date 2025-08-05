@@ -1,37 +1,37 @@
-const Ptr_SYM = Symbol("Ptr")
+declare const _Ptr_SYM: unique symbol
 
-const Ptr_Key_SYM = Symbol("Ptr_Key")
+declare const _Ptr_Key_SYM: unique symbol
 
-export type Ptr<a> = { [Ptr_SYM]: boolean } & { [Ptr_Key_SYM]: a }
+export type Ptr<a> = { [_Ptr_SYM]: boolean } & { [_Ptr_Key_SYM]: a }
 
-const Char_SYM = Symbol("Char")
+declare const _Char_SYM: unique symbol
 
-export type Char = typeof Char_SYM
+export type Char = typeof _Char_SYM
 
-const Int_SYM = Symbol("Int")
+declare const _Int_SYM: unique symbol
 
-export type Int = typeof Int_SYM
+export type Int = typeof _Int_SYM
 
-const Void_SYM = Symbol("Void")
+declare const _Void_SYM: unique symbol
 
-export type Void = typeof Void_SYM
+export type Void = typeof _Void_SYM
 
-const SizeT_SYM = Symbol("SizeT")
+declare const _SizeT_SYM: unique symbol
 
-export type SizeT = typeof SizeT_SYM
+export type SizeT = typeof _SizeT_SYM
 
-const UInt64T_SYM = Symbol("UInt64T")
+declare const _UInt64T_SYM: unique symbol
 
-export type UInt64T = typeof UInt64T_SYM
+export type UInt64T = typeof _UInt64T_SYM
 
-export type UInt64TJs = BigInt
+export type UInt64TJs = bigint
 
-const WasmStructRef_SYM = Symbol("WasmStructRef")
+declare const _WasmStructRef_SYM: unique symbol
 
-const WasmStructRef_Key_SYM = Symbol("WasmStructRef_Key")
+declare const _WasmStructRef_Key_SYM: unique symbol
 
-export type WasmStructRef<a> = { [WasmStructRef_SYM]: boolean } & {
-	[WasmStructRef_Key_SYM]: a
+export type WasmStructRef<a> = { [_WasmStructRef_SYM]: boolean } & {
+	[_WasmStructRef_Key_SYM]: a
 }
 
 export type Mem = Uint8Array
@@ -76,7 +76,7 @@ function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
 export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: Ptr<Char>): string {
 	const mem = new Uint8Array(mem_buffer)
 
-	let ptr = get_pointer(ptr_r)
+	const ptr = get_pointer(ptr_r)
 
 	const len = cstrlen(mem, ptr_r)
 	const bytes = new Uint8Array(mem_buffer, ptr, len)
@@ -110,7 +110,7 @@ export function construct_ptr_error(
 	const data_ptr: Ptr<Void> = allocator.malloc(to_size_t(encoded.length))
 
 	if (get_pointer(data_ptr) == 0) {
-		return construct_ptr_error(buffer, allocator, "allocation failed")
+		return construct_ptr_error(buffer, allocator, 'allocation failed')
 	}
 
 	const ptr = get_pointer(data_ptr)
@@ -153,7 +153,7 @@ export function allocate_js_utf8_string(
 	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
 
 	if (get_pointer(data_ptr) == 0) {
-		return construct_ptr_error(buffer, allocator, "allocation failed")
+		return construct_ptr_error(buffer, allocator, 'allocation failed')
 	}
 
 	const ptr = get_pointer(data_ptr)

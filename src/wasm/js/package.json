@@ -1,0 +1,52 @@
+{
+	"name": "ass_parser_wasm",
+	"version": "0.0.1",
+	"description": "",
+	"scripts": {
+		"dev": "webpack serve --open --mode=development",
+		"build:dev": "webpack --mode=development",
+		"build:prod": "webpack --mode=production",
+		"lint": "pnpm lint:prettier && pnpm run lint:eslint",
+		"lint:prettier:base": "prettier --config .prettierrc --ignore-path .prettierignore",
+		"lint:prettier": "pnpm lint:prettier:base -c .",
+		"format": "pnpm lint:prettier:base -w .",
+		"lint:eslint": "eslint --color .",
+		"lint:lockfile": "pnpm dedupe --check",
+		"build:check-only": "tsc --noEmit"
+	},
+	"license": "MIT",
+	"dependencies": {},
+	"devDependencies": {
+		"@eslint/js": "^9.29.0",
+		"@tsconfig/strictest": "^2.0.5",
+		"@types/node": "^22.15.32",
+		"@types/webpack": "^5.28.5",
+		"eslint": "^9.29.0",
+		"eslint-webpack-plugin": "^5.0.2",
+		"ignore-loader": "^0.1.2",
+		"prettier": "^3.5.3",
+		"style-loader": "^4.0.0",
+		"ts-loader": "^9.5.2",
+		"typescript": "^5.8.3",
+		"typescript-eslint": "^8.34.0",
+		"webpack": "^5.99.9",
+		"webpack-cli": "^6.0.1",
+		"webpack-dev-server": "^5.2.2",
+		"ts-node": "^10.9.2",
+		"html-webpack-plugin": "^5.6.3",
+		"mini-css-extract-plugin": "^2.9.2",
+		"css-minimizer-webpack-plugin": "^7.0.2",
+		"globals": "^16.2.0",
+		"jiti": "^2.4.2"
+	},
+	"packageManager": "pnpm@10.14.0",
+	"engines": {
+		"node": "22.16.0"
+	},
+	"private": true,
+	"pnpm": {
+		"onlyBuiltDependencies": [],
+		"ignoredBuiltDependencies": [],
+		"ignorePatchFailures": false
+	}
+}

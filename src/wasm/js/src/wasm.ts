@@ -17,23 +17,23 @@ import {
 	type UInt64T,
 	type UInt64TJs,
 	get_uint64_t,
-} from "./c_helper"
+} from './c_helper'
 
-const AssParseResult_SYM = Symbol("AssParseResult")
+declare const _AssParseResult_SYM: unique symbol
 
-type AssParseResult = typeof AssParseResult_SYM
+type AssParseResult = typeof _AssParseResult_SYM
 
-const AssSource_SYM = Symbol("AssSource")
+declare const _AssSource_SYM: unique symbol
 
-type AssSource = typeof AssSource_SYM
+type AssSource = typeof _AssSource_SYM
 
-const ParseSettings_SYM = Symbol("ParseSettings")
+declare const _ParseSettings_SYM: unique symbol
 
-type ParseSettings = typeof ParseSettings_SYM
+type ParseSettings = typeof _ParseSettings_SYM
 
-const AllocatorStatistics_SYM = Symbol("AllocatorStatistics")
+declare const _AllocatorStatistics_SYM: unique symbol
 
-type AllocatorStatistics = typeof AllocatorStatistics_SYM
+type AllocatorStatistics = typeof _AllocatorStatistics_SYM
 
 export interface ParseSettingsJS {
 	todo: number
@@ -86,7 +86,9 @@ interface WASM extends WebAssembly.WebAssemblyInstantiatedSource {
 }
 
 export class WasmBinding {
-	wasm: WASM
+	private wasm: WASM
+
+	private log_prefix = '[ASS_PARSER] '
 
 	private constructor(wasm: WASM) {
 		this.wasm = wasm
@@ -109,21 +111,23 @@ export class WasmBinding {
 		const buffer = this.get_memory_buffer()
 		const file_path = cstr_by_ptr(buffer, file_path_ptr)
 		const message = cstr_by_ptr(buffer, message_ptr)
-		console.error(file_path + ":" + get_int(line) + ": " + message)
+		console.error(
+			`${this.log_prefix}${file_path}:${get_int(line).toString()}:${message}`
+		)
 		// TODO: WASM platform_panic() does not halt the game
 	}
 	// void platform_log(const char* message);
 	private platform_log(message_ptr: Ptr<Char>): void {
 		const buffer = this.get_memory_buffer()
 		const message = cstr_by_ptr(buffer, message_ptr)
-		console.log(message)
+		console.log(this.log_prefix + message)
 	}
 
 	// void platform_error(const char* message);
 	private platform_error(message_ptr: Ptr<Char>): void {
 		const buffer = this.get_memory_buffer()
 		const message = cstr_by_ptr(buffer, message_ptr)
-		console.error(message)
+		console.error(this.log_prefix + message)
 	}
 
 	// void platform_string_conversion(void* data, size_t len, const char* format, void** out_data, size_t* out_len);
@@ -144,21 +148,19 @@ export class WasmBinding {
 
 			// see https://developer.mozilla.org/de/docs/Web/API/Encoding_API/Encodings
 			switch (format) {
-				case "UTF-16BE": {
-					decoder = new TextDecoder("utf-16be")
+				case 'UTF-16BE': {
+					decoder = new TextDecoder('utf-16be')
 					break
 				}
-				case "UTF-16LE": {
-					decoder = new TextDecoder("utf-16le")
+				case 'UTF-16LE': {
+					decoder = new TextDecoder('utf-16le')
 					break
 				}
-				case "UTF-32BE": {
-					throw new Error("utf-32 be encoding not yet supported")
-					break
+				case 'UTF-32BE': {
+					throw new Error('utf-32 be encoding not yet supported')
 				}
-				case "UTF-32LE": {
-					throw new Error("utf-32 le encoding not yet supported")
-					break
+				case 'UTF-32LE': {
+					throw new Error('utf-32 le encoding not yet supported')
 				}
 				default: {
 					throw new Error(`unrecognized format: ${format}`)
@@ -196,12 +198,14 @@ export class WasmBinding {
 		}
 	}
 
-	public static async getInstance(path: string): Promise<WasmBinding> {
+	public static async getInstance(prefix: string): Promise<WasmBinding> {
 		const numPages = 4
 		const memory = new WebAssembly.Memory({ initial: numPages })
 
 		const result: WASM = (await WebAssembly.instantiateStreaming(
-			fetch("./static/ass_parser.wasm"),
+			fetch(
+				`${prefix + (prefix.endsWith('/') ? '' : '/')}ass_parser.wasm`
+			),
 			{
 				env: {
 					platform_panic: () => {
@@ -272,6 +276,7 @@ export class WasmBinding {
 		)
 
 		//TODO
+		console.log(result)
 
 		return {
 			todo: 0,
