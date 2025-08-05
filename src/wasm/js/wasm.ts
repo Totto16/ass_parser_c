@@ -1,4 +1,19 @@
-"use strict"
+import {
+	allocate_js_utf8_string,
+	construct_ptr_error,
+	cstr_by_ptr,
+	get_int,
+	get_sized_ptr_from_memory,
+	write_ptr_to_memory,
+	write_size_t_to_memory,
+	type Allocator,
+	type Char,
+	type Int,
+	type MemBuf,
+	type Ptr,
+	type SizeT,
+	type Void,
+} from "./c_helper"
 
 const AssParseResult_SYM = Symbol("AssParseResult")
 
@@ -12,12 +27,18 @@ const ParseSettings_SYM = Symbol("ParseSettings")
 
 type ParseSettings = typeof ParseSettings_SYM
 
-interface WASMExports extends WebAssembly.Exports {
+interface ParseSettingsJS {
+	todo: number
+}
+
+interface WASMExports extends WebAssembly.Exports, Allocator {
 	memory: WebAssembly.Memory
-	parse_ass: (
-		source: AssSource,
-		settings: ParseSettings
+	parse_ass_wrapper: (
+		source: Ptr<AssSource>,
+		settings: Ptr<ParseSettings>
 	) => Ptr<AssParseResult>
+	source_from_string: (source: string) => Ptr<AssSource>
+	settings_from_js: (settings: ParseSettingsJS) => Ptr<ParseSettings>
 }
 
 interface WASMInstance extends WebAssembly.Instance {
@@ -30,38 +51,20 @@ interface WASM extends WebAssembly.WebAssemblyInstantiatedSource {
 
 let wasm: null | WASM = null
 
-type Ptr<a> = number
-
-type Mem = Uint8Array
-
-type MemBuf = ArrayBuffer
-
-type Char = number
-
-type Int = number
-
-function cstrlen(mem: Mem, ptr: Ptr<Char>): number {
-	let len = 0
-	while (mem[ptr] != 0) {
-		len++
-		ptr++
-	}
-	return len
-}
-
-function cstr_by_ptr(mem_buffer: MemBuf, ptr: Ptr<Char>): string {
-	const mem = new Uint8Array(mem_buffer)
-	const len = cstrlen(mem, ptr)
-	const bytes = new Uint8Array(mem_buffer, ptr, len)
-	return new TextDecoder().decode(bytes)
-}
-
 function get_memory_buffer(): MemBuf {
 	if (!wasm) {
 		throw new Error("Wasm is not initialized")
 	}
 
 	return wasm.instance.exports.memory.buffer
+}
+
+function get_allocator(): Allocator {
+	if (!wasm) {
+		throw new Error("Wasm is not initialized")
+	}
+
+	return wasm.instance.exports
 }
 
 // void platform_panic(const char* file_path, int line, const char* message);
@@ -73,7 +76,7 @@ function platform_panic(
 	const buffer = get_memory_buffer()
 	const file_path = cstr_by_ptr(buffer, file_path_ptr)
 	const message = cstr_by_ptr(buffer, message_ptr)
-	console.error(file_path + ":" + line + ": " + message)
+	console.error(file_path + ":" + get_int(line) + ": " + message)
 	// TODO: WASM platform_panic() does not halt the game
 }
 // void platform_log(const char* message);
@@ -90,9 +93,74 @@ function platform_error(message_ptr: Ptr<Char>): void {
 	console.error(message)
 }
 
-// void platform_string_conversion(void* data, size_t len, const char* format, void** out_data,               size_t* out_len);
-function platform_string_conversion() {
-	//TODO
+// void platform_string_conversion(void* data, size_t len, const char* format, void** out_data, size_t* out_len);
+function platform_string_conversion(
+	data_ptr: Ptr<Void>,
+	len: SizeT,
+	format_ptr: Ptr<Char>,
+	out_data_ptr: Ptr<Ptr<Void>>,
+	out_len_ptr: Ptr<SizeT>
+): void {
+	const buffer = get_memory_buffer()
+	const allocator = get_allocator()
+
+	const format = cstr_by_ptr(buffer, format_ptr)
+
+	try {
+		let decoder: TextDecoder
+
+		// see https://developer.mozilla.org/de/docs/Web/API/Encoding_API/Encodings
+		switch (format) {
+			case "UTF-16BE": {
+				decoder = new TextDecoder("utf-16be")
+				break
+			}
+			case "UTF-16LE": {
+				decoder = new TextDecoder("utf-16le")
+				break
+			}
+			case "UTF-32BE": {
+				throw new Error("utf-32 be encoding not yet supported")
+				break
+			}
+			case "UTF-32LE": {
+				throw new Error("utf-32 le encoding not yet supported")
+				break
+			}
+			default: {
+				throw new Error(`unrecognized format: ${format}`)
+			}
+		}
+
+		const data: ArrayBufferView = get_sized_ptr_from_memory(buffer, {
+			data_ptr,
+			len,
+		})
+
+		const string = decoder.decode(data)
+
+		const allocated_string = allocate_js_utf8_string(
+			buffer,
+			allocator,
+			string
+		)
+
+		write_ptr_to_memory(buffer, out_data_ptr, allocated_string.data_ptr)
+
+		write_size_t_to_memory(buffer, out_len_ptr, allocated_string.len)
+	} catch (err) {
+		const error_ptr = construct_ptr_error(
+			buffer,
+			allocator,
+			(err as Error).message
+		)
+
+		write_ptr_to_memory(buffer, out_data_ptr, error_ptr.data_ptr)
+
+		write_size_t_to_memory(buffer, out_len_ptr, error_ptr.len)
+
+		return
+	}
 }
 
 export async function startWasm() {

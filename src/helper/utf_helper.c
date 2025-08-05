@@ -176,7 +176,7 @@ static SizedPtr convert_to_utf8_from_format(SizedPtr ptr, const char* format) {
 }
 
 [[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian) {
-	return get_codepoints_from_format(ptr, big_endian ? "UTF-16BE" : "UTF-16LE");
+	return get_codepoints_from_format(ptr, big_endian ? "UTF-32BE" : "UTF-32LE");
 }
 
 void free_codepoints(Codepoints codepoints) {

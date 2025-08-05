@@ -10,3 +10,8 @@ subdir('helper')
 subdir('cli')
 subdir('public')
 subdir('lib')
+
+
+if is_wasm
+    subdir('wasm')
+endif

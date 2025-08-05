@@ -590,3 +590,36 @@ void my_allocator_init(void) {
 	firstBlock->previousBlock = NULL;
 	firstBlock->status = FREE;
 }
+
+#ifndef NDEBUG
+
+#include "./statistics.h"
+
+AllocatorStatistics allocator_get_statistics(void) {
+
+	AllocatorStatistics statistics = { .free = 0, .total = 0, .used = 0, .metadata = 0 };
+
+	BlockInformation* currentBlock =
+	    (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
+
+	while(currentBlock != NULL) {
+
+		uint64_t size = size_of_double_pointer_block(currentBlock);
+
+		if(currentBlock->status == FREE) {
+			statistics.free += size;
+		} else {
+			statistics.used += size;
+		}
+
+		statistics.total += size;
+
+		currentBlock = currentBlock->nextBlock;
+	}
+
+	statistics.metadata = __my_malloc_globalObject.global_block.size - statistics.total;
+
+	return statistics;
+}
+
+#endif

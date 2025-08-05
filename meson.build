@@ -109,19 +109,37 @@ subdir('src')
 
 if is_wasm
 
-    executable(
+    result_executable = executable(
         'ass_parser',
         lib_src_files,
         dependencies: deps,
         include_directories: inc_dirs,
         install: true,
         c_args: ['-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
-        link_args: [
-            '--no-entry',
-            '--import-memory',
-        ],
+        link_args: ['--no-entry', '--import-memory'],
         name_suffix: 'wasm',
     )
+
+    wasm2wat = find_program(
+        'wasm2wat',
+        required: false,
+    )
+
+    if wasm2wat.found()
+
+        custom_target(
+            'ass_parser.wat',
+            command: [wasm2wat, '@INPUT0@', '--generate-names', '-o', '@OUTPUT@'],
+            build_by_default: true,
+            output: ['ass_parser.wat'],
+            input: [result_executable],
+            depends: [result_executable],
+        )
+
+
+    endif
+
+
 
 else
 
