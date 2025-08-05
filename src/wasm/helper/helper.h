@@ -26,6 +26,6 @@ PUBLIC("allocator_statistics_get_metadata")
 uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics);
 
 PUBLIC("source_from_string")
-AssSource source_from_string(char* source, size_t len);
+AssSource source_from_string(const char* source, size_t len);
 
 PUBLIC("default_parse_settings") ParseSettings default_parse_settings(void);

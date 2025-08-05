@@ -16,10 +16,14 @@ uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics) {
 	return statistics.metadata;
 }
 
-AssSource source_from_string(char* source, size_t len) {
+#include <stdio.h>
+
+AssSource source_from_string(const char* source, size_t len) {
+
+	fprintf(stderr, "herE s: %p, size: %lu, %c", (void*)(&source), len, *((char*)402288));
 
 	return (AssSource){ .type = AssSourceTypeStr,
-		                .data = { .str = { .data = source, .len = len } } };
+		                .data = { .str = { .data = (void*)source, .len = len } } };
 }
 
 ParseSettings default_parse_settings(void) {

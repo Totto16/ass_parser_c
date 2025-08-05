@@ -78,6 +78,7 @@ interface WASMExports extends WebAssembly.Exports, Allocator {
 	allocator_statistics_get_metadata: (
 		statistics: WasmStructRef<AllocatorStatistics>
 	) => UInt64T
+	free_parse_result: (result: Ptr<AssParseResult>) => void
 	_initialize: () => void
 }
 
@@ -362,7 +363,10 @@ export class WasmBinding {
 		const buffer = this.get_memory_buffer()
 		const allocator = this.get_allocator()
 
+		//TODO: allocate bom
 		const source_string = allocate_js_utf8_string(buffer, allocator, source)
+
+		console.log(source_string)
 
 		const ass_source: WasmStructRef<AssSource> =
 			this.wasm.instance.exports.source_from_string(
@@ -380,6 +384,8 @@ export class WasmBinding {
 
 		//TODO
 		console.log(result, settings)
+
+		this.wasm.instance.exports.free_parse_result(result)
 
 		return {
 			todo: 0,

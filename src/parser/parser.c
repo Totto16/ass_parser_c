@@ -2308,6 +2308,7 @@ static void free_ass_result(AssResult data) {
 #define RETURN_ERROR_IMPL(err, pos) \
 	do { \
 		INSERT_SIMPLE_ERROR(result->diagnostics.entries, err, pos); \
+		fprintf(stderr, "error returned at %s:%d", __FILE__, __LINE__); \
 		RETURN_ERROR_NO_MESSAGE(); \
 	} while(false)
 
@@ -2328,13 +2329,13 @@ static void free_ass_result(AssResult data) {
 	    (Codepoints){ .data = (CodePointsData){ .data_const = NULL, .data_readable = NULL },
 		              .size = 0 };
 
-	SizedPtr data = get_data_from_source(source);
+	SizedPtr source_data = get_data_from_source(source);
 
-	if(is_ptr_error(data)) {
-		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(ptr_get_error(data)));
+	if(is_ptr_error(source_data)) {
+		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(ptr_get_error(source_data)));
 	}
 
-	FileType file_type = determine_file_type(data);
+	FileType file_type = determine_file_type(source_data);
 
 	size_t bom_size = 0;
 	CodepointsResult codepoints_result = { .has_error = true,
@@ -2363,37 +2364,37 @@ static void free_ass_result(AssResult data) {
 #undef PROPAGATE_ERROR_IMPL
 
 			bom_size = 0;
-			codepoints_result = get_codepoints_from_utf8(data);
+			codepoints_result = get_codepoints_from_utf8(source_data);
 			break;
 		}
 		case FileTypeUtf8: {
 			bom_size = 1;
-			codepoints_result = get_codepoints_from_utf8(data);
+			codepoints_result = get_codepoints_from_utf8(source_data);
 			break;
 		}
 		case FileTypeUtf16BE: {
 			bom_size = 1;
-			codepoints_result = get_codepoints_from_utf16(data, true);
+			codepoints_result = get_codepoints_from_utf16(source_data, true);
 			break;
 		}
 		case FileTypeUtf16LE: {
 			bom_size = 1;
-			codepoints_result = get_codepoints_from_utf16(data, false);
+			codepoints_result = get_codepoints_from_utf16(source_data, false);
 			break;
 		}
 		case FileTypeUtf32BE: {
 			bom_size = 1;
-			codepoints_result = get_codepoints_from_utf32(data, true);
+			codepoints_result = get_codepoints_from_utf32(source_data, true);
 			break;
 		}
 		case FileTypeUtf32LE: {
 			bom_size = 1;
-			codepoints_result = get_codepoints_from_utf32(data, false);
+			codepoints_result = get_codepoints_from_utf32(source_data, false);
 			break;
 		}
 
 		default: {
-			free_sized_ptr(data);
+			free_sized_ptr(source_data);
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -2412,7 +2413,8 @@ static void free_ass_result(AssResult data) {
 		}
 	}
 
-	free_sized_ptr(data);
+	fprintf(stderr, "freed source data");
+	free_sized_ptr(source_data);
 
 	if(codepoints_result.has_error) {
 		RETURN_ERROR_AT_START(STATIC_MESSAGE_STRUCT(codepoints_result.data.error));

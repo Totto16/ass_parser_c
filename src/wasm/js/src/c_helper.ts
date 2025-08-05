@@ -138,13 +138,18 @@ export function write_size_t_to_memory(
 export function allocate_js_utf8_string(
 	buffer: MemBuf,
 	allocator: Allocator,
-	string: string
+	string: string,
+	allocate_bom = false
 ): CStr {
 	const data = new Uint8Array(buffer)
 
 	const encoded = new TextEncoder().encode(string)
 
-	const str_length: SizeT = to_size_t(encoded.length + 1)
+	const bom: number[] = [0xef, 0xbb, 0xbf]
+
+	const bom_length = allocate_bom ? bom.length : 0
+
+	const str_length: SizeT = to_size_t(bom_length + encoded.length + 1)
 
 	const data_ptr: Ptr<Char> = ptr_cast<Void, Char>(
 		allocator.malloc(str_length)
@@ -160,8 +165,14 @@ export function allocate_js_utf8_string(
 
 	zeroByte.set([0], 0)
 
-	data.set(encoded, ptr)
-	data.set(zeroByte, ptr + encoded.length)
+	if (allocate_bom) {
+		data.set(bom, ptr)
+	}
+
+	data.set(encoded, ptr + bom_length)
+	data.set(zeroByte, ptr + bom_length + encoded.length)
+
+	console.log(data.subarray(ptr, ptr + encoded.length + 1 + bom_length))
 
 	return { data_ptr, len: str_length }
 }
