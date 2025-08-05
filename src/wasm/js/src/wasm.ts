@@ -199,8 +199,8 @@ export class WasmBinding {
 	}
 
 	public static async getInstance(prefix: string): Promise<WasmBinding> {
-		const numPages = 4
-		const memory = new WebAssembly.Memory({ initial: numPages })
+		// for this sizes see in the meson.build file and the link arguments
+		const memory = new WebAssembly.Memory({ initial: 8, maximum: 128 })
 
 		const result: WASM = (await WebAssembly.instantiateStreaming(
 			fetch(

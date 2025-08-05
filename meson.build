@@ -109,14 +109,21 @@ subdir('src')
 
 if is_wasm
 
-    result_executable = executable(
+    PAGE_SIZE = 64 * 1024
+
+    wasm_file = executable(
         'ass_parser',
         lib_src_files,
         dependencies: deps,
         include_directories: inc_dirs,
         install: true,
         c_args: ['-DASS_PARSER_VERSION_STRING="' + ass_parser_lib_version + '"', internal_c_args],
-        link_args: ['--no-entry', '--import-memory'],
+        link_args: [
+            '--no-entry',
+            '--import-memory',
+            '--initial-memory=' + (PAGE_SIZE * 8).to_string(),
+            '--max-memory=' + (PAGE_SIZE * 128).to_string(),
+        ],
         name_suffix: 'wasm',
     )
 
@@ -125,21 +132,25 @@ if is_wasm
         required: false,
     )
 
+    have_wat_file = false
+
     if wasm2wat.found()
 
-        custom_target(
+        have_wat_file = true
+
+        wat_file = custom_target(
             'ass_parser.wat',
             command: [wasm2wat, '@INPUT0@', '--generate-names', '-o', '@OUTPUT@'],
             build_by_default: true,
             output: ['ass_parser.wat'],
-            input: [result_executable],
-            depends: [result_executable],
+            input: [wasm_file],
+            depends: [wasm_file],
         )
 
 
     endif
 
-
+    subdir('src/wasm/js')
 
 else
 

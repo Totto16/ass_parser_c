@@ -1,3 +1,2 @@
 
-subdir('js')
 subdir('helper')
