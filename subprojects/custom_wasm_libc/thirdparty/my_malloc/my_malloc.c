@@ -628,6 +628,9 @@ AllocatorStatistics allocator_get_statistics(void) {
 		currentBlock = currentBlock->nextBlock;
 	}
 
+	fprintf(stderr, "here total: %lu # %lu", __my_malloc_globalObject.global_block.size,
+	        statistics.total);
+
 	statistics.metadata = statistics.total - total_available_for_user;
 
 	return statistics;

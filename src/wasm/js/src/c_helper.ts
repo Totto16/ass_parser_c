@@ -4,6 +4,10 @@ declare const _Ptr_Key_SYM: unique symbol
 
 export type Ptr<a> = { [_Ptr_SYM]: boolean } & { [_Ptr_Key_SYM]: a }
 
+declare const _Bool_SYM: unique symbol
+
+export type Bool = typeof _Bool_SYM
+
 declare const _Char_SYM: unique symbol
 
 export type Char = typeof _Char_SYM
@@ -45,6 +49,10 @@ export interface Allocator {
 
 function get_pointer<a>(ptr_r: Ptr<a>): number {
 	return ptr_r as unknown as number
+}
+
+export function get_bool(value_r: Bool): boolean {
+	return !!(value_r as unknown as boolean)
 }
 
 export function get_int(int_r: Int): number {

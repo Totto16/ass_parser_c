@@ -17,6 +17,8 @@ import {
 	type UInt64T,
 	type UInt64TJs,
 	get_uint64_t,
+	type Bool,
+	get_bool,
 } from './c_helper'
 
 declare const _AssParseResult_SYM: unique symbol
@@ -78,6 +80,25 @@ interface WASMExports extends WebAssembly.Exports, Allocator {
 	_initialize: () => void
 }
 
+interface TypedWasmEnv extends WebAssembly.ModuleImports {
+	memory: WebAssembly.Memory
+	platform_panic: (
+		file_path_ptr: Ptr<Char>,
+		line: Int,
+		message_ptr: Ptr<Char>
+	) => void
+	platform_log_start: (error: Bool) => void
+	platform_log_add: (message_ptr: Ptr<Char>) => void
+	platform_log_end: () => void
+	platform_string_conversion: (
+		data_ptr: Ptr<Void>,
+		len: SizeT,
+		format_ptr: Ptr<Char>,
+		out_data_ptr: Ptr<Ptr<Void>>,
+		out_len_ptr: Ptr<SizeT>
+	) => void
+}
+
 interface WASMInstance extends WebAssembly.Instance {
 	readonly exports: WASMExports
 }
@@ -86,10 +107,19 @@ interface WASM extends WebAssembly.WebAssemblyInstantiatedSource {
 	instance: WASMInstance
 }
 
+type LogStateState = 'empty' | 'processing'
+
+interface LogState {
+	state: LogStateState
+	buffer: string
+	error: boolean
+}
+
 export class WasmBinding {
 	private wasm: WASM
 
 	private log_prefix = '[ASS_PARSER] '
+	private log_state: LogState = { state: 'empty', buffer: '', error: false }
 
 	private constructor(wasm: WASM) {
 		this.wasm = wasm
@@ -118,18 +148,48 @@ export class WasmBinding {
 		)
 		// TODO: WASM platform_panic() does not halt the game
 	}
-	// void platform_log(const char* message);
-	private platform_log(message_ptr: Ptr<Char>): void {
-		const buffer = this.get_memory_buffer()
-		const message = cstr_by_ptr(buffer, message_ptr)
-		console.log(this.log_prefix + message)
+
+	// void platform_log_start(bool error)
+	private platform_log_start(error: Bool): void {
+		if (this.log_state.state != 'empty') {
+			console.error('Invalid log_start call!')
+			console.error(`Buffer had: ${this.log_state.buffer}`)
+		}
+
+		this.log_state.state = 'processing'
+		this.log_state.buffer = ''
+		this.log_state.error = get_bool(error)
 	}
 
-	// void platform_error(const char* message);
-	private platform_error(message_ptr: Ptr<Char>): void {
+	// void platform_log_add(const char* message);
+	private platform_log_add(message_ptr: Ptr<Char>): void {
+		if (this.log_state.state == 'empty') {
+			console.error('Invalid log_add call!')
+			console.error(`Buffer had: ${this.log_state.buffer}`)
+		}
+
 		const buffer = this.get_memory_buffer()
 		const message = cstr_by_ptr(buffer, message_ptr)
-		console.error(this.log_prefix + message)
+
+		this.log_state.buffer += message
+	}
+
+	// void platform_log_end(void);
+	private platform_log_end(): void {
+		if (this.log_state.state == 'empty') {
+			console.error('Invalid log_end call!')
+			console.error(`Buffer had: ${this.log_state.buffer}`)
+		}
+
+		if (this.log_state.error) {
+			console.error(this.log_prefix + this.log_state.buffer)
+		} else {
+			console.log(this.log_prefix + this.log_state.buffer)
+		}
+
+		this.log_state.state = 'empty'
+		this.log_state.buffer = ''
+		this.log_state.error = false
 	}
 
 	// void platform_string_conversion(void* data, size_t len, const char* format, void** out_data, size_t* out_len);
@@ -204,26 +264,31 @@ export class WasmBinding {
 		// for this sizes see in the meson.build file and the link arguments
 		const memory = new WebAssembly.Memory({ initial: 8, maximum: 128 })
 
+		const env: TypedWasmEnv = {
+			platform_panic: () => {
+				wasm.platform_panic.bind(wasm)
+			},
+			platform_log_start: () => {
+				wasm.platform_log_start.bind(wasm)
+			},
+			platform_log_add: () => {
+				wasm.platform_log_add.bind(wasm)
+			},
+			platform_log_end: () => {
+				wasm.platform_log_end.bind(wasm)
+			},
+			platform_string_conversion: () => {
+				wasm.platform_string_conversion.bind(wasm)
+			},
+			memory,
+		}
+
 		const result: WASM = (await WebAssembly.instantiateStreaming(
 			fetch(
 				`${prefix + (prefix.endsWith('/') ? '' : '/')}ass_parser.wasm`
 			),
 			{
-				env: {
-					platform_panic: () => {
-						wasm.platform_panic.bind(wasm)
-					},
-					platform_log: () => {
-						wasm.platform_log.bind(wasm)
-					},
-					platform_error: () => {
-						wasm.platform_error.bind(wasm)
-					},
-					platform_string_conversion: () => {
-						wasm.platform_string_conversion.bind(wasm)
-					},
-					memory,
-				},
+				env,
 			}
 		)) as WASM
 

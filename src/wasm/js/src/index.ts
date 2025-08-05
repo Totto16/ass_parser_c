@@ -10,6 +10,4 @@ async function main(): Promise<void> {
 	console.log(instance.allocator_get_statistics())
 }
 
-void main().catch((e: unknown) => {
-	console.error('Error in main function', e)
-})
+void main()
