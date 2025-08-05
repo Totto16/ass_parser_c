@@ -504,7 +504,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		return LineTypeCr;
 	}
 
-	UNREACHABLE();
+	// no newlines detected, so it doesn't matter, which line ending we report;
+	return LineTypeLf;
 
 error_cond:
 
