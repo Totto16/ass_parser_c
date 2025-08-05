@@ -101,6 +101,11 @@ export interface SizedPtr {
 	len: SizeT
 }
 
+export interface CStr {
+	data_ptr: Ptr<Char>
+	len: SizeT
+}
+
 export function get_sized_ptr_from_memory(
 	buffer: MemBuf,
 	size_ptr: SizedPtr
@@ -109,28 +114,6 @@ export function get_sized_ptr_from_memory(
 	const len = get_size_t(size_ptr.len)
 
 	return new DataView(buffer, ptr, len)
-}
-
-export function construct_ptr_error(
-	buffer: MemBuf,
-	allocator: Allocator,
-	message: string
-): SizedPtr {
-	const data = new Uint8Array(buffer)
-
-	const encoded = new TextEncoder().encode(message)
-
-	const data_ptr: Ptr<Void> = allocator.malloc(to_size_t(encoded.length))
-
-	if (get_pointer(data_ptr) == 0) {
-		return construct_ptr_error(buffer, allocator, 'allocation failed')
-	}
-
-	const ptr = get_pointer(data_ptr)
-
-	data.set(encoded, ptr)
-
-	return { data_ptr, len: to_size_t(0) }
 }
 
 export function write_ptr_to_memory<A>(
@@ -156,22 +139,42 @@ export function allocate_js_utf8_string(
 	buffer: MemBuf,
 	allocator: Allocator,
 	string: string
-): SizedPtr {
+): CStr {
 	const data = new Uint8Array(buffer)
 
 	const encoded = new TextEncoder().encode(string)
 
-	const str_length: SizeT = to_size_t(encoded.length)
+	const str_length: SizeT = to_size_t(encoded.length + 1)
 
-	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
+	const data_ptr: Ptr<Char> = ptr_cast<Void, Char>(
+		allocator.malloc(str_length)
+	)
 
 	if (get_pointer(data_ptr) == 0) {
-		return construct_ptr_error(buffer, allocator, 'allocation failed')
+		throw new Error('allocation failed')
 	}
 
 	const ptr = get_pointer(data_ptr)
 
+	const zeroByte: Uint8Array = new Uint8Array(1)
+
+	zeroByte.set([0], 0)
+
 	data.set(encoded, ptr)
+	data.set(zeroByte, ptr + encoded.length)
 
 	return { data_ptr, len: str_length }
+}
+
+export function construct_ptr_error(
+	buffer: MemBuf,
+	allocator: Allocator,
+	message: string
+): SizedPtr {
+	const str_data = allocate_js_utf8_string(buffer, allocator, message)
+
+	return {
+		data_ptr: ptr_cast<Char, Void>(str_data.data_ptr),
+		len: to_size_t(0),
+	}
 }

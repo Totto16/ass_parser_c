@@ -26,7 +26,8 @@ enum __my_malloc_alloc_status : uint8_t {
 	ALLOCED = 1,
 };
 
-typedef struct {
+#define ALIGN_BYTES 8
+typedef struct __attribute__((aligned(ALIGN_BYTES))) {
 	void* nextBlock;
 	void* previousBlock;
 	status_t status;
@@ -60,6 +61,7 @@ static GlobalObject __my_malloc_globalObject = { .global_block = (GlobalMemoryBl
 INTERNAL_FUNCTION uint64_t size_of_double_pointer_block(BlockInformation* block) {
 	if(block == NULL) {
 		PANIC("INTERNAL: This is an allocator ERROR, this shouldn't occur: block is NULL");
+		return 0;
 	} else if(block->nextBlock == NULL) {
 		const GlobalMemoryBlockinformation currentMemoryBlock =
 		    __my_malloc_globalObject.global_block;
@@ -125,13 +127,19 @@ INTERNAL_FUNCTION bool __my_malloc_block_fitsBetter(BlockInformation* toCompare,
 	return (blockSize - size) < (currentSize - size);
 }
 
-// TODO: align allocations to 8 bytes!
+#define ALIGN_UP(size, alignment) (((size) + (alignment) - 1) & ~((alignment) - 1))
 
 /**
  * @brief internal malloc, used by realloc and malloc, but doesn't lock mutexes, that is done by the
  * parent functions, DO NOT us outside of the internals of this file!
  */
-INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
+INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t user_size) {
+
+	if(user_size == 0) {
+		return NULL;
+	}
+
+	uint64_t size = ALIGN_UP(user_size, ALIGN_BYTES);
 
 	// calling my_malloc without initializing the allocator doesn't work, if that is the case,
 	// likely the uninitialized mutex access before this will crash the program, but that is here
@@ -140,9 +148,9 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 		PANIC("Calling malloc before initializing the allocator is prohibited!");
 	}
 
-	BlockInformation* bestFit = NULL;
+	BlockInformation* bestFit =
+	    (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
 
-	bestFit = (BlockInformation*)(((pseudoByte*)__my_malloc_globalObject.global_block.start));
 	BlockInformation* nextFreeBlock = (BlockInformation*)bestFit->nextBlock;
 
 	while(nextFreeBlock != NULL) {
@@ -163,8 +171,7 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 
 	// if the one that fit the best is not big enough, it means no block is big enough! If it's not
 	// free, than there was no free block
-	if(__my_malloc_globalObject.global_block.start == NULL || bestFit == NULL ||
-	   bestFit->status != FREE || blockSize < size) {
+	if(bestFit == NULL || bestFit->status != FREE || blockSize < size) {
 
 		// grow the one memory block
 
@@ -200,7 +207,7 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 		// code and searching for it, if we already have it
 
 		return __internal__my_malloc(size);
-	};
+	}
 
 	if(blockSize - size <= (sizeof(BlockInformation))) {
 		// block size and size needed for allocation is the same, only need to set the status to
@@ -218,7 +225,7 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 		bestFit->status = ALLOCED;
 
 	} else {
-		BlockInformation* newBlock =
+		volatile BlockInformation* newBlock =
 		    (BlockInformation*)(((pseudoByte*)bestFit + sizeof(BlockInformation)) + size);
 
 		// the new gap is at least 1 byte big, see above!
@@ -228,10 +235,10 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t size) {
 		newBlock->previousBlock = bestFit;
 
 		bestFit->status = ALLOCED;
-		bestFit->nextBlock = newBlock;
+		bestFit->nextBlock = (void*)newBlock;
 
 		if(newBlock->nextBlock != NULL) {
-			((BlockInformation*)newBlock->nextBlock)->previousBlock = newBlock;
+			((BlockInformation*)newBlock->nextBlock)->previousBlock = (BlockInformation*)newBlock;
 		}
 	}
 

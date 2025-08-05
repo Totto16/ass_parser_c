@@ -16,5 +16,8 @@ extern FILE* stderr_f;
 #define stdout stdout_f
 #define stderr stderr_f
 
-int fprintf(FILE* restrict stream, const char* restrict format, ...);
-int snprintf(char* restrict s, size_t n, const char* restrict format, ...);
+__attribute__((format(printf, 2, 3))) int fprintf(FILE* restrict stream,
+                                                  const char* restrict format, ...);
+
+__attribute__((format(printf, 3, 4))) int snprintf(char* restrict s, size_t n,
+                                                   const char* restrict format, ...);

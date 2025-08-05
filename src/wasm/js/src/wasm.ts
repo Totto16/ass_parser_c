@@ -247,7 +247,11 @@ export class WasmBinding {
 				string
 			)
 
-			write_ptr_to_memory(buffer, out_data_ptr, allocated_string.data_ptr)
+			write_ptr_to_memory(
+				buffer,
+				out_data_ptr,
+				ptr_cast<Char, Void>(allocated_string.data_ptr)
+			)
 
 			write_size_t_to_memory(buffer, out_len_ptr, allocated_string.len)
 		} catch (err) {
@@ -362,7 +366,7 @@ export class WasmBinding {
 
 		const ass_source: WasmStructRef<AssSource> =
 			this.wasm.instance.exports.source_from_string(
-				ptr_cast<Void, Char>(source_string.data_ptr),
+				source_string.data_ptr,
 				source_string.len
 			)
 
