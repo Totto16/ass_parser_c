@@ -109,11 +109,11 @@ export interface CStr {
 export function get_sized_ptr_from_memory(
 	buffer: MemBuf,
 	size_ptr: SizedPtr
-): ArrayBufferView {
+): Uint8Array {
 	const ptr = get_pointer(size_ptr.data_ptr)
 	const len = get_size_t(size_ptr.len)
 
-	return new DataView(buffer, ptr, len)
+	return new Uint8Array(buffer, ptr, len)
 }
 
 export function write_ptr_to_memory<A>(
@@ -143,36 +143,31 @@ export function allocate_js_utf8_string(
 ): CStr {
 	const data = new Uint8Array(buffer)
 
-	const encoded = new TextEncoder().encode(string)
+	const encoded = new TextEncoder().encode(string + '\0')
 
 	const bom: number[] = [0xef, 0xbb, 0xbf]
 
 	const bom_length = allocate_bom ? bom.length : 0
 
-	const str_length: SizeT = to_size_t(bom_length + encoded.length + 1)
+	const str_length: SizeT = to_size_t(bom_length + encoded.length)
 
 	const data_ptr: Ptr<Char> = ptr_cast<Void, Char>(
 		allocator.malloc(str_length)
 	)
 
-	if (get_pointer(data_ptr) == 0) {
-		throw new Error('allocation failed')
-	}
-
 	const ptr = get_pointer(data_ptr)
 
-	const zeroByte: Uint8Array = new Uint8Array(1)
-
-	zeroByte.set([0], 0)
+	if (ptr == 0) {
+		throw new Error('allocation failed')
+	}
 
 	if (allocate_bom) {
 		data.set(bom, ptr)
 	}
 
 	data.set(encoded, ptr + bom_length)
-	data.set(zeroByte, ptr + bom_length + encoded.length)
 
-	console.log(data.subarray(ptr, ptr + encoded.length + 1 + bom_length))
+	console.log(data.subarray(ptr, ptr + encoded.length + bom_length))
 
 	return { data_ptr, len: str_length }
 }

@@ -57,14 +57,11 @@ export type AllocatorStatisticsJS = AllocatorStatisticsImpl<UInt64TJs>
 
 interface WASMExports extends WebAssembly.Exports, Allocator {
 	parse_ass: (
-		source: WasmStructRef<AssSource>,
-		settings: WasmStructRef<ParseSettings>
+		source: WasmStructRef<AssSource> | Ptr<AssSource>,
+		settings: WasmStructRef<ParseSettings> | Ptr<ParseSettings>
 	) => Ptr<AssParseResult>
-	source_from_string: (
-		source: Ptr<Char>,
-		len: SizeT
-	) => WasmStructRef<AssSource>
-	default_parse_settings: () => WasmStructRef<ParseSettings>
+	source_from_string: (source: Ptr<Char>, len: SizeT) => Ptr<AssSource>
+	default_parse_settings: () => Ptr<ParseSettings>
 	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
 	allocator_statistics_get_free: (
 		statistics: WasmStructRef<AllocatorStatistics>
@@ -235,7 +232,7 @@ export class WasmBinding {
 				}
 			}
 
-			const data: ArrayBufferView = get_sized_ptr_from_memory(buffer, {
+			const data: Uint8Array = get_sized_ptr_from_memory(buffer, {
 				data_ptr,
 				len,
 			})
@@ -364,17 +361,23 @@ export class WasmBinding {
 		const allocator = this.get_allocator()
 
 		//TODO: allocate bom
-		const source_string = allocate_js_utf8_string(buffer, allocator, source)
+		const source_string = allocate_js_utf8_string(
+			buffer,
+			allocator,
+			source,
+			true
+		)
 
 		console.log(source_string)
 
-		const ass_source: WasmStructRef<AssSource> =
+		const ass_source: Ptr<AssSource> =
 			this.wasm.instance.exports.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
 
-		const parse_settings: WasmStructRef<ParseSettings> =
+		console.log('ass_source', ass_source)
+		const parse_settings: Ptr<ParseSettings> =
 			this.wasm.instance.exports.default_parse_settings()
 
 		const result = this.wasm.instance.exports.parse_ass(

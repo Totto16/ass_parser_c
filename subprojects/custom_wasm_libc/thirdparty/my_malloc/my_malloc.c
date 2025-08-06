@@ -578,13 +578,15 @@ void* my_realloc(void* ptr, uint64_t size) {
  *
  */
 
-extern char __heap_base[];
+extern volatile void* __heap_base;
 
 void my_allocator_init(void) {
 	__my_malloc_globalObject.global_block =
 	    (GlobalMemoryBlockinformation){ .size = 0, .start = NULL };
 
-	GlobalMemoryBlockinformation global_block = { .start = __heap_base, .size = 0 };
+	// see: https://nickav.co/posts/0003_wasm_from_scratch
+	// IMPORTANT! get the _address_ of the __heap_base symbol
+	GlobalMemoryBlockinformation global_block = { .start = (void*)(&__heap_base), .size = 0 };
 
 	size_t heap_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
 
