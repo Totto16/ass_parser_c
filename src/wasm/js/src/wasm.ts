@@ -353,28 +353,44 @@ export class WasmBinding {
 		return js_result
 	}
 
-	public parse_ass(
-		source: string,
+	public async parse_ass(
+		source: string | File,
 		settings: ParseSettingsJS
-	): AssParseResultJS {
+	): Promise<AssParseResultJS> {
 		const buffer = this.get_memory_buffer()
 		const allocator = this.get_allocator()
 
-		//TODO: allocate bom
-		const source_string = allocate_js_utf8_string(
-			buffer,
-			allocator,
-			source,
-			true
-		)
+		let ass_source: Ptr<AssSource>
 
-		console.log(source_string)
+		if (typeof source === 'string') {
+			const source_string = allocate_js_utf8_string(
+				buffer,
+				allocator,
+				source,
+				true
+			)
 
-		const ass_source: Ptr<AssSource> =
-			this.wasm.instance.exports.source_from_string(
+			console.log(source_string)
+
+			ass_source = this.wasm.instance.exports.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
+		} else {
+			const content = await source.arrayBuffer()
+			console.log(content)
+
+			const source_string = make_string_from_array_buffer(
+				buffer,
+				allocator,
+				content
+			)
+
+			ass_source = this.wasm.instance.exports.source_from_string(
+				source_string.data_ptr,
+				source_string.len
+			)
+		}
 
 		console.log('ass_source', ass_source)
 		const parse_settings: Ptr<ParseSettings> =
