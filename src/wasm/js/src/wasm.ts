@@ -26,6 +26,7 @@ import {
 	get_c_enum_from_enum,
 	get_c_bool,
 	c_bool_to_int,
+	nullptr,
 } from './c_helper'
 
 import type { Expect } from 'type-testing'
@@ -49,6 +50,14 @@ type SettingsOptionC = typeof _SettingsOption_SYM
 declare const _AllocatorStatistics_SYM: unique symbol
 
 type AllocatorStatistics = typeof _AllocatorStatistics_SYM
+
+declare const _Diagnostics_SYM: unique symbol
+
+type DiagnosticsC = typeof _Diagnostics_SYM
+
+declare const _AssResult_SYM: unique symbol
+
+type AssResultC = typeof _AssResult_SYM
 
 export interface ScriptInfoStrictSettings {
 	allow_duplicate_fields: boolean
@@ -102,18 +111,6 @@ export enum SettingsOption {
 	SettingsOption_Validate_validate_text,
 }
 
-export class AssParseResult {
-	private freelist: FreeList
-
-	constructor(freelist: FreeList) {
-		this.freelist = freelist
-	}
-
-	public free(): void {
-		this.freelist.free()
-	}
-}
-
 interface AllocatorStatisticsImpl<A> {
 	total: A
 	free: A
@@ -149,6 +146,11 @@ interface WASMExportsFn {
 		statistics: WasmStructRef<AllocatorStatistics>
 	) => UInt64T
 	free_parse_result: (result: Ptr<AssParseResultC>) => void
+	get_diagnostics_from_result: (
+		result: Ptr<AssParseResultC>
+	) => Ptr<DiagnosticsC>
+	parse_result_is_error: (result: Ptr<AssParseResultC>) => Bool
+	parse_result_get_value: (result: Ptr<AssParseResultC>) => Ptr<AssResultC>
 	_initialize: () => void
 }
 
@@ -684,8 +686,6 @@ export class WasmBinding {
 
 		const freelist = new FreeList()
 
-		freelist.add(result, this.wasm.instance.exports.free_parse_result)
-
 		freelist.add(
 			ptr_cast<AssSource, Void>(ass_source),
 			this.wasm.instance.exports.free
@@ -696,8 +696,102 @@ export class WasmBinding {
 			this.wasm.instance.exports.free
 		)
 
-		const ass_result = new AssParseResult(freelist)
+		const ass_result = new AssParseResult(this.wasm, result, freelist)
 
 		return ass_result
+	}
+}
+
+abstract class CDisposable implements Disposable {
+	protected freelist: FreeList
+
+	constructor(freelist: FreeList) {
+		this.freelist = freelist
+	}
+
+	protected abstract set_freed(): void
+
+	private is_free = false
+
+	protected assert_not_freed(message = ''): void {
+		if (this.is_free) {
+			throw new Error(
+				`Tried to operate on freed value:${message ? ` ${message}` : ''}`
+			)
+		}
+	}
+
+	public free(): void {
+		if (!this.is_free) {
+			this.freelist.free()
+
+			this.is_free = true
+
+			this.set_freed()
+		}
+	}
+
+	[Symbol.dispose](): void {
+		this.free()
+	}
+}
+
+export class AssParseResult extends CDisposable {
+	private wasm: WASM
+	private result: Ptr<AssParseResultC>
+
+	constructor(wasm: WASM, result: Ptr<AssParseResultC>, freelist: FreeList) {
+		super(freelist)
+
+		this.wasm = wasm
+		this.result = result
+
+		freelist.add(result, this.wasm.instance.exports.free_parse_result)
+	}
+
+	private is_error_value: null | boolean = null
+
+	public is_error(): boolean {
+		this.assert_not_freed('result is a valid ptr')
+
+		if (this.is_error_value !== null) {
+			return this.is_error_value
+		}
+
+		this.is_error_value = get_bool(
+			this.wasm.instance.exports.parse_result_is_error(this.result)
+		)
+
+		return this.is_error_value
+	}
+
+	public diagnostics(): Diagnostics {
+		this.assert_not_freed('result is a valid ptr')
+
+		const c_diagnostics =
+			this.wasm.instance.exports.get_diagnostics_from_result(this.result)
+
+		const diagnostics = new Diagnostics(this.wasm, c_diagnostics)
+
+		return diagnostics
+	}
+
+	protected set_freed(): void {
+		this.result = ptr_cast<Void, AssParseResultC>(nullptr())
+	}
+}
+
+export class Diagnostics extends CDisposable {
+	private wasm: WASM
+	private diagnostics: Ptr<DiagnosticsC>
+
+	constructor(wasm: WASM, diagnostics: Ptr<DiagnosticsC>) {
+		super(new FreeList())
+		this.wasm = wasm
+		this.diagnostics = diagnostics
+	}
+
+	protected set_freed(): void {
+		this.diagnostics = ptr_cast<Void, DiagnosticsC>(nullptr())
 	}
 }

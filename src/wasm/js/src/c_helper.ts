@@ -111,8 +111,16 @@ export interface Allocator {
 	free: (ptr: Ptr<Void>) => Void
 }
 
-function get_pointer<a extends CType>(ptr_r: Ptr<a>): number {
+function get_ptr<a extends CType>(ptr_r: Ptr<a>): number {
 	return ptr_r as unknown as number
+}
+
+function get_c_ptr<A extends CType>(val: number): Ptr<A> {
+	return val as unknown as Ptr<A>
+}
+
+export function nullptr(): Ptr<Void> {
+	return get_c_ptr<Void>(0)
 }
 
 export function ptr_cast<a extends CType, b extends CType>(
@@ -160,7 +168,7 @@ function to_size_t(num: number): SizeT {
 }
 
 function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
-	let ptr = get_pointer(ptr_r)
+	let ptr = get_ptr(ptr_r)
 	let len = 0
 	while (mem[ptr] != 0) {
 		len++
@@ -172,7 +180,7 @@ function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
 export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: Ptr<Char>): string {
 	const mem = new Uint8Array(mem_buffer)
 
-	const ptr = get_pointer(ptr_r)
+	const ptr = get_ptr(ptr_r)
 
 	const len = cstrlen(mem, ptr_r)
 	const bytes = new Uint8Array(mem_buffer, ptr, len)
@@ -193,7 +201,7 @@ export function get_sized_ptr_from_memory(
 	buffer: MemBuf,
 	size_ptr: SizedPtr
 ): Uint8Array {
-	const ptr = get_pointer(size_ptr.data_ptr)
+	const ptr = get_ptr(size_ptr.data_ptr)
 	const len = get_size_t(size_ptr.len)
 
 	return new Uint8Array(buffer, ptr, len)
@@ -206,7 +214,7 @@ export function write_ptr_to_memory<A extends CType>(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_pointer(ptr), get_pointer(value))
+	data.setUint32(get_ptr(ptr), get_ptr(value))
 }
 export function write_size_t_to_memory(
 	buffer: MemBuf,
@@ -215,7 +223,7 @@ export function write_size_t_to_memory(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_pointer(ptr), get_size_t(value))
+	data.setUint32(get_ptr(ptr), get_size_t(value))
 }
 
 function sized_ptr_to_cstr(ptr: SizedPtr): CStr {
@@ -233,7 +241,7 @@ function copy_js_array_to_wasm_memory(
 
 	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
 
-	const ptr = get_pointer(data_ptr)
+	const ptr = get_ptr(data_ptr)
 
 	if (ptr == 0) {
 		throw new Error('allocation failed')

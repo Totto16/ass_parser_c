@@ -2547,6 +2547,18 @@ static void free_ass_result(AssResult data) {
 	return result->data.ok;
 }
 
+#ifdef __WASM__
+
+Diagnostics* get_diagnostics_from_result_js(AssParseResult* result) {
+	return &(result->diagnostics);
+}
+
+AssResult* parse_result_get_value_js(AssParseResult* result) {
+	return &(result->data.ok);
+}
+
+#endif
+
 void free_parse_result(AssParseResult* result) {
 	if(!result->is_error) {
 		free_ass_result(result->data.ok);
