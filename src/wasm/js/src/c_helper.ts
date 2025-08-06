@@ -167,8 +167,6 @@ export function allocate_js_utf8_string(
 
 	data.set(encoded, ptr + bom_length)
 
-	console.log(data.subarray(ptr, ptr + encoded.length + bom_length))
-
 	return { data_ptr, len: str_length }
 }
 

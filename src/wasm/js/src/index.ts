@@ -5,7 +5,7 @@ async function main(): Promise<void> {
 
 	console.log(instance.allocator_get_statistics())
 
-	console.log(instance.parse_ass('hello', { todo: 0 }))
+	console.log(instance.parse_ass('[Script Info]\nhello', { todo: 0 }))
 
 	console.log(instance.allocator_get_statistics())
 }

@@ -82,6 +82,7 @@ function retrieveConfig(
 		plugins: [
 			new HtmlWebpackPlugin({
 				filename: 'index.html',
+				template: path.resolve(__dirname, 'static/index.html'),
 			}),
 			new MiniCssExtractPlugin({
 				filename: '[name].css',

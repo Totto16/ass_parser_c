@@ -2308,7 +2308,6 @@ static void free_ass_result(AssResult data) {
 #define RETURN_ERROR_IMPL(err, pos) \
 	do { \
 		INSERT_SIMPLE_ERROR(result->diagnostics.entries, err, pos); \
-		fprintf(stderr, "error returned at %s:%d", __FILE__, __LINE__); \
 		RETURN_ERROR_NO_MESSAGE(); \
 	} while(false)
 
@@ -2413,7 +2412,6 @@ static void free_ass_result(AssResult data) {
 		}
 	}
 
-	fprintf(stderr, "freed source data");
 	free_sized_ptr(source_data);
 
 	if(codepoints_result.has_error) {

@@ -390,6 +390,12 @@ export class WasmBinding {
 
 		this.wasm.instance.exports.free_parse_result(result)
 
+		this.wasm.instance.exports.free(ptr_cast<AssSource, Void>(ass_source))
+
+		this.wasm.instance.exports.free(
+			ptr_cast<ParseSettings, Void>(parse_settings)
+		)
+
 		return {
 			todo: 0,
 		}
