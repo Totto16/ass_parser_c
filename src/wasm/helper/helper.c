@@ -1,5 +1,6 @@
 #include "./helper.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 uint64_t allocator_statistics_get_free(AllocatorStatistics statistics) {
@@ -57,4 +58,52 @@ ParseSettings* default_parse_settings(void) {
 		                    .validate_styles = true };
 
 	return result;
+}
+
+#define BOOL_VAL(val) ((bool)(val) ? true : false)
+
+void set_settings_option(ParseSettings* settings, SettingsOption option, int value) {
+
+	switch(option) {
+		case SettingsOption_Strict_Script_allow_duplicate_fields: {
+			settings->strict_settings.script_info.allow_duplicate_fields = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Strict_Script_allow_missing_script_type: {
+			settings->strict_settings.script_info.allow_missing_script_type = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Strict_allow_additional_fields: {
+			settings->strict_settings.allow_additional_fields = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Strict_allow_number_truncating: {
+			settings->strict_settings.allow_number_truncating = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Strict_allow_unrecognized_file_encoding: {
+			settings->strict_settings.allow_unrecognized_file_encoding = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Strict_allow_validation_errors: {
+			settings->strict_settings.allow_validation_errors = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Validate_Font_preset: {
+			settings->validate_settings.font_settings.preset = (FontPreset)value;
+			break;
+		}
+		case SettingsOption_Validate_validate_styles: {
+			settings->validate_settings.validate_styles = BOOL_VAL(value);
+			break;
+		}
+		case SettingsOption_Validate_validate_text: {
+			settings->validate_settings.validate_text = BOOL_VAL(value);
+			break;
+		}
+		default: {
+			PANIC("UNRECAHBLE");
+			break;
+		}
+	}
 }

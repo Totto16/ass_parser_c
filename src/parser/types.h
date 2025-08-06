@@ -33,7 +33,7 @@ typedef struct {
 } StrictSettings;
 
 typedef enum : uint8_t {
-	FontPresetDisabled,
+	FontPresetDisabled = 0,
 	FontPresetStrictAll,
 	FontPresetStrict,
 	FontPresetModerate,

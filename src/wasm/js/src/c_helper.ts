@@ -2,7 +2,9 @@ import type { Expect } from 'type-testing'
 
 declare const _Nested_Key_SYM: unique symbol
 
-type NestedCType = { _Nested_Key_SYM: true }
+interface NestedCType {
+	_Nested_Key_SYM: true
+}
 
 type CTypeSimple = symbol
 
@@ -10,6 +12,7 @@ type CType = CTypeSimple | NestedCType
 
 type IsCType<A> = A extends CType ? true : false
 
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type IRetCType<T> = T extends void ? true : IsCType<T>
 
 type IsCTypeArg<T> = IsCType<T>
@@ -31,11 +34,9 @@ type IsCFunc<C> = C extends (...args: infer Args) => infer Ret
 
 type AreAllFunctionCFnImpl<O, T extends keyof O> = [T] extends [never]
 	? true
-	: T extends any
-		? IsCFunc<O[T]> extends true
-			? true
-			: false
-		: never
+	: IsCFunc<O[T]> extends true
+		? true
+		: false
 
 export type AreAllFunctionCFns<O> = AreAllFunctionCFnImpl<O, keyof O>
 
@@ -127,6 +128,23 @@ export function get_bool(value_r: Bool): boolean {
 
 export function get_int(int_r: Int): number {
 	return int_r as unknown as number
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+export function get_c_enum_from_enum<E extends number, C extends CType>(
+	enum_v: E
+): C {
+	return enum_v as unknown as C
+}
+
+export function c_bool_to_int(inp: Bool): Int {
+	return inp as unknown as Int
+}
+
+export function get_c_bool(inp: boolean): Bool {
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion, no-extra-boolean-cast
+	const val: number = !!inp ? 1 : 0
+	return val as unknown as Bool
 }
 
 export function get_size_t(size_t_r: SizeT): number {

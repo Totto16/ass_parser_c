@@ -5,7 +5,9 @@ import { uiStart } from './ui'
 async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	console.log(instance.allocator_get_statistics())
 	const result = await instance.parse_ass(file, {
-		allow_unrecognized_file_encoding: true,
+		strict_settings: {
+			allow_unrecognized_file_encoding: true,
+		},
 	})
 
 	//TODO

@@ -22,7 +22,9 @@ import {
 	ptr_cast,
 	make_string_from_array_buffer,
 	type AreAllFunctionCFns,
-	type AreAllFunctionCFnImpl,
+	get_c_enum_from_enum,
+	get_c_bool,
+	c_bool_to_int,
 } from './c_helper'
 
 import type { Expect } from 'type-testing'
@@ -93,10 +95,10 @@ export enum SettingsOption {
 	SettingsOption_Strict_allow_unrecognized_file_encoding,
 	SettingsOption_Strict_allow_validation_errors,
 	//
-	SettingsOption_Parse_Font_preset,
+	SettingsOption_Validate_Font_preset,
 	//
-	SettingsOption_Parse_validate_styles,
-	SettingsOption_Parse_validate_text,
+	SettingsOption_Validate_validate_styles,
+	SettingsOption_Validate_validate_text,
 }
 
 export interface AssParseResult {
@@ -183,6 +185,14 @@ interface LogState {
 	buffer: string
 	error: boolean
 }
+
+type DeepPartial<T> = T extends (...args: unknown[]) => unknown
+	? T
+	: T extends (infer U)[]
+		? DeepPartial<U>[]
+		: T extends object
+			? { [P in keyof T]?: DeepPartial<T[P]> }
+			: T
 
 export class WasmBinding {
 	private wasm: WASM
@@ -425,14 +435,201 @@ export class WasmBinding {
 
 	private modify_parse_settings(
 		ptr: Ptr<ParseSettingsC>,
-		settings: ParseSettings
-	) {
-		//for()
+		settings: DeepPartial<ParseSettings>
+	): void {
+		const SET_OPS: SettingsOption[] = [
+			SettingsOption.SettingsOption_Strict_Script_allow_duplicate_fields,
+			SettingsOption.SettingsOption_Strict_Script_allow_missing_script_type,
+			SettingsOption.SettingsOption_Strict_allow_additional_fields,
+			SettingsOption.SettingsOption_Strict_allow_number_truncating,
+			SettingsOption.SettingsOption_Strict_allow_unrecognized_file_encoding,
+			SettingsOption.SettingsOption_Strict_allow_validation_errors,
+			SettingsOption.SettingsOption_Validate_Font_preset,
+			SettingsOption.SettingsOption_Validate_validate_styles,
+			SettingsOption.SettingsOption_Validate_validate_text,
+		]
+
+		type SetCommand = [option: SettingsOptionC, value: Int]
+
+		function get_command_data(op: SettingsOption): SetCommand | undefined {
+			const opV: SettingsOptionC = get_c_enum_from_enum<
+				SettingsOption,
+				SettingsOptionC
+			>(op)
+
+			switch (op) {
+				case SettingsOption.SettingsOption_Strict_Script_allow_duplicate_fields: {
+					if (
+						settings.strict_settings?.script_info
+							?.allow_duplicate_fields === undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings.script_info
+									.allow_duplicate_fields
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Strict_Script_allow_missing_script_type: {
+					if (
+						settings.strict_settings?.script_info
+							?.allow_missing_script_type === undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings.script_info
+									.allow_missing_script_type
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Strict_allow_additional_fields: {
+					if (
+						settings.strict_settings?.allow_additional_fields ===
+						undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings.allow_additional_fields
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Strict_allow_number_truncating: {
+					if (
+						settings.strict_settings?.allow_number_truncating ===
+						undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings.allow_number_truncating
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Strict_allow_unrecognized_file_encoding: {
+					if (
+						settings.strict_settings
+							?.allow_unrecognized_file_encoding === undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings
+									.allow_unrecognized_file_encoding
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Strict_allow_validation_errors: {
+					if (
+						settings.strict_settings?.allow_validation_errors ===
+						undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.strict_settings.allow_validation_errors
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Validate_Font_preset: {
+					if (
+						settings.validate_settings?.font_settings?.preset ===
+						undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						get_c_enum_from_enum<FontPreset, Int>(
+							settings.validate_settings.font_settings.preset
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Validate_validate_styles: {
+					if (
+						settings.validate_settings?.validate_styles ===
+						undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(
+								settings.validate_settings.validate_styles
+							)
+						),
+					]
+				}
+				case SettingsOption.SettingsOption_Validate_validate_text: {
+					if (
+						settings.validate_settings?.validate_text === undefined
+					) {
+						return undefined
+					}
+
+					return [
+						opV,
+						c_bool_to_int(
+							get_c_bool(settings.validate_settings.validate_text)
+						),
+					]
+				}
+				default:
+					throw new Error('Implementation error')
+			}
+		}
+
+		const set_commands: SetCommand[] = SET_OPS.map((op) =>
+			get_command_data(op)
+		).filter((f) => f != undefined)
+
+		for (const set_command of set_commands) {
+			this.wasm.instance.exports.set_settings_option(
+				ptr,
+				set_command[0],
+				set_command[1]
+			)
+		}
 	}
 
 	public async parse_ass(
 		source: string | File,
-		settings: ParseSettings
+		settings: DeepPartial<ParseSettings>
 	): Promise<AssParseResult> {
 		const buffer = this.get_memory_buffer()
 		const allocator = this.get_allocator()

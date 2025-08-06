@@ -20,7 +20,7 @@
 		"moduleResolution": "node",
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
-		"noImplicitOverride": true
+		"noUnusedLocals": false,
 	},
 	"exclude": [
 		"node_modules/"
