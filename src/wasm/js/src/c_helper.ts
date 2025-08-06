@@ -295,3 +295,25 @@ export function construct_ptr_error(
 		len: to_size_t(0),
 	}
 }
+
+export type FreeFn<A extends CType> = (arg: Ptr<A>) => void
+
+export type FreeData<A extends CType> = [value: Ptr<A>, free_fn: FreeFn<A>]
+
+export class FreeList {
+	private list: FreeData<Void>[]
+
+	constructor() {
+		this.list = []
+	}
+
+	public add<B extends CType>(ptr: Ptr<B>, free_fn: FreeFn<B>): void {
+		this.list.push([ptr_cast<B, Void>(ptr), free_fn as FreeFn<Void>])
+	}
+
+	public free(): void {
+		for (const value of this.list) {
+			value[1](value[0])
+		}
+	}
+}

@@ -2,6 +2,7 @@ import {
 	allocate_js_utf8_string,
 	construct_ptr_error,
 	cstr_by_ptr,
+	FreeList,
 	get_int,
 	get_sized_ptr_from_memory,
 	write_ptr_to_memory,
@@ -101,8 +102,16 @@ export enum SettingsOption {
 	SettingsOption_Validate_validate_text,
 }
 
-export interface AssParseResult {
-	todo: number
+export class AssParseResult {
+	private freelist: FreeList
+
+	constructor(freelist: FreeList) {
+		this.freelist = freelist
+	}
+
+	public free(): void {
+		this.freelist.free()
+	}
 }
 
 interface AllocatorStatisticsImpl<A> {
@@ -644,15 +653,12 @@ export class WasmBinding {
 				true
 			)
 
-			console.log(source_string)
-
 			ass_source = this.wasm.instance.exports.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
 		} else {
 			const content = await source.arrayBuffer()
-			console.log(content)
 
 			const source_string = make_string_from_array_buffer(
 				buffer,
@@ -666,7 +672,6 @@ export class WasmBinding {
 			)
 		}
 
-		console.log('ass_source', ass_source)
 		const parse_settings: Ptr<ParseSettingsC> =
 			this.wasm.instance.exports.default_parse_settings()
 
@@ -677,19 +682,22 @@ export class WasmBinding {
 			parse_settings
 		)
 
-		//TODO
-		console.log(result)
+		const freelist = new FreeList()
 
-		this.wasm.instance.exports.free_parse_result(result)
+		freelist.add(result, this.wasm.instance.exports.free_parse_result)
 
-		this.wasm.instance.exports.free(ptr_cast<AssSource, Void>(ass_source))
-
-		this.wasm.instance.exports.free(
-			ptr_cast<ParseSettingsC, Void>(parse_settings)
+		freelist.add(
+			ptr_cast<AssSource, Void>(ass_source),
+			this.wasm.instance.exports.free
 		)
 
-		return {
-			todo: 0,
-		}
+		freelist.add(
+			ptr_cast<ParseSettingsC, Void>(parse_settings),
+			this.wasm.instance.exports.free
+		)
+
+		const ass_result = new AssParseResult(freelist)
+
+		return ass_result
 	}
 }

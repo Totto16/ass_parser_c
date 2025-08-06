@@ -13,6 +13,7 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	//TODO
 	console.log(result)
 
+	result.free()
 	console.log(instance.allocator_get_statistics())
 }
 
