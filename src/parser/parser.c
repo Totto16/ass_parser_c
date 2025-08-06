@@ -2424,7 +2424,7 @@ static void free_ass_result(AssResult data) {
 
 	if(final_data.data.data_const == NULL && final_data.size == 0) {
 		RETURN_ERROR_AT_START(
-		    STATIC_MESSAGE_STRUCT("file conversion resulted in empty UTF-8 string"));
+		    STATIC_MESSAGE_STRUCT("file conversion resulted in invalid UTF-8 string"));
 	}
 
 	result->allocated_codepoints = final_data;

@@ -2,6 +2,7 @@
 
 #include "./string.h"
 #include "./ctype.h"
+#include "./limits.h"
 #include "./stdlib.h"
 
 void* memcpy(void* dest, const void* src, size_t n) {
@@ -20,8 +21,23 @@ int memcmp(const void* s1, const void* s2, size_t n) {
 	return __builtin_memcmp(s1, s2, n);
 }
 
+// see:
+// https://github.com/esmil/musl/blob/194f9cf93da8ae62491b7386edf481ea8565ae4e/src/string/strlen.c
+#define ALIGN (sizeof(size_t))
+#define ONES ((size_t)-1 / UCHAR_MAX)
+#define HIGHS (ONES * (UCHAR_MAX / 2 + 1))
+#define HASZERO(x) ((x) - ONES & ~(x) & HIGHS)
+
 size_t strlen(const char* s) {
-	return __builtin_strlen(s);
+	const char* a = s;
+	const size_t* w;
+	for(; (uintptr_t)s % ALIGN; s++)
+		if(!*s) return s - a;
+	for(w = (const void*)s; !HASZERO(*w); w++)
+		;
+	for(s = (const void*)w; *s; s++)
+		;
+	return s - a;
 }
 
 int strcmp(const char* s1, const char* s2) {
