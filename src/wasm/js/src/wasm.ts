@@ -20,11 +20,16 @@ import {
 	type Bool,
 	get_bool,
 	ptr_cast,
+	make_string_from_array_buffer,
+	type AreAllFunctionCFns,
+	type AreAllFunctionCFnImpl,
 } from './c_helper'
+
+import type { Expect } from 'type-testing'
 
 declare const _AssParseResult_SYM: unique symbol
 
-type AssParseResult = typeof _AssParseResult_SYM
+type AssParseResultC = typeof _AssParseResult_SYM
 
 declare const _AssSource_SYM: unique symbol
 
@@ -32,17 +37,69 @@ type AssSource = typeof _AssSource_SYM
 
 declare const _ParseSettings_SYM: unique symbol
 
-type ParseSettings = typeof _ParseSettings_SYM
+type ParseSettingsC = typeof _ParseSettings_SYM
+
+declare const _SettingsOption_SYM: unique symbol
+
+type SettingsOptionC = typeof _SettingsOption_SYM
 
 declare const _AllocatorStatistics_SYM: unique symbol
 
 type AllocatorStatistics = typeof _AllocatorStatistics_SYM
 
-export interface ParseSettingsJS {
-	todo: number
+export interface ScriptInfoStrictSettings {
+	allow_duplicate_fields: boolean
+	allow_missing_script_type: boolean
 }
 
-export interface AssParseResultJS {
+export interface StrictSettings {
+	script_info: ScriptInfoStrictSettings
+	allow_additional_fields: boolean
+	allow_number_truncating: boolean
+	allow_unrecognized_file_encoding: boolean
+	allow_validation_errors: boolean
+}
+
+export enum FontPreset {
+	'disabled' = 0,
+	'strict-all',
+	'strict',
+	'moderate',
+	'lenient',
+}
+
+export interface FontSettings {
+	preset: FontPreset
+}
+
+export interface ValidateSettings {
+	font_settings: FontSettings
+	validate_styles: boolean
+	validate_text: boolean
+}
+
+export interface ParseSettings {
+	strict_settings: StrictSettings
+	validate_settings: ValidateSettings
+}
+
+export enum SettingsOption {
+	//
+	SettingsOption_Strict_Script_allow_duplicate_fields = 0,
+	SettingsOption_Strict_Script_allow_missing_script_type,
+	//
+	SettingsOption_Strict_allow_additional_fields,
+	SettingsOption_Strict_allow_number_truncating,
+	SettingsOption_Strict_allow_unrecognized_file_encoding,
+	SettingsOption_Strict_allow_validation_errors,
+	//
+	SettingsOption_Parse_Font_preset,
+	//
+	SettingsOption_Parse_validate_styles,
+	SettingsOption_Parse_validate_text,
+}
+
+export interface AssParseResult {
 	todo: number
 }
 
@@ -55,13 +112,18 @@ interface AllocatorStatisticsImpl<A> {
 
 export type AllocatorStatisticsJS = AllocatorStatisticsImpl<UInt64TJs>
 
-interface WASMExports extends WebAssembly.Exports, Allocator {
+interface WASMExportsFn {
 	parse_ass: (
 		source: WasmStructRef<AssSource> | Ptr<AssSource>,
-		settings: WasmStructRef<ParseSettings> | Ptr<ParseSettings>
-	) => Ptr<AssParseResult>
+		settings: WasmStructRef<ParseSettingsC> | Ptr<ParseSettingsC>
+	) => Ptr<AssParseResultC>
 	source_from_string: (source: Ptr<Char>, len: SizeT) => Ptr<AssSource>
-	default_parse_settings: () => Ptr<ParseSettings>
+	default_parse_settings: () => Ptr<ParseSettingsC>
+	set_settings_option: (
+		ptr: Ptr<ParseSettingsC>,
+		option: SettingsOptionC,
+		value: Int
+	) => void
 	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
 	allocator_statistics_get_free: (
 		statistics: WasmStructRef<AllocatorStatistics>
@@ -75,12 +137,15 @@ interface WASMExports extends WebAssembly.Exports, Allocator {
 	allocator_statistics_get_metadata: (
 		statistics: WasmStructRef<AllocatorStatistics>
 	) => UInt64T
-	free_parse_result: (result: Ptr<AssParseResult>) => void
+	free_parse_result: (result: Ptr<AssParseResultC>) => void
 	_initialize: () => void
 }
 
-interface TypedWasmEnv extends WebAssembly.ModuleImports {
-	memory: WebAssembly.Memory
+type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
+
+interface WASMExports extends WebAssembly.Exports, Allocator, WASMExportsFn {}
+
+interface TypedWasmFn {
 	platform_panic: (
 		file_path_ptr: Ptr<Char>,
 		line: Int,
@@ -96,6 +161,11 @@ interface TypedWasmEnv extends WebAssembly.ModuleImports {
 		out_data_ptr: Ptr<Ptr<Void>>,
 		out_len_ptr: Ptr<SizeT>
 	) => void
+}
+
+type _expect1 = Expect<AreAllFunctionCFns<TypedWasmFn>>
+interface TypedWasmEnv extends WebAssembly.ModuleImports, TypedWasmFn {
+	memory: WebAssembly.Memory
 }
 
 interface WASMInstance extends WebAssembly.Instance {
@@ -353,10 +423,17 @@ export class WasmBinding {
 		return js_result
 	}
 
+	private modify_parse_settings(
+		ptr: Ptr<ParseSettingsC>,
+		settings: ParseSettings
+	) {
+		//for()
+	}
+
 	public async parse_ass(
 		source: string | File,
-		settings: ParseSettingsJS
-	): Promise<AssParseResultJS> {
+		settings: ParseSettings
+	): Promise<AssParseResult> {
 		const buffer = this.get_memory_buffer()
 		const allocator = this.get_allocator()
 
@@ -393,8 +470,10 @@ export class WasmBinding {
 		}
 
 		console.log('ass_source', ass_source)
-		const parse_settings: Ptr<ParseSettings> =
+		const parse_settings: Ptr<ParseSettingsC> =
 			this.wasm.instance.exports.default_parse_settings()
+
+		this.modify_parse_settings(parse_settings, settings)
 
 		const result = this.wasm.instance.exports.parse_ass(
 			ass_source,
@@ -402,14 +481,14 @@ export class WasmBinding {
 		)
 
 		//TODO
-		console.log(result, settings)
+		console.log(result)
 
 		this.wasm.instance.exports.free_parse_result(result)
 
 		this.wasm.instance.exports.free(ptr_cast<AssSource, Void>(ass_source))
 
 		this.wasm.instance.exports.free(
-			ptr_cast<ParseSettings, Void>(parse_settings)
+			ptr_cast<ParseSettingsC, Void>(parse_settings)
 		)
 
 		return {

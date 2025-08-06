@@ -2,9 +2,14 @@ import { WasmBinding } from './wasm'
 
 import { uiStart } from './ui'
 
-function process_file(instance: WasmBinding, file: File): void {
+async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	console.log(instance.allocator_get_statistics())
-	const result = instance.parse_ass(file, { todo: 0 })
+	const result = await instance.parse_ass(file, {
+		allow_unrecognized_file_encoding: true,
+	})
+
+	//TODO
+	console.log(result)
 
 	console.log(instance.allocator_get_statistics())
 }
@@ -13,7 +18,7 @@ async function main(): Promise<void> {
 	const instance = await WasmBinding.getInstance('/static/')
 
 	uiStart((file) => {
-		process_file(instance, file)
+		void process_file(instance, file)
 	})
 }
 
