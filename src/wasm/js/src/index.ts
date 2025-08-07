@@ -13,6 +13,19 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	//TODO
 	console.log(result)
 
+	console.log('is result error: ', result.is_error())
+
+	const diagnostics = result.diagnostics()
+
+	for (const diagnostic of diagnostics) {
+		console.log(diagnostic)
+	}
+
+	console.log(diagnostics.length)
+	if (diagnostics.length > 0) {
+		console.log(diagnostics[0])
+	}
+
 	console.log(instance.allocator_get_statistics())
 }
 

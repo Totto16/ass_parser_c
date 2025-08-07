@@ -48,3 +48,9 @@ typedef enum : uint8_t {
 
 PUBLIC("set_settings_option")
 void set_settings_option(ParseSettings* settings, SettingsOption option, int value);
+
+PUBLIC("diagnostics_get_length")
+size_t diagnostics_get_length(Diagnostics* diagnostics);
+
+PUBLIC("diagnostics_get_at")
+DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);

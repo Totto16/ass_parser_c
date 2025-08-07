@@ -107,3 +107,16 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 		}
 	}
 }
+
+size_t diagnostics_get_length(Diagnostics* diagnostics) {
+	// TODO
+	(void)diagnostics;
+	return 0;
+}
+
+DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index) {
+	// TODO
+	(void)diagnostics;
+	(void)index;
+	return NULL;
+}

@@ -163,7 +163,7 @@ export function get_uint64_t(val_r: UInt64T): UInt64TJs {
 	return val_r as unknown as UInt64TJs
 }
 
-function to_size_t(num: number): SizeT {
+export function get_c_size_t(num: number): SizeT {
 	return num as unknown as SizeT
 }
 
@@ -237,7 +237,7 @@ function copy_js_array_to_wasm_memory(
 ): SizedPtr {
 	const data = new Uint8Array(buffer)
 
-	const str_length: SizeT = to_size_t(array.length)
+	const str_length: SizeT = get_c_size_t(array.length)
 
 	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
 
@@ -300,7 +300,7 @@ export function construct_ptr_error(
 
 	return {
 		data_ptr: ptr_cast<Char, Void>(str_data.data_ptr),
-		len: to_size_t(0),
+		len: get_c_size_t(0),
 	}
 }
 
