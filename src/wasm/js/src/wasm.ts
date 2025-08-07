@@ -27,11 +27,11 @@ import {
 	get_c_bool,
 	c_bool_to_int,
 	nullptr,
-	get_size_t,
-	get_c_size_t,
+	type CType,
+	CArrayGeneric,
 } from './c_helper'
 
-import type { Expect } from 'type-testing'
+import type { Equal, Expect } from 'type-testing'
 
 declare const _AssParseResult_SYM: unique symbol
 
@@ -60,6 +60,9 @@ type DiagnosticsC = typeof _Diagnostics_SYM
 declare const _Diagnostic_SYM: unique symbol
 
 type DiagnosticC = typeof _Diagnostic_SYM
+
+//TODO
+//type DiagnosticsArrayC = CArrayType<Diagnostics, Diagnostic>
 
 declare const _AssResult_SYM: unique symbol
 
@@ -163,6 +166,9 @@ interface WASMExportsFn {
 		diagnostics: Ptr<DiagnosticsC>,
 		index: SizeT
 	) => Ptr<DiagnosticC>
+
+	abcs_get_length: (a: Ptr<Void>) => SizeT
+	abcs_get_at: (a: Ptr<Char>, index: SizeT) => Ptr<SizeT>
 }
 
 type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
@@ -792,121 +798,167 @@ export class AssParseResult extends CDisposable {
 	}
 }
 
-export class IndexOutOfBoundError extends RangeError {
-	index: number
-	length: number
-
-	constructor(index: number, length: number) {
-		super(
-			`Index ${index.toString()} is out of bounds for array of length ${length.toString()}.`
-		)
-		this.name = 'IndexOutOfBoundError'
-		this.index = index
-		this.length = length
-
-		Error.captureStackTrace(this, IndexOutOfBoundError)
-	}
-}
-
 export interface Diagnostic {
 	todo: number
 }
 
-export class Diagnostics implements Iterable<Diagnostic> {
+type PararmsOf<F> = F extends (...args: infer Args) => infer Rest
+	? [Args, Rest]
+	: never
+
+type ValidLengthArrayFn<F> =
+	PararmsOf<F> extends [args: infer Args, infer Rest]
+		? Rest extends SizeT
+			? Args extends [infer A]
+				? A extends Ptr<infer C>
+					? C extends CType
+						? [true, C]
+						: [false, 'Ptr without CTpye as first argument']
+					: [false, 'no ptr as first argument', { o: A }]
+				: [false, 'args amount invalid']
+			: [false, 'invalid return type']
+		: [false, 'no fn']
+
+type GetLengthFnsImpl<T> = {
+	[K in keyof T]: K extends `${infer Start}_get_length`
+		? [Start, ValidLengthArrayFn<T[K]>]
+		: never
+}[keyof T]
+
+type ValidGetArrayFn<F> =
+	PararmsOf<F> extends [args: infer Args, infer Rest]
+		? Args extends [infer A, infer B]
+			? A extends Ptr<infer C>
+				? C extends CType
+					? B extends SizeT
+						? Rest extends Ptr<infer D>
+							? D extends CType
+								? [true, [C, D]]
+								: [false, 'Ptr without CTpye as return type']
+							: [false, 'no ptr as return type']
+						: [false, 'invalid second argument type']
+					: [false, 'Ptr without CTpye as first argument']
+				: [false, 'no ptr as first argument']
+			: [false, 'args amount invalid']
+		: [false, 'no fn']
+
+type GetIndexFnsImpl<T> = {
+	[K in keyof T]: K extends `${infer Start}_get_at`
+		? [Start, ValidGetArrayFn<T[K]>]
+		: never
+}[keyof T]
+
+type ExtractSimpleValue<T> = T extends [infer First, rest: unknown]
+	? First
+	: never
+
+type GetIndexFnsSimple<A> = ExtractSimpleValue<GetIndexFnsImpl<A>>
+
+type GetLengthFnsSimple<A> = ExtractSimpleValue<GetLengthFnsImpl<A>>
+
+type GetListTypeFromLength<A> = A extends [start: unknown, infer Res]
+	? Res extends [true, infer Elem]
+		? Elem
+		: Res extends [false, ...errs: infer Errs]
+			? [`length error (b)`, ...Errs]
+			: 'length error: not a valid input - 2'
+	: 'length error: not a valid input - 1'
+
+type GetListTypeFromIdx<A> = A extends [start: unknown, infer Res]
+	? Res extends [true, infer Elem]
+		? Elem extends [infer Elem1, elem2: unknown]
+			? Elem1
+			: 'idx error: not a valid input - 3'
+		: Res extends [false, ...errs: infer Errs]
+			? [`idx error (b)`, ...Errs]
+			: 'idx error: not a valid input - 2'
+	: 'idx error: not a valid input - 1'
+
+type Intersection<T, U> = T extends U ? T : never
+
+type EqualImpl<A, B> = A extends B ? [true] : [false, 'not the same', A, B]
+
+type ValidateArrayFns<A, B> =
+	EqualImpl<GetListTypeFromLength<A>, GetListTypeFromIdx<B>> extends infer Arg
+		? Arg extends [true, unknown]
+			? Intersection<ExtractSimpleValue<A>, ExtractSimpleValue<B>>
+			: Arg extends [false, ...args: infer Errs]
+				? [never, ...Errs]
+				: [
+						never,
+						'no better error',
+						Equal<GetListTypeFromLength<A>, GetListTypeFromIdx<B>>,
+					]
+		: [never, 'impl error']
+
+type ArrayAccessFnsOfImpl<O> = ValidateArrayFns<
+	GetLengthFnsImpl<O>,
+	GetIndexFnsImpl<O>
+>
+
+type ArrayAccessFnsOf<O> = ArrayAccessFnsOfImpl<O>
+
+type _LengthFns = GetLengthFnsSimple<WASMExportsFn>
+
+type _IndexFns = GetIndexFnsSimple<WASMExportsFn>
+
+type _expect2 = Expect<Equal<_LengthFns, _IndexFns>>
+
+type ExportedCListAccessFns = ArrayAccessFnsOf<WASMExportsFn>
+
+type IsValidCListImpl<A> = A extends [never, ...args: unknown[]] ? false : true
+
+type _expect3 = Expect<IsValidCListImpl<ExportedCListAccessFns>>
+
+type ListTypeFromFn<C extends ExportedCListAccessFns> = Void //TODO
+
+type ElementTypeFrom<C extends ExportedCListAccessFns> = Void //TODO
+
+export class CArray<
+	JsElement,
+	CFuncLit extends ExportedCListAccessFns,
+	ListType extends ListTypeFromFn<CFuncLit> = ListTypeFromFn<CFuncLit>,
+	ElementType extends ElementTypeFrom<CFuncLit> = ElementTypeFrom<CFuncLit>,
+> extends CArrayGeneric<JsElement, ListType, ElementType> {
 	private wasm: WASM
-	private diagnostics: Ptr<DiagnosticsC>;
+	private c_func_lit: CFuncLit
 
-	[index: number]: Diagnostic
+	constructor(
+		wasm: WASM,
+		underlying_type: Ptr<ListType>,
+		c_func_lit: CFuncLit
+	) {
+		super(underlying_type)
 
-	constructor(wasm: WASM, diagnostics: Ptr<DiagnosticsC>) {
 		this.wasm = wasm
-		this.diagnostics = diagnostics
-
-		return new Proxy(this, {
-			get: (target, prop): unknown => {
-				if (typeof prop === 'string') {
-					const index = Number.parseInt(prop)
-					if (!Number.isNaN(index)) {
-						return target.at_impl(index)
-					}
-				}
-
-				return (target as Record<string | symbol, unknown>)[prop]
-			},
-			has: (target, prop: string | symbol | number): boolean => {
-				if (typeof prop === 'string') {
-					const index = Number.parseInt(prop)
-					if (!Number.isNaN(index)) {
-						return index >= 0 && index < target.length
-					}
-				}
-
-				return prop in target
-			},
-		})
+		this.c_func_lit = c_func_lit
 	}
 
-	private length_value: number | null = null
+	protected override length_of_impl(underlying_type: Ptr<ListType>): SizeT {
+		const fn: WASMExportsFn[`${CFuncLit}_get_length`] =
+			this.wasm.instance.exports[`${this.c_func_lit}_get_length`]
 
-	public get length(): number {
-		if (this.length_value !== null) {
-			return this.length_value
-		}
-
-		this.length_value = get_size_t(
-			this.wasm.instance.exports.diagnostics_get_length(this.diagnostics)
-		)
-
-		this.cached_array = new Array<null>(this.length_value).fill(null)
-
-		return this.length_value
+		return fn(underlying_type)
 	}
-
-	private cached_array: (Diagnostic | null)[] = []
-
-	private diagnostics_from_c_to_js(diagnostic: Ptr<DiagnosticC>): Diagnostic {
-		void diagnostic
-		throw new Error('TODO')
+	protected override convert_element_from_c_to_js(
+		element: Ptr<ElementType>
+	): JsElement {
+		void element
+		throw new Error('Method not implemented.')
 	}
+	protected override element_get_at_impl(
+		underlying_type: Ptr<ListType>,
+		index: SizeT
+	): Ptr<ElementType> {
+		const fn: WASMExportsFn[`${CFuncLit}_get_at`] =
+			this.wasm.instance.exports[`${this.c_func_lit}_get_at`]
 
-	private at_impl(index: number): Diagnostic {
-		if (index < 0) {
-			throw new IndexOutOfBoundError(index, this.length)
-		}
-
-		if (index >= this.length) {
-			throw new IndexOutOfBoundError(index, this.length)
-		}
-
-		const cached_entry = this.cached_array[index]
-
-		if (cached_entry === undefined) {
-			throw new Error('Implementation error')
-		}
-
-		if (cached_entry === null) {
-			const element = this.diagnostics_from_c_to_js(
-				this.wasm.instance.exports.diagnostics_get_at(
-					this.diagnostics,
-					get_c_size_t(index)
-				)
-			)
-
-			this.cached_array[index] = element
-
-			return element
-		}
-
-		return cached_entry
+		return fn(underlying_type, index)
 	}
+}
 
-	public at(index: number): Diagnostic | undefined {
-		return Array.prototype.at.call<this, [number], Diagnostic>(this, index)
-	}
-
-	*[Symbol.iterator](): Generator<Diagnostic, void, void> {
-		for (let i = 0; i < this.length; i++) {
-			yield this.at_impl(i)
-		}
+export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
+	constructor(wasm: WASM, diagnostics: Ptr<DiagnosticsC>) {
+		super(wasm, diagnostics, 'diagnostics')
 	}
 }

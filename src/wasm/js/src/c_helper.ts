@@ -8,7 +8,7 @@ interface NestedCType {
 
 type CTypeSimple = symbol
 
-type CType = CTypeSimple | NestedCType
+export type CType = CTypeSimple | NestedCType
 
 type IsCType<A> = A extends CType ? true : false
 
@@ -322,6 +322,130 @@ export class FreeList {
 	public free(): void {
 		for (const value of this.list) {
 			value[1](value[0])
+		}
+	}
+}
+
+export class IndexOutOfBoundError extends RangeError {
+	index: number
+	length: number
+
+	constructor(index: number, length: number) {
+		super(
+			`Index ${index.toString()} is out of bounds for array of length ${length.toString()}.`
+		)
+		this.name = 'IndexOutOfBoundError'
+		this.index = index
+		this.length = length
+
+		Error.captureStackTrace(this, IndexOutOfBoundError)
+	}
+}
+
+export abstract class CArrayGeneric<
+	JsElement,
+	ListType extends CType,
+	ElementType extends CType,
+> implements Iterable<JsElement>
+{
+	private underlying_type: Ptr<ListType>;
+
+	[index: number]: JsElement
+
+	constructor(underlying_type: Ptr<ListType>) {
+		this.underlying_type = underlying_type
+
+		return new Proxy(this, {
+			get: (target, prop): unknown => {
+				if (typeof prop === 'string') {
+					const index = Number.parseInt(prop)
+					if (!Number.isNaN(index)) {
+						return target.element_at_impl(index)
+					}
+				}
+
+				return (target as Record<string | symbol, unknown>)[prop]
+			},
+			has: (target, prop: string | symbol | number): boolean => {
+				if (typeof prop === 'string') {
+					const index = Number.parseInt(prop)
+					if (!Number.isNaN(index)) {
+						return index >= 0 && index < target.length
+					}
+				}
+
+				return prop in target
+			},
+		})
+	}
+
+	private length_value: number | null = null
+
+	protected abstract length_of_impl(underlying_type: Ptr<ListType>): SizeT
+
+	public get length(): number {
+		if (this.length_value !== null) {
+			return this.length_value
+		}
+
+		this.length_value = get_size_t(
+			this.length_of_impl(this.underlying_type)
+		)
+
+		this.cached_array = new Array<null>(this.length_value).fill(null)
+
+		return this.length_value
+	}
+
+	private cached_array: (JsElement | null)[] = []
+
+	protected abstract convert_element_from_c_to_js(
+		element: Ptr<ElementType>
+	): JsElement
+
+	protected abstract element_get_at_impl(
+		underlying_type: Ptr<ListType>,
+		index: SizeT
+	): Ptr<ElementType>
+
+	private element_at_impl(index: number): JsElement {
+		if (index < 0) {
+			throw new IndexOutOfBoundError(index, this.length)
+		}
+
+		if (index >= this.length) {
+			throw new IndexOutOfBoundError(index, this.length)
+		}
+
+		const cached_entry = this.cached_array[index]
+
+		if (cached_entry === undefined) {
+			throw new Error('Implementation error')
+		}
+
+		if (cached_entry === null) {
+			const element: JsElement = this.convert_element_from_c_to_js(
+				this.element_get_at_impl(
+					this.underlying_type,
+					get_c_size_t(index)
+				)
+			)
+
+			this.cached_array[index] = element
+
+			return element
+		}
+
+		return cached_entry
+	}
+
+	public at(index: number): JsElement | undefined {
+		return Array.prototype.at.call<this, [number], JsElement>(this, index)
+	}
+
+	public *[Symbol.iterator](): Generator<JsElement, void, void> {
+		for (let i = 0; i < this.length; i++) {
+			yield this.element_at_impl(i)
 		}
 	}
 }
