@@ -1,4 +1,4 @@
-import type { Expect, NotEqual } from 'type-testing'
+import type { Equal, Expect, NotEqual } from 'type-testing'
 
 interface CTypeSimple<Desc extends string, JSType = unknown> {
 	readonly __marker: unique symbol
@@ -65,9 +65,7 @@ type _64BitNum = bigint
 
 type PtrType = _32BitNum
 
-export type Ptr<C extends CType> = CTypeNested<'ptr', C> & {
-	__type: PtrType
-}
+export type Ptr<C extends CType> = CTypeNested<'ptr', C, PtrType>
 
 type _expect0_1 = Expect<NotEqual<Ptr<Char>, Ptr<Int>>>
 
@@ -92,6 +90,12 @@ export type Char = CTypeSimple<'char', number>
 type _expect2_1 = Expect<NotEqual<Bool, Char>>
 
 type _expect2 = Expect<IsCType<Char>>
+
+export type UInt8T = CTypeSimple<'uint8_t', number>
+
+type _expect2__1 = Expect<NotEqual<UInt8T, Char>>
+
+type _expect2_ = Expect<IsCType<UInt8T>>
 
 export type Int = CTypeSimple<'int', number>
 
@@ -138,9 +142,7 @@ interface CTypeSimple<Desc extends string, JSType = unknown> {
 export type WasmStructRef<
 	C extends CStruct<D>,
 	D extends string = string,
-> = CTypeNested<'struct_ref', C> & {
-	__type: PtrType
-}
+> = CTypeNested<'struct_ref', C, PtrType>
 
 type ExampleStruct1 = CStruct<'Test1'>
 
@@ -150,4 +152,64 @@ type _expect7 = Expect<IsCType<WasmStructRef<ExampleStruct1>>>
 
 type _expect7_1 = Expect<
 	NotEqual<WasmStructRef<ExampleStruct1>, WasmStructRef<ExampleStruct2>>
+>
+
+type EnumType<C extends CType, D extends string> = CTypeNested<
+	'enum_type',
+	C,
+	never
+> & {
+	readonly __underlying_type: C
+	readonly __name: D
+}
+
+export type CEnum<
+	C,
+	D extends string,
+	UnderlyingCType extends CType,
+> = CTypeNested<'enum', EnumType<UnderlyingCType, D>, C>
+
+enum TestEnum {
+	'test1' = 0,
+	'test2',
+}
+
+type _expect8 = Expect<IsCType<CEnum<TestEnum, 'TestEnum', UInt8T>>>
+
+type _expect8_1 = Expect<
+	NotEqual<
+		CEnum<TestEnum, 'Testenum', UInt8T>,
+		CEnum<TestEnum, 'Testenum', Int>
+	>
+>
+
+enum TestEnum2 {
+	'test1' = 0,
+	'test2',
+}
+
+type _expect8_2 = Expect<
+	NotEqual<
+		CEnum<TestEnum, 'Testenum', UInt8T>,
+		CEnum<TestEnum2, 'Testenum2', UInt8T>
+	>
+>
+
+type _expect8_3 = Expect<
+	Equal<CEnum<TestEnum, 'TestEnum', UInt8T>['__desc'], 'enum'>
+>
+
+type _expect8_4 = Expect<
+	Equal<CEnum<TestEnum, 'TestEnum', UInt8T>['__type'], TestEnum>
+>
+
+type _expect8_5 = Expect<
+	Equal<
+		CEnum<TestEnum, 'TestEnum', UInt8T>['__nested'],
+		EnumType<UInt8T, 'TestEnum'>
+	>
+>
+
+type _expect8_6 = Expect<
+	Equal<GetJSTypeFromCType<CEnum<TestEnum, 'TestEnum', UInt8T>>, TestEnum>
 >

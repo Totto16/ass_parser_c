@@ -23,14 +23,17 @@ import type { Equal, Expect, NotEqual } from 'type-testing'
 import type {
 	AreAllFunctionCFns,
 	Bool,
+	CEnum,
 	Char,
 	CStruct,
+	CType,
 	GetJSTypeFromCType,
 	Int,
 	IsCType,
 	Ptr,
 	SizeT,
 	UInt64T,
+	UInt8T,
 	Void,
 	WasmStructRef,
 } from './c/types'
@@ -49,10 +52,15 @@ type DiagnosticsC = CStruct<'Diagnostics'>
 
 type DiagnosticC = CStruct<'Diagnostic'>
 
-//TODO
-//type DiagnosticsArrayC = CArrayType<Diagnostics, Diagnostic>
+type _expect_0 = Expect<
+	CheckIsCArrayType<DiagnosticsC, DiagnosticC, 'diagnostics'>
+>
 
 type AssResultC = CStruct<'AssResult'>
+
+type MessageStructC = CStruct<'MessageStruct'>
+
+type FilePosC = CStruct<'FilePos'>
 
 export interface ScriptInfoStrictSettings {
 	allow_duplicate_fields: boolean
@@ -122,13 +130,16 @@ interface WASMExportsFn {
 		source: WasmStructRef<AssSource> | Ptr<AssSource>,
 		settings: WasmStructRef<ParseSettingsC> | Ptr<ParseSettingsC>
 	) => Ptr<AssParseResultC>
+	//
 	source_from_string: (source: Ptr<Char>, len: SizeT) => Ptr<AssSource>
+	//
 	default_parse_settings: () => Ptr<ParseSettingsC>
 	set_settings_option: (
 		ptr: Ptr<ParseSettingsC>,
 		option: SettingsOptionC,
 		value: Int
 	) => void
+	//
 	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
 	allocator_statistics_get_free: (
 		statistics: WasmStructRef<AllocatorStatistics>
@@ -142,19 +153,35 @@ interface WASMExportsFn {
 	allocator_statistics_get_metadata: (
 		statistics: WasmStructRef<AllocatorStatistics>
 	) => UInt64T
+	//
 	free_parse_result: (result: Ptr<AssParseResultC>) => void
+	//
 	get_diagnostics_from_result: (
 		result: Ptr<AssParseResultC>
 	) => Ptr<DiagnosticsC>
+	//
 	parse_result_is_error: (result: Ptr<AssParseResultC>) => Bool
 	parse_result_get_value: (result: Ptr<AssParseResultC>) => Ptr<AssResultC>
+	//
 	_initialize: () => void
+	//
 	diagnostics_get_length: (diagnostics: Ptr<DiagnosticsC>) => SizeT
 	diagnostics_get_at: (
 		diagnostics: Ptr<DiagnosticsC>,
 		index: SizeT
 	) => Ptr<DiagnosticC>
-
+	//
+	get_message_from_entry: (element: Ptr<DiagnosticC>) => Ptr<MessageStructC>
+	diagnostic_get_file_pos: (element: Ptr<DiagnosticC>) => Ptr<FilePosC>
+	diagnostic_get_severity: (element: Ptr<DiagnosticC>) => DiagnosticSeverityC
+	//
+	file_pos_get_line: (pos: Ptr<FilePosC>) => SizeT
+	file_pos_get_column: (pos: Ptr<FilePosC>) => SizeT
+	//
+	is_empty_message_struct: (message: Ptr<MessageStructC>) => Bool
+	get_message: (message: Ptr<MessageStructC>) => Ptr<Char>
+	free_message_struct: (message: Ptr<MessageStructC>) => void
+	//
 	//TODO: just to check if the type function work correctly, with multiple matches
 	test_get_length: (diagnostics: Ptr<Char>) => SizeT
 	test_get_at: (diagnostics: Ptr<Char>, index: SizeT) => Ptr<SizeT>
@@ -211,19 +238,16 @@ type DeepPartial<T> = T extends (...args: unknown[]) => unknown
 			? { [P in keyof T]?: DeepPartial<T[P]> }
 			: T
 
-export class WasmBinding {
+class WASMWrapper {
 	private wasm: WASM
 	private memory: WebAssembly.Memory
 
-	private log_prefix = '[ASS_PARSER] '
-	private log_state: LogState = { state: 'empty', buffer: '', error: false }
-
-	private constructor(wasm: WASM, memory: WebAssembly.Memory) {
+	public constructor(wasm: WASM, memory: WebAssembly.Memory) {
 		this.wasm = wasm
 		this.memory = memory
 	}
 
-	private initialize(): void {
+	public initialize(): void {
 		this.wasm.instance.exports._initialize()
 	}
 
@@ -235,15 +259,41 @@ export class WasmBinding {
 		return this.wasm.instance.exports
 	}
 
+	public get buffer(): MemBuf {
+		return this.get_memory_buffer()
+	}
+
+	public get allocator(): Allocator {
+		return this.get_allocator()
+	}
+
+	public get functions(): WASMExportsFn {
+		return this.wasm.instance.exports
+	}
+}
+
+export class WasmBinding {
+	private wasm: WASMWrapper
+
+	private log_prefix = '[ASS_PARSER] '
+	private log_state: LogState = { state: 'empty', buffer: '', error: false }
+
+	private constructor(wasm: WASM, memory: WebAssembly.Memory) {
+		this.wasm = new WASMWrapper(wasm, memory)
+	}
+
+	private initialize(): void {
+		this.wasm.initialize()
+	}
+
 	// void platform_panic(const char* file_path, int line, const char* message);
 	private platform_panic(
 		file_path_ptr: Ptr<Char>,
 		line: Int,
 		message_ptr: Ptr<Char>
 	): void {
-		const buffer = this.get_memory_buffer()
-		const file_path = cstr_by_ptr(buffer, file_path_ptr)
-		const message = cstr_by_ptr(buffer, message_ptr)
+		const file_path = cstr_by_ptr(this.wasm.buffer, file_path_ptr)
+		const message = cstr_by_ptr(this.wasm.buffer, message_ptr)
 		console.error(
 			`${this.log_prefix}${file_path}:${get_value<Int>(line).toString()}: ${message}`
 		)
@@ -268,8 +318,7 @@ export class WasmBinding {
 			console.error(`Buffer had: ${this.log_state.buffer}`)
 		}
 
-		const buffer = this.get_memory_buffer()
-		const message = cstr_by_ptr(buffer, message_ptr)
+		const message = cstr_by_ptr(this.wasm.buffer, message_ptr)
 
 		this.log_state.buffer += message
 	}
@@ -300,10 +349,7 @@ export class WasmBinding {
 		out_data_ptr: Ptr<Ptr<Void>>,
 		out_len_ptr: Ptr<SizeT>
 	): void {
-		const buffer = this.get_memory_buffer()
-		const allocator = this.get_allocator()
-
-		const format = cstr_by_ptr(buffer, format_ptr)
+		const format = cstr_by_ptr(this.wasm.buffer, format_ptr)
 
 		try {
 			let decoder: TextDecoder
@@ -329,36 +375,47 @@ export class WasmBinding {
 				}
 			}
 
-			const data: Uint8Array = get_sized_ptr_from_memory(buffer, {
-				data_ptr,
-				len,
-			})
+			const data: Uint8Array = get_sized_ptr_from_memory(
+				this.wasm.buffer,
+				{
+					data_ptr,
+					len,
+				}
+			)
 
 			const string = decoder.decode(data)
 
 			const allocated_string = allocate_js_utf8_string(
-				buffer,
-				allocator,
+				this.wasm.buffer,
+				this.wasm.allocator,
 				string
 			)
 
 			write_ptr_to_memory(
-				buffer,
+				this.wasm.buffer,
 				out_data_ptr,
 				ptr_cast<Char, Void>(allocated_string.data_ptr)
 			)
 
-			write_size_t_to_memory(buffer, out_len_ptr, allocated_string.len)
+			write_size_t_to_memory(
+				this.wasm.buffer,
+				out_len_ptr,
+				allocated_string.len
+			)
 		} catch (err) {
 			const error_ptr = construct_ptr_error(
-				buffer,
-				allocator,
+				this.wasm.buffer,
+				this.wasm.allocator,
 				(err as Error).message
 			)
 
-			write_ptr_to_memory(buffer, out_data_ptr, error_ptr.data_ptr)
+			write_ptr_to_memory(
+				this.wasm.buffer,
+				out_data_ptr,
+				error_ptr.data_ptr
+			)
 
-			write_size_t_to_memory(buffer, out_len_ptr, error_ptr.len)
+			write_size_t_to_memory(this.wasm.buffer, out_len_ptr, error_ptr.len)
 
 			return
 		}
@@ -422,20 +479,20 @@ export class WasmBinding {
 
 	public allocator_get_statistics(): AllocatorStatisticsJS {
 		const c_statictics: WasmStructRef<AllocatorStatistics> =
-			this.wasm.instance.exports.allocator_get_statistics()
+			this.wasm.functions.allocator_get_statistics()
 
 		const result: AllocatorStatisticsImpl<UInt64T> = {
-			free: this.wasm.instance.exports.allocator_statistics_get_free(
+			free: this.wasm.functions.allocator_statistics_get_free(
 				c_statictics
 			),
-			total: this.wasm.instance.exports.allocator_statistics_get_total(
+			total: this.wasm.functions.allocator_statistics_get_total(
 				c_statictics
 			),
-			used: this.wasm.instance.exports.allocator_statistics_get_used(
+			used: this.wasm.functions.allocator_statistics_get_used(
 				c_statictics
 			),
 			metadata:
-				this.wasm.instance.exports.allocator_statistics_get_metadata(
+				this.wasm.functions.allocator_statistics_get_metadata(
 					c_statictics
 				),
 		}
@@ -636,7 +693,7 @@ export class WasmBinding {
 		).filter((f) => f != undefined)
 
 		for (const set_command of set_commands) {
-			this.wasm.instance.exports.set_settings_option(
+			this.wasm.functions.set_settings_option(
 				ptr,
 				set_command[0],
 				set_command[1]
@@ -648,20 +705,17 @@ export class WasmBinding {
 		source: string | File,
 		settings: DeepPartial<ParseSettings>
 	): Promise<AssParseResult> {
-		const buffer = this.get_memory_buffer()
-		const allocator = this.get_allocator()
-
 		let ass_source: Ptr<AssSource>
 
 		if (typeof source === 'string') {
 			const source_string = allocate_js_utf8_string(
-				buffer,
-				allocator,
+				this.wasm.buffer,
+				this.wasm.allocator,
 				source,
 				true
 			)
 
-			ass_source = this.wasm.instance.exports.source_from_string(
+			ass_source = this.wasm.functions.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
@@ -669,37 +723,34 @@ export class WasmBinding {
 			const content = await source.arrayBuffer()
 
 			const source_string = make_string_from_array_buffer(
-				buffer,
-				allocator,
+				this.wasm.buffer,
+				this.wasm.allocator,
 				content
 			)
 
-			ass_source = this.wasm.instance.exports.source_from_string(
+			ass_source = this.wasm.functions.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
 		}
 
 		const parse_settings: Ptr<ParseSettingsC> =
-			this.wasm.instance.exports.default_parse_settings()
+			this.wasm.functions.default_parse_settings()
 
 		this.modify_parse_settings(parse_settings, settings)
 
-		const result = this.wasm.instance.exports.parse_ass(
-			ass_source,
-			parse_settings
-		)
+		const result = this.wasm.functions.parse_ass(ass_source, parse_settings)
 
 		const freelist = new FreeList()
 
 		freelist.add(
 			ptr_cast<AssSource, Void>(ass_source),
-			this.wasm.instance.exports.free
+			this.wasm.allocator.free
 		)
 
 		freelist.add(
 			ptr_cast<ParseSettingsC, Void>(parse_settings),
-			this.wasm.instance.exports.free
+			this.wasm.allocator.free
 		)
 
 		const ass_result = new AssParseResult(this.wasm, result, freelist)
@@ -743,16 +794,20 @@ abstract class CDisposable implements Disposable {
 }
 
 export class AssParseResult extends CDisposable {
-	private wasm: WASM
+	private wasm: WASMWrapper
 	private result: Ptr<AssParseResultC>
 
-	constructor(wasm: WASM, result: Ptr<AssParseResultC>, freelist: FreeList) {
+	constructor(
+		wasm: WASMWrapper,
+		result: Ptr<AssParseResultC>,
+		freelist: FreeList
+	) {
 		super(freelist)
 
 		this.wasm = wasm
 		this.result = result
 
-		freelist.add(result, this.wasm.instance.exports.free_parse_result)
+		freelist.add(result, this.wasm.functions.free_parse_result)
 	}
 
 	private is_error_value: null | boolean = null
@@ -765,7 +820,7 @@ export class AssParseResult extends CDisposable {
 		}
 
 		this.is_error_value = get_bool(
-			this.wasm.instance.exports.parse_result_is_error(this.result)
+			this.wasm.functions.parse_result_is_error(this.result)
 		)
 
 		return this.is_error_value
@@ -774,8 +829,9 @@ export class AssParseResult extends CDisposable {
 	public diagnostics(): Diagnostics {
 		this.assert_not_freed('result is a valid ptr')
 
-		const c_diagnostics =
-			this.wasm.instance.exports.get_diagnostics_from_result(this.result)
+		const c_diagnostics = this.wasm.functions.get_diagnostics_from_result(
+			this.result
+		)
 
 		const diagnostics = new Diagnostics(this.wasm, c_diagnostics)
 
@@ -787,8 +843,28 @@ export class AssParseResult extends CDisposable {
 	}
 }
 
+export interface FilePos {
+	line: number
+	column: number
+}
+
+export type DiagnosticSeverity = 'warning' | 'error'
+
+enum DiagnosticSeverityCEnum {
+	'warning' = 0,
+	'error',
+}
+
+type DiagnosticSeverityC = CEnum<
+	DiagnosticSeverityCEnum,
+	'DiagnosticSeverity',
+	UInt8T
+>
+
 export interface Diagnostic {
-	todo: number
+	message: string
+	severity: DiagnosticSeverity
+	position: FilePos
 }
 
 type ParamsOf<F> = F extends (...args: infer Args) => infer Rest
@@ -922,6 +998,12 @@ type IsValidCListImpl<A> = A extends [never, ...args: unknown[]] ? false : true
 
 type _expect3 = Expect<IsValidCListImpl<ExportedCListAccessFns>>
 
+type CheckIsCArrayType<
+	List extends CType,
+	Element extends CType,
+	T extends ExportedCListAccessFns,
+> = TypesFromFromIndexFnImpl<T> extends [List, Element] ? true : false
+
 type FindElementWhereForFn<A, Elem> = A extends [
 	infer Elem1,
 	...args: infer ResArgs,
@@ -980,11 +1062,11 @@ export abstract class CArray<
 	ListType extends ListTypeFromFn<CFuncLit> = ListTypeFromFn<CFuncLit>,
 	ElementType extends ElementTypeFrom<CFuncLit> = ElementTypeFrom<CFuncLit>,
 > extends CArrayGeneric<JsElement, ListType, ElementType> {
-	private wasm: WASM
+	protected wasm: WASMWrapper
 	private c_func_lit: CFuncLit
 
 	constructor(
-		wasm: WASM,
+		wasm: WASMWrapper,
 		underlying_type: Ptr<ListType>,
 		c_func_lit: CFuncLit
 	) {
@@ -996,7 +1078,7 @@ export abstract class CArray<
 
 	protected override length_of_impl(underlying_type: Ptr<ListType>): SizeT {
 		const fn: WASMExportsFn[`${CFuncLit}_get_length`] =
-			this.wasm.instance.exports[`${this.c_func_lit}_get_length`]
+			this.wasm.functions[`${this.c_func_lit}_get_length`]
 
 		return fn(underlying_type)
 	}
@@ -1006,21 +1088,77 @@ export abstract class CArray<
 		index: SizeT
 	): Ptr<ElementType> {
 		const fn: WASMExportsFn[`${CFuncLit}_get_at`] =
-			this.wasm.instance.exports[`${this.c_func_lit}_get_at`]
+			this.wasm.functions[`${this.c_func_lit}_get_at`]
 
 		return fn(underlying_type, index) as ElementType
 	}
 }
 
 export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
-	constructor(wasm: WASM, diagnostics: Ptr<DiagnosticsC>) {
+	constructor(wasm: WASMWrapper, diagnostics: Ptr<DiagnosticsC>) {
 		super(wasm, diagnostics, 'diagnostics')
+	}
+
+	private get_file_pos_from_c(file_pos_c: Ptr<FilePosC>): FilePos {
+		const line: number = get_value<SizeT>(
+			this.wasm.functions.file_pos_get_line(file_pos_c)
+		)
+		const column: number = get_value<SizeT>(
+			this.wasm.functions.file_pos_get_column(file_pos_c)
+		)
+
+		return { line, column }
+	}
+
+	private get_severity_from_c(sev: DiagnosticSeverityC): DiagnosticSeverity {
+		const severity: DiagnosticSeverityCEnum = get_value(sev)
+
+		switch (severity) {
+			case DiagnosticSeverityCEnum.warning:
+				return 'warning'
+			case DiagnosticSeverityCEnum.error:
+				return 'error'
+			default:
+				throw new Error('Implementation error')
+		}
+	}
+
+	private get_string_from_message_struct(
+		message_ptr: Ptr<MessageStructC>
+	): string {
+		const is_empty = get_bool(
+			this.wasm.functions.is_empty_message_struct(message_ptr)
+		)
+
+		if (is_empty) {
+			throw new Error('MessageStruct is empty')
+		}
+
+		const str_ptr = this.wasm.functions.get_message(message_ptr)
+
+		const result = cstr_by_ptr(this.wasm.buffer, str_ptr)
+
+		this.wasm.functions.free_message_struct(message_ptr)
+
+		return result
 	}
 
 	protected override convert_element_from_c_to_js(
 		element: Ptr<DiagnosticC>
 	): Diagnostic {
-		void element
-		throw new Error('Method not implemented.')
+		const message_ptr = this.wasm.functions.get_message_from_entry(element)
+
+		const message = this.get_string_from_message_struct(message_ptr)
+
+		const file_pos_ptr =
+			this.wasm.functions.diagnostic_get_file_pos(element)
+
+		const position: FilePos = this.get_file_pos_from_c(file_pos_ptr)
+
+		const severity_c = this.wasm.functions.diagnostic_get_severity(element)
+
+		const severity = this.get_severity_from_c(severity_c)
+
+		return { message, position, severity }
 	}
 }

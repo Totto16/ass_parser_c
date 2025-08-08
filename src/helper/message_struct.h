@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../helper/decl.h"
 typedef struct {
 	char* message_internal;
 	bool dynamic;
@@ -15,8 +16,8 @@ typedef struct {
 
 #define EMPTY_MESSAGE_STRUCT() STATIC_MESSAGE_STRUCT(NULL)
 
-[[nodiscard]] bool is_empty_message_struct(MessageStruct message);
+[[nodiscard]] PUBLIC("is_empty_message_struct") bool is_empty_message_struct(MessageStruct message);
 
-[[nodiscard]] char* get_message(MessageStruct message);
+[[nodiscard]] PUBLIC("get_message") char* get_message(MessageStruct message);
 
-void free_message_struct(MessageStruct msg);
+PUBLIC("free_message_struct")  void free_message_struct(MessageStruct msg);

@@ -413,6 +413,10 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 		MessageStruct message = get_message_from_entry_pretty(entry, source_file);
 
+		if(is_empty_message_struct(message)) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Coudln't get message from diagnostic\n");
+		}
+
 		switch(entry.severity) {
 			case DiagnosticSeverityWarning: {
 				LOG_MESSAGE(LogLevelWarn, "%s\n", get_message(message));

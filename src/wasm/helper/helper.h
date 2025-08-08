@@ -54,3 +54,12 @@ size_t diagnostics_get_length(Diagnostics* diagnostics);
 
 PUBLIC("diagnostics_get_at")
 DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);
+
+PUBLIC("get_message_from_entry")
+MessageStruct* get_message_from_entry_js(DiagnosticEntry entry);
+
+PUBLIC("file_pos_get_line")
+size_t file_pos_get_line(FilePos pos);
+
+PUBLIC("file_pos_get_column")
+size_t file_pos_get_column(FilePos pos);

@@ -20,7 +20,7 @@ typedef enum : uint8_t {
 } DiagnosticType;
 
 typedef enum : uint8_t {
-	DiagnosticSeverityWarning,
+	DiagnosticSeverityWarning = 0,
 	DiagnosticSeverityError,
 } DiagnosticSeverity;
 
