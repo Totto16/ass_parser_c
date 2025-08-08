@@ -52,6 +52,28 @@ static GlobalObject __my_malloc_globalObject = { .global_block = (GlobalMemoryBl
 
 #define WASM_MEMORY_ID 0
 
+extern volatile void* __heap_base;
+
+void* wasm_heap_start(void) {
+	return (void*)(&__heap_base);
+}
+
+size_t wasm_heap_size(void) {
+	const size_t total_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
+
+	const size_t heap_start = (size_t)wasm_heap_start();
+
+	if(total_size <= heap_start) {
+		PANIC("heap start and memory size are invald");
+	} else {
+		return (total_size - heap_start);
+	}
+}
+
+size_t wasm_memory_grow(size_t pages_amount) {
+	return __builtin_wasm_memory_grow(WASM_MEMORY_ID, pages_amount);
+}
+
 /**
  * @brief INTERNAL FUNCTION: DO NOT USE
  *
@@ -184,7 +206,7 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t user_size) {
 		// round up, /add PAGE_SIZE - 1 and then do a trunacting divide
 		size_t pages_amount = (preferredSize + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
-		size_t old_pages = __builtin_wasm_memory_grow(WASM_MEMORY_ID, pages_amount);
+		size_t old_pages = wasm_memory_grow(pages_amount);
 
 		if(old_pages == ((size_t)-1)) {
 			// don't fail, just return NULL ,indicating Out of memory
@@ -195,7 +217,7 @@ INTERNAL_FUNCTION void* __internal__my_malloc(uint64_t user_size) {
 			PANIC("Old memory pages size was wrong, out of sync?");
 		}
 
-		size_t heap_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
+		size_t heap_size = wasm_heap_size();
 
 		if(heap_size < __my_malloc_globalObject.global_block.size) {
 			PANIC("memory grow resulted in smaller memory, how did that happen?");
@@ -578,17 +600,15 @@ void* my_realloc(void* ptr, uint64_t size) {
  *
  */
 
-extern volatile void* __heap_base;
-
 void my_allocator_init(void) {
 	__my_malloc_globalObject.global_block =
 	    (GlobalMemoryBlockinformation){ .size = 0, .start = NULL };
 
 	// see: https://nickav.co/posts/0003_wasm_from_scratch
 	// IMPORTANT! get the _address_ of the __heap_base symbol
-	GlobalMemoryBlockinformation global_block = { .start = (void*)(&__heap_base), .size = 0 };
+	GlobalMemoryBlockinformation global_block = { .start = wasm_heap_start(), .size = 0 };
 
-	size_t heap_size = __builtin_wasm_memory_size(WASM_MEMORY_ID) * PAGE_SIZE;
+	size_t heap_size = wasm_heap_size();
 
 	global_block.size = heap_size;
 
