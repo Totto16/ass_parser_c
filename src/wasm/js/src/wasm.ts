@@ -3,70 +3,56 @@ import {
 	construct_ptr_error,
 	cstr_by_ptr,
 	FreeList,
-	get_int,
 	get_sized_ptr_from_memory,
 	write_ptr_to_memory,
 	write_size_t_to_memory,
 	type Allocator,
-	type Char,
-	type Int,
-	type MemBuf,
-	type Ptr,
-	type SizeT,
-	type Void,
-	type WasmStructRef,
-	type UInt64T,
-	type UInt64TJs,
-	get_uint64_t,
-	type Bool,
-	get_bool,
 	ptr_cast,
 	make_string_from_array_buffer,
-	type AreAllFunctionCFns,
 	get_c_enum_from_enum,
 	get_c_bool,
 	c_bool_to_int,
 	nullptr,
-	type CType,
 	CArrayGeneric,
-} from './c_helper'
+	type MemBuf,
+	get_value,
+	get_bool,
+} from './c/functions'
 
-import type { Equal, Expect } from 'type-testing'
+import type { Equal, Expect, NotEqual } from 'type-testing'
+import type {
+	AreAllFunctionCFns,
+	Bool,
+	Char,
+	CStruct,
+	GetJSTypeFromCType,
+	Int,
+	IsCType,
+	Ptr,
+	SizeT,
+	UInt64T,
+	Void,
+	WasmStructRef,
+} from './c/types'
 
-declare const _AssParseResult_SYM: unique symbol
+type AssParseResultC = CStruct<'AssParseResult'>
 
-type AssParseResultC = typeof _AssParseResult_SYM
+type AssSource = CStruct<'AssSource'>
 
-declare const _AssSource_SYM: unique symbol
+type ParseSettingsC = CStruct<'ParseSettings'>
 
-type AssSource = typeof _AssSource_SYM
+type SettingsOptionC = CStruct<'SettingsOption'>
 
-declare const _ParseSettings_SYM: unique symbol
+type AllocatorStatistics = CStruct<'AllocatorStatistics'>
 
-type ParseSettingsC = typeof _ParseSettings_SYM
+type DiagnosticsC = CStruct<'Diagnostics'>
 
-declare const _SettingsOption_SYM: unique symbol
-
-type SettingsOptionC = typeof _SettingsOption_SYM
-
-declare const _AllocatorStatistics_SYM: unique symbol
-
-type AllocatorStatistics = typeof _AllocatorStatistics_SYM
-
-declare const _Diagnostics_SYM: unique symbol
-
-type DiagnosticsC = typeof _Diagnostics_SYM
-
-declare const _Diagnostic_SYM: unique symbol
-
-type DiagnosticC = typeof _Diagnostic_SYM
+type DiagnosticC = CStruct<'Diagnostic'>
 
 //TODO
 //type DiagnosticsArrayC = CArrayType<Diagnostics, Diagnostic>
 
-declare const _AssResult_SYM: unique symbol
-
-type AssResultC = typeof _AssResult_SYM
+type AssResultC = CStruct<'AssResult'>
 
 export interface ScriptInfoStrictSettings {
 	allow_duplicate_fields: boolean
@@ -127,7 +113,9 @@ interface AllocatorStatisticsImpl<A> {
 	metadata: A
 }
 
-export type AllocatorStatisticsJS = AllocatorStatisticsImpl<UInt64TJs>
+export type AllocatorStatisticsJS = AllocatorStatisticsImpl<
+	GetJSTypeFromCType<UInt64T>
+>
 
 interface WASMExportsFn {
 	parse_ass: (
@@ -167,8 +155,9 @@ interface WASMExportsFn {
 		index: SizeT
 	) => Ptr<DiagnosticC>
 
-	abcs_get_length: (a: Ptr<Void>) => SizeT
-	abcs_get_at: (a: Ptr<Char>, index: SizeT) => Ptr<SizeT>
+	//TODO: just to check if the type function work correctly, with multiple matches
+	test_get_length: (diagnostics: Ptr<Char>) => SizeT
+	test_get_at: (diagnostics: Ptr<Char>, index: SizeT) => Ptr<SizeT>
 }
 
 type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
@@ -256,7 +245,7 @@ export class WasmBinding {
 		const file_path = cstr_by_ptr(buffer, file_path_ptr)
 		const message = cstr_by_ptr(buffer, message_ptr)
 		console.error(
-			`${this.log_prefix}${file_path}:${get_int(line).toString()}: ${message}`
+			`${this.log_prefix}${file_path}:${get_value<Int>(line).toString()}: ${message}`
 		)
 	}
 
@@ -452,10 +441,10 @@ export class WasmBinding {
 		}
 
 		const js_result: AllocatorStatisticsJS = {
-			free: get_uint64_t(result.free),
-			total: get_uint64_t(result.total),
-			used: get_uint64_t(result.used),
-			metadata: get_uint64_t(result.metadata),
+			free: get_value<UInt64T>(result.free),
+			total: get_value<UInt64T>(result.total),
+			used: get_value<UInt64T>(result.used),
+			metadata: get_value<UInt64T>(result.metadata),
 		}
 
 		return js_result
@@ -802,16 +791,16 @@ export interface Diagnostic {
 	todo: number
 }
 
-type PararmsOf<F> = F extends (...args: infer Args) => infer Rest
+type ParamsOf<F> = F extends (...args: infer Args) => infer Rest
 	? [Args, Rest]
 	: never
 
 type ValidLengthArrayFn<F> =
-	PararmsOf<F> extends [args: infer Args, infer Rest]
+	ParamsOf<F> extends [args: infer Args, infer Rest]
 		? Rest extends SizeT
 			? Args extends [infer A]
 				? A extends Ptr<infer C>
-					? C extends CType
+					? IsCType<C> extends true
 						? [true, C]
 						: [false, 'Ptr without CTpye as first argument']
 					: [false, 'no ptr as first argument', { o: A }]
@@ -826,13 +815,13 @@ type GetLengthFnsImpl<T> = {
 }[keyof T]
 
 type ValidGetArrayFn<F> =
-	PararmsOf<F> extends [args: infer Args, infer Rest]
+	ParamsOf<F> extends [args: infer Args, infer Rest]
 		? Args extends [infer A, infer B]
 			? A extends Ptr<infer C>
-				? C extends CType
+				? IsCType<C> extends true
 					? B extends SizeT
 						? Rest extends Ptr<infer D>
-							? D extends CType
+							? IsCType<D> extends true
 								? [true, [C, D]]
 								: [false, 'Ptr without CTpye as return type']
 							: [false, 'no ptr as return type']
@@ -876,20 +865,10 @@ type GetListTypeFromIdx<A> = A extends [start: unknown, infer Res]
 
 type Intersection<T, U> = T extends U ? T : never
 
-type EqualImpl<A, B> = A extends B ? [true] : [false, 'not the same', A, B]
-
 type ValidateArrayFns<A, B> =
-	EqualImpl<GetListTypeFromLength<A>, GetListTypeFromIdx<B>> extends infer Arg
-		? Arg extends [true, unknown]
-			? Intersection<ExtractSimpleValue<A>, ExtractSimpleValue<B>>
-			: Arg extends [false, ...args: infer Errs]
-				? [never, ...Errs]
-				: [
-						never,
-						'no better error',
-						Equal<GetListTypeFromLength<A>, GetListTypeFromIdx<B>>,
-					]
-		: [never, 'impl error']
+	Equal<GetListTypeFromLength<A>, GetListTypeFromIdx<B>> extends true
+		? Intersection<ExtractSimpleValue<A>, ExtractSimpleValue<B>>
+		: [never, GetListTypeFromLength<A>, GetListTypeFromIdx<B>]
 
 type ArrayAccessFnsOfImpl<O> = ValidateArrayFns<
 	GetLengthFnsImpl<O>,
@@ -904,17 +883,98 @@ type _IndexFns = GetIndexFnsSimple<WASMExportsFn>
 
 type _expect2 = Expect<Equal<_LengthFns, _IndexFns>>
 
+interface Test1Fns {
+	abcs_get_length: (a: Ptr<Void>) => SizeT
+	abcs_get_at: (a: Ptr<Char>, index: SizeT) => Ptr<SizeT>
+}
+
+type _expectcheck_0_0 = Expect<Equal<GetIndexFnsSimple<Test1Fns>, 'abcs'>>
+
+type Test1FnsRes1 = ArrayAccessFnsOf<Test1Fns>
+
+type _expectcheck_0_1 = Expect<NotEqual<IsValidCListImpl<Test1FnsRes1>, true>>
+
+type _expectcheck_0_2 = Expect<Equal<Test1FnsRes1, [never, Void, Char]>>
+
+type TestStruct = CStruct<'TestStructFormFns'>
+
+interface Test2Fns {
+	abcs_get_length: (a: Ptr<Void>) => SizeT
+	abcs_get_at: (a: Ptr<Void>, index: SizeT) => Ptr<SizeT>
+
+	abcd_get_length: (a: Ptr<TestStruct>) => SizeT
+	abcd_get_at: (a: Ptr<TestStruct>, index: SizeT) => Ptr<SizeT>
+}
+
+type _expectcheck_1_0 = Expect<
+	Equal<GetIndexFnsSimple<Test2Fns>, 'abcs' | 'abcd'>
+>
+
+type Test2FnsRes1 = ArrayAccessFnsOf<Test2Fns>
+
+type _expectcheck_1_1 = Expect<Equal<IsValidCListImpl<Test2FnsRes1>, true>>
+
+type _expectcheck_1_2 = Expect<Equal<Test2FnsRes1, 'abcs' | 'abcd'>>
+
 type ExportedCListAccessFns = ArrayAccessFnsOf<WASMExportsFn>
 
 type IsValidCListImpl<A> = A extends [never, ...args: unknown[]] ? false : true
 
 type _expect3 = Expect<IsValidCListImpl<ExportedCListAccessFns>>
 
-type ListTypeFromFn<C extends ExportedCListAccessFns> = Void //TODO
+type FindElementWhereForFn<A, Elem> = A extends [
+	infer Elem1,
+	...args: infer ResArgs,
+]
+	? Equal<Elem1, Elem> extends true
+		? ResArgs
+		: [never, 'error 2', Elem, Elem1]
+	: [never, 'error 1', A]
 
-type ElementTypeFrom<C extends ExportedCListAccessFns> = Void //TODO
+type DEBUG_TYPE = false
 
-export class CArray<
+type NeverError<MSG> = DEBUG_TYPE extends true ? [never, MSG] : never
+
+type TypesFromFromLengthFnImpl<C extends ExportedCListAccessFns> =
+	FindElementWhereForFn<GetLengthFnsImpl<WASMExportsFn>, C> extends infer Temp
+		? Temp extends [never, ...args: unknown[]]
+			? never
+			: Temp extends [[true, infer Res]]
+				? Res
+				: NeverError<'error 2'>
+		: NeverError<'error 1'>
+
+type ListTypeFromFn<C extends ExportedCListAccessFns> =
+	| TypesFromFromLengthFnImpl<C>
+	| TypesFromFromIndexFnImpl<C>[0]
+
+type _expect4 = Expect<
+	Equal<
+		TypesFromFromLengthFnImpl<'diagnostics'>,
+		TypesFromFromIndexFnImpl<'diagnostics'>[0]
+	>
+>
+
+type _expect4_1 = Expect<
+	Equal<
+		TypesFromFromLengthFnImpl<'test'>,
+		TypesFromFromIndexFnImpl<'test'>[0]
+	>
+>
+
+type TypesFromFromIndexFnImpl<C extends ExportedCListAccessFns> =
+	FindElementWhereForFn<GetIndexFnsImpl<WASMExportsFn>, C> extends infer Temp
+		? Temp extends [never, ...args: unknown[]]
+			? never
+			: Temp extends [[true, infer Res]]
+				? Res
+				: NeverError<'error 2'>
+		: NeverError<'error 1'>
+
+type ElementTypeFrom<C extends ExportedCListAccessFns> =
+	TypesFromFromIndexFnImpl<C>[1]
+
+export abstract class CArray<
 	JsElement,
 	CFuncLit extends ExportedCListAccessFns,
 	ListType extends ListTypeFromFn<CFuncLit> = ListTypeFromFn<CFuncLit>,
@@ -940,12 +1000,7 @@ export class CArray<
 
 		return fn(underlying_type)
 	}
-	protected override convert_element_from_c_to_js(
-		element: Ptr<ElementType>
-	): JsElement {
-		void element
-		throw new Error('Method not implemented.')
-	}
+
 	protected override element_get_at_impl(
 		underlying_type: Ptr<ListType>,
 		index: SizeT
@@ -953,12 +1008,19 @@ export class CArray<
 		const fn: WASMExportsFn[`${CFuncLit}_get_at`] =
 			this.wasm.instance.exports[`${this.c_func_lit}_get_at`]
 
-		return fn(underlying_type, index)
+		return fn(underlying_type, index) as ElementType
 	}
 }
 
 export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 	constructor(wasm: WASM, diagnostics: Ptr<DiagnosticsC>) {
 		super(wasm, diagnostics, 'diagnostics')
+	}
+
+	protected override convert_element_from_c_to_js(
+		element: Ptr<DiagnosticC>
+	): Diagnostic {
+		void element
+		throw new Error('Method not implemented.')
 	}
 }

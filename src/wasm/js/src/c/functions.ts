@@ -1,106 +1,14 @@
-import type { Expect } from 'type-testing'
-
-declare const _Nested_Key_SYM: unique symbol
-
-interface NestedCType {
-	_Nested_Key_SYM: true
-}
-
-type CTypeSimple = symbol
-
-export type CType = CTypeSimple | NestedCType
-
-type IsCType<A> = A extends CType ? true : false
-
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-type IRetCType<T> = T extends void ? true : IsCType<T>
-
-type IsCTypeArg<T> = IsCType<T>
-
-type AreAllCTypes<A extends readonly unknown[]> = A extends [
-	infer Head,
-	...infer Tail,
-]
-	? IsCTypeArg<Head> extends true
-		? AreAllCTypes<Tail>
-		: false
-	: true
-
-type IsCFunc<C> = C extends (...args: infer Args) => infer Ret
-	? AreAllCTypes<Args> extends true
-		? IRetCType<Ret>
-		: false
-	: false
-
-type AreAllFunctionCFnImpl<O, T extends keyof O> = [T] extends [never]
-	? true
-	: IsCFunc<O[T]> extends true
-		? true
-		: false
-
-export type AreAllFunctionCFns<O> = AreAllFunctionCFnImpl<O, keyof O>
-
-declare const _Ptr_SYM: unique symbol
-
-declare const _Ptr_Key_SYM: unique symbol
-
-export type Ptr<a extends CType> = { [_Ptr_SYM]: boolean } & {
-	[_Ptr_Key_SYM]: a
-} & NestedCType
-
-type _expect0 = Expect<IsCType<Ptr<CTypeSimple>>>
-
-type _expect0_1 = Expect<IsCType<Ptr<Ptr<CTypeSimple>>>>
-
-declare const _Bool_SYM: unique symbol
-
-export type Bool = typeof _Bool_SYM
-
-type _expect1 = Expect<IsCType<Bool>>
-
-declare const _Char_SYM: unique symbol
-
-export type Char = typeof _Char_SYM
-
-type _expect2 = Expect<IsCType<Char>>
-
-declare const _Int_SYM: unique symbol
-
-export type Int = typeof _Int_SYM
-
-type _expect3 = Expect<IsCType<Int>>
-
-declare const _Void_SYM: unique symbol
-
-export type Void = typeof _Void_SYM
-
-type _expect4 = Expect<IsCType<Void>>
-
-declare const _SizeT_SYM: unique symbol
-
-export type SizeT = typeof _SizeT_SYM
-
-type _expect5 = Expect<IsCType<SizeT>>
-
-declare const _UInt64T_SYM: unique symbol
-
-export type UInt64T = typeof _UInt64T_SYM
-
-type _expect6 = Expect<IsCType<UInt64T>>
-
-export type UInt64TJs = bigint
-
-declare const _WasmStructRef_SYM: unique symbol
-
-declare const _WasmStructRef_Key_SYM: unique symbol
-
-export type WasmStructRef<a extends CType> = {
-	[_WasmStructRef_SYM]: boolean
-} & {
-	[_WasmStructRef_Key_SYM]: a
-} & NestedCType
-
-type _expect7 = Expect<IsCType<WasmStructRef<CTypeSimple>>>
+import type { Equal } from 'type-testing'
+import type {
+	Bool,
+	Char,
+	CType,
+	GetJSTypeFromCType,
+	Int,
+	Ptr,
+	SizeT,
+	Void,
+} from './types'
 
 export type Mem = Uint8Array
 
@@ -111,31 +19,26 @@ export interface Allocator {
 	free: (ptr: Ptr<Void>) => Void
 }
 
-function get_ptr<a extends CType>(ptr_r: Ptr<a>): number {
-	return ptr_r as unknown as number
+export function get_value<C extends CType>(value_r: C): GetJSTypeFromCType<C> {
+	return value_r as unknown as GetJSTypeFromCType<C>
 }
 
-function get_c_ptr<A extends CType>(val: number): Ptr<A> {
-	return val as unknown as Ptr<A>
+export function get_c_value<A, C extends CType>(
+	val: A
+): Equal<GetJSTypeFromCType<C>, A> extends true ? C : never {
+	return val as unknown as Equal<GetJSTypeFromCType<C>, A> extends true
+		? C
+		: never
 }
 
 export function nullptr(): Ptr<Void> {
-	return get_c_ptr<Void>(0)
+	return get_c_value<number, Ptr<Void>>(0)
 }
 
 export function ptr_cast<a extends CType, b extends CType>(
 	ptr_r: Ptr<a>
 ): Ptr<b> {
 	return ptr_r as unknown as Ptr<b>
-}
-
-export function get_bool(value_r: Bool): boolean {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
-	return !!(value_r as unknown as boolean)
-}
-
-export function get_int(int_r: Int): number {
-	return int_r as unknown as number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -149,26 +52,19 @@ export function c_bool_to_int(inp: Bool): Int {
 	return inp as unknown as Int
 }
 
+export function get_bool(value_r: Bool): boolean {
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
+	return !!(value_r as unknown as boolean)
+}
+
 export function get_c_bool(inp: boolean): Bool {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion, no-extra-boolean-cast
 	const val: number = !!inp ? 1 : 0
 	return val as unknown as Bool
 }
 
-export function get_size_t(size_t_r: SizeT): number {
-	return size_t_r as unknown as number
-}
-
-export function get_uint64_t(val_r: UInt64T): UInt64TJs {
-	return val_r as unknown as UInt64TJs
-}
-
-export function get_c_size_t(num: number): SizeT {
-	return num as unknown as SizeT
-}
-
 function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
-	let ptr = get_ptr(ptr_r)
+	let ptr = get_value<Ptr<Char>>(ptr_r)
 	let len = 0
 	while (mem[ptr] != 0) {
 		len++
@@ -180,7 +76,7 @@ function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
 export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: Ptr<Char>): string {
 	const mem = new Uint8Array(mem_buffer)
 
-	const ptr = get_ptr(ptr_r)
+	const ptr = get_value<Ptr<Char>>(ptr_r)
 
 	const len = cstrlen(mem, ptr_r)
 	const bytes = new Uint8Array(mem_buffer, ptr, len)
@@ -201,8 +97,8 @@ export function get_sized_ptr_from_memory(
 	buffer: MemBuf,
 	size_ptr: SizedPtr
 ): Uint8Array {
-	const ptr = get_ptr(size_ptr.data_ptr)
-	const len = get_size_t(size_ptr.len)
+	const ptr = get_value<Ptr<Void>>(size_ptr.data_ptr)
+	const len = get_value<SizeT>(size_ptr.len)
 
 	return new Uint8Array(buffer, ptr, len)
 }
@@ -214,7 +110,7 @@ export function write_ptr_to_memory<A extends CType>(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_ptr(ptr), get_ptr(value))
+	data.setUint32(get_value<Ptr<Ptr<A>>>(ptr), get_value<Ptr<A>>(value))
 }
 export function write_size_t_to_memory(
 	buffer: MemBuf,
@@ -223,7 +119,7 @@ export function write_size_t_to_memory(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_ptr(ptr), get_size_t(value))
+	data.setUint32(get_value<Ptr<SizeT>>(ptr), get_value<SizeT>(value))
 }
 
 function sized_ptr_to_cstr(ptr: SizedPtr): CStr {
@@ -237,11 +133,11 @@ function copy_js_array_to_wasm_memory(
 ): SizedPtr {
 	const data = new Uint8Array(buffer)
 
-	const str_length: SizeT = get_c_size_t(array.length)
+	const str_length: SizeT = get_c_value<number, SizeT>(array.length)
 
 	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
 
-	const ptr = get_ptr(data_ptr)
+	const ptr = get_value<Ptr<Void>>(data_ptr)
 
 	if (ptr == 0) {
 		throw new Error('allocation failed')
@@ -300,7 +196,7 @@ export function construct_ptr_error(
 
 	return {
 		data_ptr: ptr_cast<Char, Void>(str_data.data_ptr),
-		len: get_c_size_t(0),
+		len: get_c_value<number, SizeT>(0),
 	}
 }
 
@@ -388,7 +284,7 @@ export abstract class CArrayGeneric<
 			return this.length_value
 		}
 
-		this.length_value = get_size_t(
+		this.length_value = get_value<SizeT>(
 			this.length_of_impl(this.underlying_type)
 		)
 
@@ -427,7 +323,7 @@ export abstract class CArrayGeneric<
 			const element: JsElement = this.convert_element_from_c_to_js(
 				this.element_get_at_impl(
 					this.underlying_type,
-					get_c_size_t(index)
+					get_c_value<number, SizeT>(index)
 				)
 			)
 
