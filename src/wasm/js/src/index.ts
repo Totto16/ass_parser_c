@@ -3,6 +3,8 @@ import { WasmBinding } from './wasm'
 import { uiStart } from './ui'
 
 async function process_file(instance: WasmBinding, file: File): Promise<void> {
+	console.log('process_file', file)
+
 	console.log(instance.allocator_get_statistics())
 	using result = await instance.parse_ass(file, {
 		strict_settings: {

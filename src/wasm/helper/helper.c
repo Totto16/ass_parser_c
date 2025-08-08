@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include <stb/ds.h>
+
 uint64_t allocator_statistics_get_free(AllocatorStatistics statistics) {
 	return statistics.free;
 }
@@ -109,14 +111,33 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 }
 
 size_t diagnostics_get_length(Diagnostics* diagnostics) {
-	// TODO
-	(void)diagnostics;
-	return 0;
+	return stbds_arrlenu(diagnostics->entries);
 }
 
 DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index) {
-	// TODO
-	(void)diagnostics;
-	(void)index;
-	return NULL;
+	if(index >= stbds_arrlenu(diagnostics->entries)) {
+		return NULL;
+	}
+
+	return &(diagnostics->entries[index]);
+}
+
+MessageStruct* get_message_from_entry_js(DiagnosticEntry entry) {
+	MessageStruct* result = malloc(sizeof(MessageStruct));
+
+	if(result == NULL) {
+		return NULL;
+	}
+
+	*result = get_message_from_entry(entry);
+
+	return result;
+}
+
+size_t file_pos_get_line(FilePos pos) {
+	return pos.line;
+}
+
+size_t file_pos_get_column(FilePos pos) {
+	return pos.column;
 }
