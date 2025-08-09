@@ -14,7 +14,8 @@
 			"dom"
 		],
 		"sourceMap": true,
-		"allowJs": true,
+		"checkJs": false,
+		"allowJs": false,
 		"strict": true,
 		"strictNullChecks": true,
 		"moduleResolution": "node",
@@ -28,12 +29,10 @@
 	"include": [
 		"src/**/*.ts",
 		"webpack.config.ts",
-		"scripts/**/*.ts"
 	],
-	"ts-node": {
-		"compilerOptions": {
-			"module": "CommonJS"
-		},
-		"files": true
-	}
+	"references": [
+		{
+			"path": "./tsconfig.script.json"
+		}
+	]
 }

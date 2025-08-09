@@ -12,7 +12,8 @@
 		"format": "pnpm lint:prettier:base -w .",
 		"lint:eslint": "eslint --color .",
 		"lint:lockfile": "pnpm dedupe --check",
-		"build:check-only": "tsc --noEmit"
+		"build:check-only": "tsc --noEmit",
+		"generate": "TS_NODE_PROJECT=./tsconfig.script.json npx ts-node scripts/generator.ts -i ./static/build/ass_parser.wasm -o ./src/generated/wasm_exports.ts"
 	},
 	"license": "MIT",
 	"devDependencies": {
@@ -20,8 +21,6 @@
 		"@tsconfig/strictest": "^2.0.5",
 		"@types/node": "^22.15.32",
 		"@types/webpack": "^5.28.5",
-		"@webassemblyjs/wasm-parser": "^1.14.1",
-		"@webassemblyjs/wast-parser": "^1.14.1",
 		"copy-webpack-plugin": "^13.0.0",
 		"css-loader": "^7.1.2",
 		"css-minimizer-webpack-plugin": "^7.0.2",
@@ -39,6 +38,7 @@
 		"type-testing": "^0.2.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.34.0",
+		"wasmparser": "^5.11.1",
 		"webpack": "^5.99.9",
 		"webpack-cli": "^6.0.1",
 		"webpack-dev-server": "^5.2.2"

@@ -141,7 +141,7 @@ if is_wasm
 
         wat_file = custom_target(
             'ass_parser.wat',
-            command: [wasm2wat, '@INPUT0@', '--generate-names', '-o', '@OUTPUT@'],
+            command: [wasm2wat, '@INPUT@', '--generate-names', '-o', '@OUTPUT@'],
             build_by_default: true,
             output: ['ass_parser.wat'],
             input: [wasm_file],
