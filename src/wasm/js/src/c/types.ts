@@ -133,27 +133,6 @@ export type CStruct<Desc extends string> = CTypeNested<'struct', Ptr<Void>> & {
 	readonly __struct_name: Desc
 }
 
-interface CTypeSimple<Desc extends string, JSType = unknown> {
-	readonly __marker: unique symbol
-	readonly __type: JSType
-	readonly __desc: Desc
-}
-
-export type WasmStructRef<
-	C extends CStruct<D>,
-	D extends string = string,
-> = CTypeNested<'struct_ref', C, PtrType>
-
-type ExampleStruct1 = CStruct<'Test1'>
-
-type ExampleStruct2 = CStruct<'Test2'>
-
-type _expect7 = Expect<IsCType<WasmStructRef<ExampleStruct1>>>
-
-type _expect7_1 = Expect<
-	NotEqual<WasmStructRef<ExampleStruct1>, WasmStructRef<ExampleStruct2>>
->
-
 type EnumType<C extends CType, D extends string> = CTypeNested<
 	'enum_type',
 	C,

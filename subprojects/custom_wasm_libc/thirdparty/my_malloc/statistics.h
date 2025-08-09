@@ -9,4 +9,4 @@ typedef struct {
 	uint64_t total;
 } AllocatorStatistics;
 
-__attribute__((export_name("allocator_get_statistics"))) AllocatorStatistics allocator_get_statistics(void);
+[[nodiscard]] AllocatorStatistics my_malloc_get_statistics(void);

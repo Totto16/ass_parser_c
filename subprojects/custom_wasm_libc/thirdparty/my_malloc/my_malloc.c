@@ -624,7 +624,7 @@ void my_allocator_init(void) {
 
 #include "./statistics.h"
 
-AllocatorStatistics allocator_get_statistics(void) {
+AllocatorStatistics my_malloc_get_statistics(void) {
 
 	if(__my_malloc_globalObject.global_block.start == NULL) {
 		PANIC("allocator not initialized!");

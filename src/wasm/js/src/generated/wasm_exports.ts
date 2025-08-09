@@ -36,6 +36,7 @@ export interface ExportedFunctions {
 	realloc: (p_0: I32, p_1: I32) => I32
 	ass_parser_lib_version: () => I32
 	ass_parser_lib_commit_hash: () => I32
+	allocator_get_statistics: () => I32
 	allocator_statistics_get_free: (p_0: I32) => I64
 	allocator_statistics_get_total: (p_0: I32) => I64
 	allocator_statistics_get_used: (p_0: I32) => I64

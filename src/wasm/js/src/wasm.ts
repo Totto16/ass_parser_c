@@ -35,7 +35,6 @@ import type {
 	UInt64T,
 	UInt8T,
 	Void,
-	WasmStructRef,
 } from './c/types'
 
 type AssParseResultC = CStruct<'AssParseResult'>
@@ -127,8 +126,8 @@ export type AllocatorStatisticsJS = AllocatorStatisticsImpl<
 
 interface WASMExportsFn {
 	parse_ass: (
-		source: WasmStructRef<AssSource> | Ptr<AssSource>,
-		settings: WasmStructRef<ParseSettingsC> | Ptr<ParseSettingsC>
+		source: Ptr<AssSource>,
+		settings: Ptr<ParseSettingsC>
 	) => Ptr<AssParseResultC>
 	//
 	source_from_string: (source: Ptr<Char>, len: SizeT) => Ptr<AssSource>
@@ -140,18 +139,18 @@ interface WASMExportsFn {
 		value: Int
 	) => void
 	//
-	allocator_get_statistics: () => WasmStructRef<AllocatorStatistics>
+	allocator_get_statistics: () => Ptr<AllocatorStatistics>
 	allocator_statistics_get_free: (
-		statistics: WasmStructRef<AllocatorStatistics>
+		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
 	allocator_statistics_get_total: (
-		statistics: WasmStructRef<AllocatorStatistics>
+		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
 	allocator_statistics_get_used: (
-		statistics: WasmStructRef<AllocatorStatistics>
+		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
 	allocator_statistics_get_metadata: (
-		statistics: WasmStructRef<AllocatorStatistics>
+		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
 	//
 	free_parse_result: (result: Ptr<AssParseResultC>) => void
@@ -478,7 +477,7 @@ export class WasmBinding {
 	}
 
 	public allocator_get_statistics(): AllocatorStatisticsJS {
-		const c_statictics: WasmStructRef<AllocatorStatistics> =
+		const c_statictics: Ptr<AllocatorStatistics> =
 			this.wasm.functions.allocator_get_statistics()
 
 		const result: AllocatorStatisticsImpl<UInt64T> = {
