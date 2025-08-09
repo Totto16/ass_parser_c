@@ -1,29 +1,23 @@
 #!/usr/bin/env node
 
-import { decode, type DecoderOpts } from '@webassemblyjs/wasm-parser'
-import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 
-import { parse } from '@webassemblyjs/wast-parser'
 
-async function main(): Promise<void> {
-	const binary = await readFile(
-		'./static/build/ass_parser.wasm'
+function main(): void {
+	const binary = readFileSync('./static/build/ass_parser.wasm')
+
+	const wasmModule = new WebAssembly.Module(binary)
+
+	// Get export names and types
+	const exports = WebAssembly.Module.exports(wasmModule)
+
+	const customSections = WebAssembly.Module.customSections(wasmModule, 'name')
+
+	console.log(
+		exports,
+		customSections.map((a) => new TextDecoder().decode(a))
 	)
-
-	const decoderOpts: DecoderOpts = {
-		dump: false,
-		ignoreCodeSection: false,
-		ignoreDataSection: true,
-		ignoreCustomNameSection: true,
-	}
-	//const ast = decode(binary, decoderOpts)
-	//console.log(ast)
-
-	const textFormat = await readFile(
-		'./static/build/ass_parser.wat'
-	)
-
-	const ast = parse(textFormat.toString())
 }
 
-void main()
+main()
+
