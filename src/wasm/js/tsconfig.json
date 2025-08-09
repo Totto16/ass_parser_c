@@ -27,7 +27,8 @@
 	],
 	"include": [
 		"src/**/*.ts",
-		"webpack.config.ts"
+		"webpack.config.ts",
+		"scripts/**/*.ts"
 	],
 	"ts-node": {
 		"compilerOptions": {

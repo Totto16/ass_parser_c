@@ -20,6 +20,12 @@ importers:
       '@types/webpack':
         specifier: ^5.28.5
         version: 5.28.5(webpack-cli@6.0.1)
+      '@webassemblyjs/wasm-parser':
+        specifier: ^1.14.1
+        version: 1.14.1
+      '@webassemblyjs/wast-parser':
+        specifier: ^1.14.1
+        version: 1.14.1
       copy-webpack-plugin:
         specifier: ^13.0.0
         version: 13.0.0(webpack@5.101.0)
@@ -406,6 +412,12 @@ packages:
   '@webassemblyjs/helper-buffer@1.14.1':
     resolution: {integrity: sha512-jyH7wtcHiKssDtFPRB+iQdxlDf96m0E39yb0k5uJVhFGleZFoNw1c4aeIcVUPPbXUVJ94wwnMOAqUHyzoEPVMA==}
 
+  '@webassemblyjs/helper-code-frame@1.14.1':
+    resolution: {integrity: sha512-ZwPmnx/YswXJSgsNODu1V8//QDsbGXHq+YKtgACIJktSEVIHJ2rGr/TWCAhGStbWoufwOdTmuKBF5RU+wdMeEg==}
+
+  '@webassemblyjs/helper-fsm@1.13.2':
+    resolution: {integrity: sha512-vtjQm5RN9GaL1MfWbY9U/L7a+uJ0rTqG0uHBz/PRH5K2FIFcYdcaUv0Kjfn3GTJPnXuq7sakINnIEZFho0xbfA==}
+
   '@webassemblyjs/helper-numbers@1.13.2':
     resolution: {integrity: sha512-FE8aCmS5Q6eQYcV3gI35O4J789wlQA+7JrqTTpJqn5emA4U2hvwJmvFRC0HODS+3Ye6WioDklgd6scJ3+PLnEA==}
 
@@ -435,6 +447,9 @@ packages:
 
   '@webassemblyjs/wasm-parser@1.14.1':
     resolution: {integrity: sha512-JLBl+KZ0R5qB7mCnud/yyX08jWFw5MsoalJ1pQ4EdFlgj9VdXKGuENGsiCIjegI1W7p91rUlcB/LB5yRJKNTcQ==}
+
+  '@webassemblyjs/wast-parser@1.14.1':
+    resolution: {integrity: sha512-XLBrfinR+Nw83hSFkgmAtQxQlC00lU92zJSBpMcpKfXalLWCHRpU7lPgSqelA/09BUgArEPCm8TiiUllZQjMnw==}
 
   '@webassemblyjs/wast-printer@1.14.1':
     resolution: {integrity: sha512-kPSSXE6De1XOR820C90RIo2ogvZG+c3KiHzqUoO/F34Y2shGzesfqv7o57xrxovZJH/MetF5UjroJ/R/3isoiw==}
@@ -2693,6 +2708,12 @@ snapshots:
 
   '@webassemblyjs/helper-buffer@1.14.1': {}
 
+  '@webassemblyjs/helper-code-frame@1.14.1':
+    dependencies:
+      '@webassemblyjs/wast-printer': 1.14.1
+
+  '@webassemblyjs/helper-fsm@1.13.2': {}
+
   '@webassemblyjs/helper-numbers@1.13.2':
     dependencies:
       '@webassemblyjs/floating-point-hex-parser': 1.13.2
@@ -2752,6 +2773,15 @@ snapshots:
       '@webassemblyjs/ieee754': 1.13.2
       '@webassemblyjs/leb128': 1.13.2
       '@webassemblyjs/utf8': 1.13.2
+
+  '@webassemblyjs/wast-parser@1.14.1':
+    dependencies:
+      '@webassemblyjs/ast': 1.14.1
+      '@webassemblyjs/floating-point-hex-parser': 1.13.2
+      '@webassemblyjs/helper-api-error': 1.13.2
+      '@webassemblyjs/helper-code-frame': 1.14.1
+      '@webassemblyjs/helper-fsm': 1.13.2
+      '@xtuc/long': 4.2.2
 
   '@webassemblyjs/wast-printer@1.14.1':
     dependencies:
