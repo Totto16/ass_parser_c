@@ -3,9 +3,11 @@ interface GeneratedCType<Desc extends string, JSType> {
 	readonly __type: JSType
 	readonly __desc: Desc
 }
+
+export type GeneratedCTypeE = GeneratedCType<string, unknown>
 	
 export type GetJSTypeFromGeneratedCType<
-	C extends GeneratedCType<string, unknown>,
+	C extends GeneratedCTypeE,
 > = C extends {
 	readonly __type: infer JSType
 }
@@ -49,5 +51,7 @@ export interface ExportedFunctions {
 	get_message_from_entry: (p_0: I32) => I32
 	file_pos_get_line: (p_0: I32) => I32
 	file_pos_get_column: (p_0: I32) => I32
+	events_get_length: (p_0: I32) => I32
+	events_get_at: (p_0: I32, p_1: I32) => I32
 	_initialize: () => void
 }

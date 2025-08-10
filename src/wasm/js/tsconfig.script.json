@@ -2,7 +2,6 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		"isolatedModules": false,
-		"module": "CommonJS",
 		"lib": [
 			"es5",
 		],
@@ -21,6 +20,9 @@
 		"scripts/**/*.js"
 	],
 	"ts-node": {
+		"compilerOptions": {
+			"module": "CommonJS",
+		},
 		"files": true
 	}
 }

@@ -63,3 +63,10 @@ size_t file_pos_get_line(FilePos pos);
 
 PUBLIC("file_pos_get_column")
 size_t file_pos_get_column(FilePos pos);
+
+
+PUBLIC("events_get_length")
+size_t events_get_length(AssEvents* events);
+
+PUBLIC("events_get_at")
+AssEventEntry* events_get_at(AssEvents* events, size_t index);

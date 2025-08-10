@@ -1,16 +1,13 @@
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
-interface CTypeSimple<Desc extends string, JSType = unknown> {
+interface CTypeSimple<Desc extends string, JSType> {
 	readonly __marker: unique symbol
 	readonly __type: JSType
 	readonly __desc: Desc
 }
 
-interface CTypeNested<
-	Desc extends string,
-	NestedType extends CType,
-	JSType = unknown,
-> extends CTypeSimple<Desc, JSType> {
+interface CTypeNested<Desc extends string, NestedType extends CType, JSType>
+	extends CTypeSimple<Desc, JSType> {
 	readonly __nested: NestedType
 }
 
@@ -19,9 +16,9 @@ export type CType<Desc extends string = string, JSType = unknown> =
 	| CTypeNested<Desc, CType, JSType>
 
 export type IsCType<C> =
-	C extends CTypeSimple<infer _A>
+	C extends CTypeSimple<infer _A, unknown>
 		? true
-		: C extends CTypeNested<infer B, infer _C>
+		: C extends CTypeNested<infer B, infer _C, unknown>
 			? IsCType<B>
 			: false
 
@@ -75,9 +72,9 @@ type _expect0_3 = Expect<NotEqual<Ptr<Char>, Ptr<UInt64T>>>
 
 type _expect0_4 = Expect<NotEqual<Ptr<Void>, Ptr<SizeT>>>
 
-type _expect0 = Expect<IsCType<Ptr<CTypeSimple<string>>>>
+type _expect0 = Expect<IsCType<Ptr<CTypeSimple<string, unknown>>>>
 
-type _expect0__1 = Expect<IsCType<Ptr<Ptr<CTypeSimple<string>>>>>
+type _expect0__1 = Expect<IsCType<Ptr<Ptr<CTypeSimple<string, unknown>>>>>
 
 type _expect0__2 = Expect<IsCType<Ptr<Ptr<Int>>>>
 
@@ -129,7 +126,11 @@ type _expect6_2 = Expect<NotEqual<Void, UInt64T>>
 
 type _expect6_3 = Expect<NotEqual<UInt64T, Int>>
 
-export type CStruct<Desc extends string> = CTypeNested<'struct', Ptr<Void>> & {
+export type CStruct<Desc extends string> = CTypeNested<
+	'struct',
+	Ptr<Void>,
+	number
+> & {
 	readonly __struct_name: Desc
 }
 

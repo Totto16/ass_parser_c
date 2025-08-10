@@ -373,9 +373,11 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	readonly __type: JSType
 	readonly __desc: Desc
 }
+
+export type ${generatedStructName}E = ${generatedStructName}<string, unknown>
 	
 export type GetJSTypeFrom${generatedStructName}<
-	C extends ${generatedStructName}<string, unknown>,
+	C extends ${generatedStructName}E,
 > = C extends {
 	readonly __type: infer JSType
 }
@@ -423,7 +425,7 @@ function generateFiles(options: GenerateOptions): void {
 
 	const types = jsTypes.join('\n')
 
-	const wholeType = `${types}\n\n${interface_}`
+	const wholeType = `${types}\n\n${interface_}\n`
 
 	const folder = path.dirname(options.outputFile)
 

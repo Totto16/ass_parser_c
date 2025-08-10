@@ -36,6 +36,11 @@ import type {
 	UInt8T,
 	Void,
 } from './c/types'
+import type {
+	ExportedFunctions,
+	GeneratedCTypeE,
+	GetJSTypeFromGeneratedCType,
+} from './generated/wasm_exports'
 
 type AssParseResultC = CStruct<'AssParseResult'>
 
@@ -54,6 +59,12 @@ type DiagnosticC = CStruct<'Diagnostic'>
 type _expect_0 = Expect<
 	CheckIsCArrayType<DiagnosticsC, DiagnosticC, 'diagnostics'>
 >
+
+type AssEventsC = CStruct<'AssEvents'>
+
+type AssEventC = CStruct<'AssEvent'>
+
+type _expect_1 = Expect<CheckIsCArrayType<AssEventsC, AssEventC, 'events'>>
 
 type AssResultC = CStruct<'AssResult'>
 
@@ -181,12 +192,175 @@ interface WASMExportsFn {
 	get_message: (message: Ptr<MessageStructC>) => Ptr<Char>
 	free_message_struct: (message: Ptr<MessageStructC>) => void
 	//
-	//TODO: just to check if the type function work correctly, with multiple matches
-	test_get_length: (diagnostics: Ptr<Char>) => SizeT
-	test_get_at: (diagnostics: Ptr<Char>, index: SizeT) => Ptr<SizeT>
+	events_get_length: (events: Ptr<AssEventsC>) => SizeT
+	events_get_at: (events: Ptr<AssEventsC>, index: SizeT) => Ptr<AssEventC>
 }
 
 type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
+
+type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
+	? []
+	: A extends [infer First extends CType, ...infer Rest extends CType[]]
+		? [GetJSTypeFromCType<First>, ...GetJSTypeFromCTypeArr<Rest>]
+		: never
+
+interface ExportEntryImpl<Key, Args, Ret> {
+	readonly key: Key
+	readonly args: Args
+	readonly ret: Ret
+}
+
+type GetExportFnsInUniformFormatManual<T> = {
+	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
+		? Args extends CType[]
+			? Ret extends CType
+				? ExportEntryImpl<
+						K,
+						GetJSTypeFromCTypeArr<Args>,
+						GetJSTypeFromCType<Ret>
+					>
+				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+					Ret extends void
+					? ExportEntryImpl<K, GetJSTypeFromCTypeArr<Args>, 'void'>
+					: [K, 'error', 'ret non ctype']
+			: [K, 'error', 'args not all ctypes']
+		: never
+}[keyof T]
+
+type GetJSTypeFromGeneratedCTypeArr<A extends GeneratedCTypeE[]> = A extends []
+	? []
+	: A extends [
+				infer First extends GeneratedCTypeE,
+				...infer Rest extends GeneratedCTypeE[],
+		  ]
+		? [
+				GetJSTypeFromGeneratedCType<First>,
+				...GetJSTypeFromGeneratedCTypeArr<Rest>,
+			]
+		: never
+
+type GetExportFnsInUniformFormatGenerated<T> = {
+	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
+		? Args extends GeneratedCTypeE[]
+			? Ret extends GeneratedCTypeE
+				? ExportEntryImpl<
+						K,
+						GetJSTypeFromGeneratedCTypeArr<Args>,
+						GetJSTypeFromGeneratedCType<Ret>
+					>
+				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+					Ret extends void
+					? ExportEntryImpl<
+							K,
+							GetJSTypeFromGeneratedCTypeArr<Args>,
+							'void'
+						>
+					: [K, 'error', 'ret non generated ctype']
+			: [K, 'error', 'args not all generated ctypes']
+		: never
+}[keyof T]
+
+type _DeclaredExportFns = GetExportFnsInUniformFormatManual<WASMExportsFn>
+
+type _GeneratedExportFns =
+	GetExportFnsInUniformFormatGenerated<ExportedFunctions>
+
+type UnionToIntersection<U> = (
+	U extends unknown ? (k: U) => void : never
+) extends (k: infer I) => void
+	? I
+	: never
+
+type LastOf<T> =
+	UnionToIntersection<
+		T extends unknown ? () => T : never
+	> extends () => infer R
+		? R
+		: never
+
+type Push<T extends unknown[], V> = [...T, V]
+
+type UnionToTuple<T, L = LastOf<T>> = [T] extends [never]
+	? []
+	: Push<UnionToTuple<Exclude<T, L>>, L>
+
+interface FindSuccess {
+	success: true
+}
+interface FindSuccessVal<Args, Ret> {
+	readonly args: Args
+	readonly ret: Ret
+}
+
+type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
+	? [never, 'error', 'end of list reached']
+	: ExportedFns extends [infer First, ...infer Rest]
+		? First extends ExportEntryImpl<infer Type2, infer Args, infer Ret>
+			? Equal<Type, Type2> extends true
+				? FindSuccessVal<Args, Ret>
+				: FindByType<Rest, Type>
+			: [never, 'error', 'exported fns is not a list of valid types']
+		: [never, 'error', 'error 1']
+
+type _TestFindFn1 = [
+	ExportEntryImpl<'test1', 0, 0>,
+	ExportEntryImpl<'test3', 2, 2>,
+]
+
+type _Expected_test_fn_1_0 = Expect<
+	Equal<FindByType<_TestFindFn1, 'test1'>, FindSuccessVal<0, 0>>
+>
+
+type _Expected_test_fn_1_1 = Expect<
+	Equal<
+		FindByType<_TestFindFn1, 'test2'>,
+		[never, 'error', 'end of list reached']
+	>
+>
+
+type _Expected_test_fn_1_2 = Expect<
+	Equal<FindByType<_TestFindFn1, 'test3'>, FindSuccessVal<2, 2>>
+>
+
+type FindMatchingFns<MyFn, ExportedFns extends unknown[]> =
+	MyFn extends ExportEntryImpl<infer Type1, infer Args1, infer Ret1>
+		? FindByType<ExportedFns, Type1> extends infer TypeRes
+			? TypeRes extends FindSuccessVal<infer Args2, infer Ret2>
+				? Equal<Args1, Args2> extends true
+					? Equal<Ret1, Ret2> extends true
+						? FindSuccess
+						: ['error', 'ret mismatch', Type1, Ret1, Ret2]
+					: ['error', 'args mismatch', Type1, Args1, Args2]
+				: ['error', 'no such function', Type1, TypeRes]
+			: ['error', 'impl error 2']
+		: ['error', 'impl error 1']
+
+type ExportedFunctionMismatchImpl<
+	MyFns extends unknown[],
+	ExportedFns extends unknown[],
+> = MyFns extends []
+	? []
+	: MyFns extends [infer First, ...infer Rest extends unknown[]]
+		? FindMatchingFns<First, ExportedFns> extends infer Val
+			? Val extends FindSuccess
+				? ExportedFunctionMismatchImpl<Rest, ExportedFns>
+				: [Val, ...ExportedFunctionMismatchImpl<Rest, ExportedFns>]
+			: [never, 'error 1']
+		: [never, 'error 2']
+
+type _DeclaredExportFnsA = UnionToTuple<_DeclaredExportFns>
+type _GeneratedExportFnsA = UnionToTuple<_GeneratedExportFns>
+
+type _ExportedFunctionMismatch = ExportedFunctionMismatchImpl<
+	_DeclaredExportFnsA,
+	_GeneratedExportFnsA
+>
+
+type _ExportedFunctionMismatchL = _ExportedFunctionMismatch['length']
+
+type _expect_0_0 = Expect<Equal<_ExportedFunctionMismatchLÖ, 0>>
+
+type _expect_0_1 = Expect<Equal<_ExportedFunctionMismatch, []>>
 
 interface WASMExports extends WebAssembly.Exports, Allocator, WASMExportsFn {}
 
@@ -1038,8 +1212,8 @@ type _expect4 = Expect<
 
 type _expect4_1 = Expect<
 	Equal<
-		TypesFromFromLengthFnImpl<'test'>,
-		TypesFromFromIndexFnImpl<'test'>[0]
+		TypesFromFromLengthFnImpl<'events'>,
+		TypesFromFromIndexFnImpl<'events'>[0]
 	>
 >
 

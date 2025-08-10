@@ -154,3 +154,15 @@ size_t file_pos_get_line(FilePos pos) {
 size_t file_pos_get_column(FilePos pos) {
 	return pos.column;
 }
+
+size_t events_get_length(AssEvents* events) {
+	return stbds_arrlenu(events->entries);
+}
+
+AssEventEntry* events_get_at(AssEvents* events, size_t index) {
+	if(index >= stbds_arrlenu(events->entries)) {
+		return NULL;
+	}
+
+	return &(events->entries[index]);
+}
