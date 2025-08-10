@@ -49,6 +49,8 @@ export interface ExportedFunctions {
 	diagnostics_get_length: (p_0: I32) => I32
 	diagnostics_get_at: (p_0: I32, p_1: I32) => I32
 	get_message_from_entry: (p_0: I32) => I32
+	diagnostic_get_file_pos: (p_0: I32) => I32
+	diagnostic_get_severity: (p_0: I32) => I32
 	file_pos_get_line: (p_0: I32) => I32
 	file_pos_get_column: (p_0: I32) => I32
 	events_get_length: (p_0: I32) => I32

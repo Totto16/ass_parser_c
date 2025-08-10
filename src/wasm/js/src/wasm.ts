@@ -94,6 +94,7 @@ export enum FontPreset {
 	'lenient',
 }
 
+type FontPresetC = CEnum<FontPreset, 'FontPreset', UInt8T>
 export interface FontSettings {
 	preset: FontPreset
 }
@@ -674,6 +675,10 @@ export class WasmBinding {
 				),
 		}
 
+		this.wasm.allocator.free(
+			ptr_cast<AllocatorStatistics, Void>(c_statictics)
+		)
+
 		const js_result: AllocatorStatisticsJS = {
 			free: get_value<UInt64T>(result.free),
 			total: get_value<UInt64T>(result.total),
@@ -826,7 +831,7 @@ export class WasmBinding {
 
 					return [
 						opV,
-						get_c_enum_from_enum<FontPreset, Int>(
+						get_c_enum_from_enum<FontPreset, FontPresetC>(
 							settings.validate_settings.font_settings.preset
 						),
 					]

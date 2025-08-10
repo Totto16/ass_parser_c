@@ -135,24 +135,32 @@ DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index) {
 	return &(diagnostics->entries[index]);
 }
 
-MessageStruct* get_message_from_entry_js(DiagnosticEntry entry) {
+MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry) {
 	MessageStruct* result = malloc(sizeof(MessageStruct));
 
 	if(result == NULL) {
 		return NULL;
 	}
 
-	*result = get_message_from_entry(entry);
+	*result = get_message_from_entry(*entry);
 
 	return result;
 }
 
-size_t file_pos_get_line(FilePos pos) {
-	return pos.line;
+FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry) {
+	return &(entry->position);
 }
 
-size_t file_pos_get_column(FilePos pos) {
-	return pos.column;
+DiagnosticSeverity diagnostic_get_severity(DiagnosticEntry* entry) {
+	return entry->severity;
+}
+
+size_t file_pos_get_line(FilePos* pos) {
+	return pos->line;
+}
+
+size_t file_pos_get_column(FilePos* pos) {
+	return pos->column;
 }
 
 size_t events_get_length(AssEvents* events) {
