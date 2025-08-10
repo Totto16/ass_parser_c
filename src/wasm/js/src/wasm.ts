@@ -28,6 +28,7 @@ import type {
 	CStruct,
 	CType,
 	GetJSTypeFromCType,
+	GetJSTypeFromCTypeEnumSpecialCase,
 	Int,
 	IsCType,
 	Ptr,
@@ -201,7 +202,10 @@ type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
 type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
 	? []
 	: A extends [infer First extends CType, ...infer Rest extends CType[]]
-		? [GetJSTypeFromCType<First>, ...GetJSTypeFromCTypeArr<Rest>]
+		? [
+				GetJSTypeFromCTypeEnumSpecialCase<First>,
+				...GetJSTypeFromCTypeArr<Rest>,
+			]
 		: never
 
 interface ExportEntryImpl<Key, Args, Ret> {
@@ -217,7 +221,7 @@ type GetExportFnsInUniformFormatManual<T> = {
 				? ExportEntryImpl<
 						K,
 						GetJSTypeFromCTypeArr<Args>,
-						GetJSTypeFromCType<Ret>
+						GetJSTypeFromCTypeEnumSpecialCase<Ret>
 					>
 				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 					Ret extends void
@@ -698,7 +702,9 @@ export class WasmBinding {
 
 		type SetCommand = [option: SettingsOptionC, value: Int]
 
-		function get_command_data(op: SettingsOptionEnum): SetCommand | undefined {
+		function get_command_data(
+			op: SettingsOptionEnum
+		): SetCommand | undefined {
 			const opV: SettingsOptionC = get_c_enum_from_enum<
 				SettingsOptionEnum,
 				SettingsOptionC

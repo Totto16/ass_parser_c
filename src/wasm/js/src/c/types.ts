@@ -34,6 +34,11 @@ export type GetJSTypeFromCType<C extends CType> = C extends {
 	? JSType
 	: never
 
+export type GetJSTypeFromCTypeEnumSpecialCase<C extends CType> =
+	C extends CEnum<infer _A, infer _B, infer D>
+		? GetJSTypeFromCType<D>
+		: GetJSTypeFromCType<C>
+
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type IRetCType<T> = T extends void ? true : IsCType<T>
 
@@ -198,4 +203,11 @@ type _expect8_5 = Expect<
 
 type _expect8_6 = Expect<
 	Equal<GetJSTypeFromCType<CEnum<TestEnum, 'TestEnum', UInt8T>>, TestEnum>
+>
+
+type _expect8_7 = Expect<
+	Equal<
+		GetJSTypeFromCTypeEnumSpecialCase<CEnum<TestEnum, 'TestEnum', UInt8T>>,
+		GetJSTypeFromCType<UInt8T>
+	>
 >
