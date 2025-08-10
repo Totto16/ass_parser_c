@@ -48,7 +48,7 @@ type AssSource = CStruct<'AssSource'>
 
 type ParseSettingsC = CStruct<'ParseSettings'>
 
-type SettingsOptionC = CStruct<'SettingsOption'>
+type SettingsOptionC = CEnum<SettingsOptionEnum, 'SettingsOption', UInt8T>
 
 type AllocatorStatistics = CStruct<'AllocatorStatistics'>
 
@@ -108,7 +108,7 @@ export interface ParseSettings {
 	validate_settings: ValidateSettings
 }
 
-export enum SettingsOption {
+export enum SettingsOptionEnum {
 	//
 	SettingsOption_Strict_Script_allow_duplicate_fields = 0,
 	SettingsOption_Strict_Script_allow_missing_script_type,
@@ -358,7 +358,7 @@ type _ExportedFunctionMismatch = ExportedFunctionMismatchImpl<
 
 type _ExportedFunctionMismatchL = _ExportedFunctionMismatch['length']
 
-type _expect_0_0 = Expect<Equal<_ExportedFunctionMismatchLÖ, 0>>
+type _expect_0_0 = Expect<Equal<_ExportedFunctionMismatchL, 0>>
 
 type _expect_0_1 = Expect<Equal<_ExportedFunctionMismatch, []>>
 
@@ -684,28 +684,28 @@ export class WasmBinding {
 		ptr: Ptr<ParseSettingsC>,
 		settings: DeepPartial<ParseSettings>
 	): void {
-		const SET_OPS: SettingsOption[] = [
-			SettingsOption.SettingsOption_Strict_Script_allow_duplicate_fields,
-			SettingsOption.SettingsOption_Strict_Script_allow_missing_script_type,
-			SettingsOption.SettingsOption_Strict_allow_additional_fields,
-			SettingsOption.SettingsOption_Strict_allow_number_truncating,
-			SettingsOption.SettingsOption_Strict_allow_unrecognized_file_encoding,
-			SettingsOption.SettingsOption_Strict_allow_validation_errors,
-			SettingsOption.SettingsOption_Validate_Font_preset,
-			SettingsOption.SettingsOption_Validate_validate_styles,
-			SettingsOption.SettingsOption_Validate_validate_text,
+		const SET_OPS: SettingsOptionEnum[] = [
+			SettingsOptionEnum.SettingsOption_Strict_Script_allow_duplicate_fields,
+			SettingsOptionEnum.SettingsOption_Strict_Script_allow_missing_script_type,
+			SettingsOptionEnum.SettingsOption_Strict_allow_additional_fields,
+			SettingsOptionEnum.SettingsOption_Strict_allow_number_truncating,
+			SettingsOptionEnum.SettingsOption_Strict_allow_unrecognized_file_encoding,
+			SettingsOptionEnum.SettingsOption_Strict_allow_validation_errors,
+			SettingsOptionEnum.SettingsOption_Validate_Font_preset,
+			SettingsOptionEnum.SettingsOption_Validate_validate_styles,
+			SettingsOptionEnum.SettingsOption_Validate_validate_text,
 		]
 
 		type SetCommand = [option: SettingsOptionC, value: Int]
 
-		function get_command_data(op: SettingsOption): SetCommand | undefined {
+		function get_command_data(op: SettingsOptionEnum): SetCommand | undefined {
 			const opV: SettingsOptionC = get_c_enum_from_enum<
-				SettingsOption,
+				SettingsOptionEnum,
 				SettingsOptionC
 			>(op)
 
 			switch (op) {
-				case SettingsOption.SettingsOption_Strict_Script_allow_duplicate_fields: {
+				case SettingsOptionEnum.SettingsOption_Strict_Script_allow_duplicate_fields: {
 					if (
 						settings.strict_settings?.script_info
 							?.allow_duplicate_fields === undefined
@@ -723,7 +723,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Strict_Script_allow_missing_script_type: {
+				case SettingsOptionEnum.SettingsOption_Strict_Script_allow_missing_script_type: {
 					if (
 						settings.strict_settings?.script_info
 							?.allow_missing_script_type === undefined
@@ -741,7 +741,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Strict_allow_additional_fields: {
+				case SettingsOptionEnum.SettingsOption_Strict_allow_additional_fields: {
 					if (
 						settings.strict_settings?.allow_additional_fields ===
 						undefined
@@ -758,7 +758,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Strict_allow_number_truncating: {
+				case SettingsOptionEnum.SettingsOption_Strict_allow_number_truncating: {
 					if (
 						settings.strict_settings?.allow_number_truncating ===
 						undefined
@@ -775,7 +775,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Strict_allow_unrecognized_file_encoding: {
+				case SettingsOptionEnum.SettingsOption_Strict_allow_unrecognized_file_encoding: {
 					if (
 						settings.strict_settings
 							?.allow_unrecognized_file_encoding === undefined
@@ -793,7 +793,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Strict_allow_validation_errors: {
+				case SettingsOptionEnum.SettingsOption_Strict_allow_validation_errors: {
 					if (
 						settings.strict_settings?.allow_validation_errors ===
 						undefined
@@ -810,7 +810,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Validate_Font_preset: {
+				case SettingsOptionEnum.SettingsOption_Validate_Font_preset: {
 					if (
 						settings.validate_settings?.font_settings?.preset ===
 						undefined
@@ -825,7 +825,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Validate_validate_styles: {
+				case SettingsOptionEnum.SettingsOption_Validate_validate_styles: {
 					if (
 						settings.validate_settings?.validate_styles ===
 						undefined
@@ -842,7 +842,7 @@ export class WasmBinding {
 						),
 					]
 				}
-				case SettingsOption.SettingsOption_Validate_validate_text: {
+				case SettingsOptionEnum.SettingsOption_Validate_validate_text: {
 					if (
 						settings.validate_settings?.validate_text === undefined
 					) {

@@ -1,6 +1,7 @@
 import type { Equal } from 'type-testing'
 import type {
 	Bool,
+	CEnum,
 	Char,
 	CType,
 	GetJSTypeFromCType,
@@ -41,10 +42,12 @@ export function ptr_cast<a extends CType, b extends CType>(
 	return ptr_r as unknown as Ptr<b>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-export function get_c_enum_from_enum<E extends number, C extends CType>(
-	enum_v: E
-): C {
+export function get_c_enum_from_enum<
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	E extends number,
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	C extends CEnum<number, string, CType>,
+>(enum_v: E): C {
 	return enum_v as unknown as C
 }
 
@@ -53,13 +56,11 @@ export function c_bool_to_int(inp: Bool): Int {
 }
 
 export function get_bool(value_r: Bool): boolean {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
-	return !!(value_r as unknown as boolean)
+	return !!(value_r as unknown as GetJSTypeFromCType<Bool>)
 }
 
 export function get_c_bool(inp: boolean): Bool {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion, no-extra-boolean-cast
-	const val: number = !!inp ? 1 : 0
+	const val: number = inp ? 1 : 0
 	return val as unknown as Bool
 }
 

@@ -1,24 +1,30 @@
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
-interface CTypeSimple<Desc extends string, JSType> {
+type ValidJSTypes = number | bigint
+
+interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes> {
 	readonly __marker: unique symbol
 	readonly __type: JSType
 	readonly __desc: Desc
 }
 
-interface CTypeNested<Desc extends string, NestedType extends CType, JSType>
-	extends CTypeSimple<Desc, JSType> {
+interface CTypeNested<
+	Desc extends string,
+	NestedType extends CType,
+	JSType extends ValidJSTypes,
+> extends CTypeSimple<Desc, JSType> {
 	readonly __nested: NestedType
 }
 
-export type CType<Desc extends string = string, JSType = unknown> =
-	| CTypeSimple<Desc, JSType>
-	| CTypeNested<Desc, CType, JSType>
+export type CType<
+	Desc extends string = string,
+	JSType extends ValidJSTypes = ValidJSTypes,
+> = CTypeSimple<Desc, JSType> | CTypeNested<Desc, CType, JSType>
 
 export type IsCType<C> =
-	C extends CTypeSimple<infer _A, unknown>
+	C extends CTypeSimple<infer _A, infer _B>
 		? true
-		: C extends CTypeNested<infer B, infer _C, unknown>
+		: C extends CTypeNested<infer B, infer _C, infer _D>
 			? IsCType<B>
 			: false
 
@@ -72,13 +78,13 @@ type _expect0_3 = Expect<NotEqual<Ptr<Char>, Ptr<UInt64T>>>
 
 type _expect0_4 = Expect<NotEqual<Ptr<Void>, Ptr<SizeT>>>
 
-type _expect0 = Expect<IsCType<Ptr<CTypeSimple<string, unknown>>>>
+type _expect0 = Expect<IsCType<Ptr<CTypeSimple<string, ValidJSTypes>>>>
 
-type _expect0__1 = Expect<IsCType<Ptr<Ptr<CTypeSimple<string, unknown>>>>>
+type _expect0__1 = Expect<IsCType<Ptr<Ptr<CTypeSimple<string, ValidJSTypes>>>>>
 
 type _expect0__2 = Expect<IsCType<Ptr<Ptr<Int>>>>
 
-export type Bool = CTypeSimple<'bool', boolean>
+export type Bool = CTypeSimple<'bool', number>
 
 type _expect1 = Expect<IsCType<Bool>>
 
@@ -144,7 +150,7 @@ type EnumType<C extends CType, D extends string> = CTypeNested<
 }
 
 export type CEnum<
-	C,
+	C extends ValidJSTypes,
 	D extends string,
 	UnderlyingCType extends CType,
 > = CTypeNested<'enum', EnumType<UnderlyingCType, D>, C>
