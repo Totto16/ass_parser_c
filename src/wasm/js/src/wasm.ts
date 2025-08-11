@@ -23,6 +23,7 @@ import {
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
 import type {
+	Annotated,
 	AreAllFunctionCFns,
 	Bool,
 	CEnum,
@@ -34,17 +35,14 @@ import type {
 	GetJSTypeFromCTypeEnumSpecialCase,
 	Int,
 	IsCType,
+	Malloced,
 	Ptr,
 	SizeT,
 	UInt64T,
 	UInt8T,
 	Void,
 } from './c/types'
-import type {
-	Annotated,
-	ExportedFunctions,
-	Malloced,
-} from './generated/wasm_exports'
+import type { ExportedFunctions } from './generated/wasm_exports'
 
 type AssParseResultC = CStruct<'AssParseResult'>
 
@@ -146,9 +144,15 @@ interface WASMExportsFn {
 		settings: Ptr<ParseSettingsC>
 	) => Ptr<AssParseResultC>
 	//
-	source_from_string: (source: Ptr<Char>, len: SizeT) => Ptr<AssSource>
+	source_from_string: (
+		source: Ptr<Char>,
+		len: SizeT
+	) => Annotated<Ptr<AssSource>, [Malloced<'free'>]>
 	//
-	default_parse_settings: () => Ptr<ParseSettingsC>
+	default_parse_settings: () => Annotated<
+		Ptr<ParseSettingsC>,
+		[Malloced<'free'>]
+	>
 	set_settings_option: (
 		ptr: Ptr<ParseSettingsC>,
 		option: SettingsOptionC,
@@ -157,7 +161,7 @@ interface WASMExportsFn {
 	//
 	allocator_get_statistics: () => Annotated<
 		Ptr<AllocatorStatistics>,
-		Malloced<'free'>
+		[Malloced<'free'>]
 	>
 	allocator_statistics_get_free: (
 		statistics: Ptr<AllocatorStatistics>
@@ -189,7 +193,9 @@ interface WASMExportsFn {
 		index: SizeT
 	) => Ptr<DiagnosticC>
 	//
-	get_message_from_entry: (element: Ptr<DiagnosticC>) => Ptr<MessageStructC>
+	get_message_from_entry: (
+		element: Ptr<DiagnosticC>
+	) => Annotated<Ptr<MessageStructC>, [Malloced<'free'>]>
 	diagnostic_get_file_pos: (element: Ptr<DiagnosticC>) => Ptr<FilePosC>
 	diagnostic_get_severity: (element: Ptr<DiagnosticC>) => DiagnosticSeverityC
 	//

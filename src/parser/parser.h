@@ -17,12 +17,13 @@ typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] AssResult parse_result_get_value(AssParseResult* result);
 
-PUBLIC("free_parse_result") void free_parse_result(AssParseResult* result);
+PUBLIC("free_parse_result") ANNOTATION_FREE_FN void free_parse_result(AssParseResult* result);
 
-[[nodiscard]] PUBLIC("get_script_type_name") const
+[[nodiscard]] PUBLIC("get_script_type_name") ANNOTATION_CSTRING const
     char* get_script_type_name(ScriptType script_type);
 
-[[nodiscard]] PUBLIC("get_file_type_name") const char* get_file_type_name(FileType file_type);
+[[nodiscard]] PUBLIC("get_file_type_name") ANNOTATION_CSTRING const
+    char* get_file_type_name(FileType file_type);
 
 #ifdef __WASM__
 

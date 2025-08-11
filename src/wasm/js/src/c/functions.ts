@@ -1,5 +1,6 @@
 import type { Equal } from 'type-testing'
 import type {
+	Annotated,
 	Bool,
 	CEnum,
 	Char,
@@ -19,7 +20,7 @@ export type MemBuf = ArrayBuffer
 
 export interface Allocator {
 	malloc: (amount: SizeT) => Ptr<Void>
-	free: (ptr: Ptr<Void>) => Void
+	free: <T extends Ptr<A>, A extends CType, T extends HasAnnotation<<>>(ptr: T) => Void
 }
 
 export function get_value<C extends CType>(value_r: C): GetJSTypeFromCType<C> {

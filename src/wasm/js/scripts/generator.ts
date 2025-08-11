@@ -466,6 +466,8 @@ function toTsType(export_: FunctionExport): string {
 		returnType = wasmTypeToTSTypeString(export_.type.return)
 	}
 
+	const annotations: Annotations = getDefaultAnnotations()
+
 	ann_loop: for (const annotation of export_.annotations) {
 		for (const globalAnn of globalAnnotations) {
 			if (annotation.name === globalAnn.name) {
@@ -475,7 +477,13 @@ function toTsType(export_: FunctionExport): string {
 					)
 				}
 
-				returnType = `Annotated<${returnType}, ${globalAnn.typename}<${annotation.params.map((p) => `"${p}"`).join(', ')}>>`
+				const annotType: string =
+					annotation.params.length == 0
+						? globalAnn.typename
+						: `${globalAnn.typename}<${annotation.params.map((p) => `"${p}"`).join(', ')}>`
+
+				annotations[globalAnn.name] = annotType
+
 				continue ann_loop
 			}
 		}
@@ -483,18 +491,68 @@ function toTsType(export_: FunctionExport): string {
 		throw new Error(`Unrecognized annotation: ${annotation.name}`)
 	}
 
+	if (!areDefaultAnnotations(annotations)) {
+		const keysInOrder: (keyof Annotations)[] = [
+			'malloced',
+			'string',
+			'is_free_fn',
+		]
+		const annotValues: string[] = keysInOrder.map((key) => annotations[key])
+		returnType = `Annotated<${returnType}, Annotations<${annotValues.join(', ')}>>`
+	}
+
 	return `${export_.name}: (${functionParams}) => ${returnType}`
 }
 
+interface Annotations {
+	malloced: string
+	string: string
+	is_free_fn: string
+}
+
 interface AnnotationSetting {
-	name: string
+	name: keyof Annotations
 	params: number
 	typename: string
 }
 
 const globalAnnotations: AnnotationSetting[] = [
-	{ name: 'malloced', params: 1, typename: 'Malloced' },
+	{
+		name: 'malloced',
+		params: 1,
+		typename: 'Malloced',
+	},
+	{
+		name: 'string',
+		params: 0,
+		typename: 'IsCString',
+	},
+	{
+		name: 'is_free_fn',
+		params: 0,
+		typename: 'IsFreeFn',
+	},
 ]
+
+function getDefaultAnnotations(): Annotations {
+	const annotations: Annotations = {
+		malloced: 'NoAnnot',
+		is_free_fn: 'NoAnnot',
+		string: 'NoAnnot',
+	}
+
+	return annotations
+}
+
+function areDefaultAnnotations(annots: Annotations): boolean {
+	for (const key of Object.keys(annots)) {
+		if (annots[key as keyof Annotations] !== 'NoAnnot') {
+			return false
+		}
+	}
+
+	return true
+}
 
 function generateTypes(exports: FunctionExport[]): string[] {
 	const neededTypes: Record<string, TSTypeRepr> = {}
@@ -521,7 +579,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { CType, CTypeSimple } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot } from '../c/types'
 
 `
 
@@ -532,50 +590,6 @@ function generateTypes(exports: FunctionExport[]): string[] {
 		const generatedType = `export type ${type.typename} = ${generatedStructName}<"${type.c_name}", ${type.underlying_type}>`
 
 		result.push(generatedType)
-	}
-
-	const annotated = `
-export type Annotated<C extends CType, A> = C & {
-	readonly __annotated: A
-}`
-
-	result.push(...annotated.split('\n'))
-
-	for (const annotation of globalAnnotations) {
-		switch (annotation.name) {
-			case 'malloced': {
-				const content = `
-export interface ${annotation.typename}<F extends keyof ExportedFunctions> {
-	readonly __call: F
-}
-
-export class ${annotation.typename}Disposable<
-	C extends CType,
-	Fn extends keyof ExportedFunctions,
-> implements Disposable
-{
-	private val: C
-	private fn: (f: C) => void
-
-	constructor(val: Annotated<C, ${annotation.typename}<Fn>>, fn: (f: C) => void) {
-		this.val = val
-		this.fn = fn
-	}
-
-	[Symbol.dispose](): void {
-		this.fn(this.val)
-	}
-}`
-
-				result.push(...content.split('\n'))
-				break
-			}
-			default: {
-				throw new Error(
-					`type generation not impleemnted for type: ${annotation.name}`
-				)
-			}
-		}
 	}
 
 	return result

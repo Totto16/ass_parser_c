@@ -1,9 +1,30 @@
-import type { Annotated } from 'src/generated/wasm_exports'
+import type { ExportedFunctions } from 'src/generated/wasm_exports'
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
 type ValidJSTypes = number | bigint
 
-export interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes> {
+export interface AnnotationBase {
+	readonly __annotation: unique symbol
+}
+
+export interface Annotation<VAL> extends AnnotationBase {
+	readonly value: VAL
+}
+
+export type NoAnnot = Annotation<false>
+
+export interface Annotations<
+	MAL extends AnnotationBase,
+	CSTR extends AnnotationBase,
+	FREEFN extends AnnotationBase,
+> {
+	readonly __malloced: MAL
+	readonly __cstring: CSTR
+	readonly __free_fn: FREEFN
+}
+
+export interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes>
+	extends Annotations<NoAnnot, NoAnnot, NoAnnot> {
 	readonly __marker: unique symbol
 	readonly __type: JSType
 	readonly __desc: Desc
@@ -216,5 +237,43 @@ type _expect8_7 = Expect<
 	>
 >
 
-//TODO: make annotations itself an array
-export type GetAnnotations<T> = T extends Annotated<infer _F, infer A> ? [A] : []
+export type Annotated<
+	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+	C extends CType | void,
+	A extends Annotations<AnnotationBase, AnnotationBase, AnnotationBase>,
+> = C & {
+	readonly __annotated: A
+}
+
+export type GetAnnotations<T> =
+	T extends Annotated<infer _F, infer A>
+		? A
+		: Annotations<NoAnnot, NoAnnot, NoAnnot>
+
+export interface Malloced<F extends keyof ExportedFunctions>
+	extends Annotation<F> {
+	readonly __call_type: ExportedFunctions[F]
+}
+
+export type IsCString = Annotation<'is_c_string'>
+
+export type IsFreeFn = Annotation<'is_free_fn'>
+
+export class MallocedDisposable<
+	C extends CType,
+	Fn extends keyof ExportedFunctions,
+	AN extends Annotations<Malloced<Fn>, AnnotationBase, AnnotationBase>,
+> implements Disposable
+{
+	private val: C
+	private fn: (f: C) => void
+
+	constructor(val: Annotated<C, AN>, fn: (f: C) => void) {
+		this.val = val
+		this.fn = fn
+	}
+
+	[Symbol.dispose](): void {
+		this.fn(this.val)
+	}
+}

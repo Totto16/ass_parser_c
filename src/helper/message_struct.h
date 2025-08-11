@@ -18,6 +18,6 @@ typedef struct {
 
 [[nodiscard]] PUBLIC("is_empty_message_struct") bool is_empty_message_struct(MessageStruct message);
 
-[[nodiscard]] PUBLIC("get_message") char* get_message(MessageStruct message);
+[[nodiscard]] PUBLIC("get_message") ANNOTATION_CSTRING char* get_message(MessageStruct message);
 
-PUBLIC("free_message_struct")  void free_message_struct(MessageStruct msg);
+PUBLIC("free_message_struct") void free_message_struct(MessageStruct msg);
