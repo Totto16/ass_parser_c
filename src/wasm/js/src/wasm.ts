@@ -19,11 +19,15 @@ import {
 	get_bool,
 	uint8_t_to_int,
 	enum_get_underlying_c_type,
+	type WASMExportsFnFromLibC,
+	c_void,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
 import type {
+	NoAnnot,
 	Annotated,
+	Annotations,
 	AreAllFunctionCFns,
 	Bool,
 	CEnum,
@@ -34,6 +38,7 @@ import type {
 	GetJSTypeFromCType,
 	GetJSTypeFromCTypeEnumSpecialCase,
 	Int,
+	IsCString,
 	IsCType,
 	Malloced,
 	Ptr,
@@ -41,6 +46,7 @@ import type {
 	UInt64T,
 	UInt8T,
 	Void,
+	IsFreeFn,
 } from './c/types'
 import type { ExportedFunctions } from './generated/wasm_exports'
 
@@ -138,7 +144,7 @@ export type AllocatorStatisticsJS = AllocatorStatisticsImpl<
 	GetJSTypeFromCType<UInt64T>
 >
 
-interface WASMExportsFn {
+interface WASMExportsFnWithoutLibC {
 	parse_ass: (
 		source: Ptr<AssSource>,
 		settings: Ptr<ParseSettingsC>
@@ -147,21 +153,24 @@ interface WASMExportsFn {
 	source_from_string: (
 		source: Ptr<Char>,
 		len: SizeT
-	) => Annotated<Ptr<AssSource>, [Malloced<'free'>]>
+	) => Annotated<
+		Ptr<AssSource>,
+		Annotations<Malloced<'free'>, NoAnnot, NoAnnot>
+	>
 	//
 	default_parse_settings: () => Annotated<
 		Ptr<ParseSettingsC>,
-		[Malloced<'free'>]
+		Annotations<Malloced<'free'>, NoAnnot, NoAnnot>
 	>
 	set_settings_option: (
 		ptr: Ptr<ParseSettingsC>,
 		option: SettingsOptionC,
 		value: Int
-	) => void
+	) => Void
 	//
 	allocator_get_statistics: () => Annotated<
 		Ptr<AllocatorStatistics>,
-		[Malloced<'free'>]
+		Annotations<Malloced<'free'>, NoAnnot, NoAnnot>
 	>
 	allocator_statistics_get_free: (
 		statistics: Ptr<AllocatorStatistics>
@@ -176,7 +185,9 @@ interface WASMExportsFn {
 		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
 	//
-	free_parse_result: (result: Ptr<AssParseResultC>) => void
+	free_parse_result: (
+		result: Ptr<AssParseResultC>
+	) => Annotated<Void, Annotations<NoAnnot, NoAnnot, IsFreeFn>>
 	//
 	get_diagnostics_from_result: (
 		result: Ptr<AssParseResultC>
@@ -185,7 +196,7 @@ interface WASMExportsFn {
 	parse_result_is_error: (result: Ptr<AssParseResultC>) => Bool
 	parse_result_get_value: (result: Ptr<AssParseResultC>) => Ptr<AssResultC>
 	//
-	_initialize: () => void
+	_initialize: () => Void
 	//
 	diagnostics_get_length: (diagnostics: Ptr<DiagnosticsC>) => SizeT
 	diagnostics_get_at: (
@@ -195,7 +206,10 @@ interface WASMExportsFn {
 	//
 	get_message_from_entry: (
 		element: Ptr<DiagnosticC>
-	) => Annotated<Ptr<MessageStructC>, [Malloced<'free'>]>
+	) => Annotated<
+		Ptr<MessageStructC>,
+		Annotations<Malloced<'free'>, NoAnnot, NoAnnot>
+	>
 	diagnostic_get_file_pos: (element: Ptr<DiagnosticC>) => Ptr<FilePosC>
 	diagnostic_get_severity: (element: Ptr<DiagnosticC>) => DiagnosticSeverityC
 	//
@@ -203,14 +217,16 @@ interface WASMExportsFn {
 	file_pos_get_column: (pos: Ptr<FilePosC>) => SizeT
 	//
 	is_empty_message_struct: (message: Ptr<MessageStructC>) => Bool
-	get_message: (message: Ptr<MessageStructC>) => Ptr<Char>
-	free_message_struct: (message: Ptr<MessageStructC>) => void
+	get_message: (
+		message: Ptr<MessageStructC>
+	) => Annotated<Ptr<Char>, Annotations<NoAnnot, IsCString, NoAnnot>>
+	free_message_struct: (message: Ptr<MessageStructC>) => Void
 	//
 	events_get_length: (events: Ptr<AssEventsC>) => SizeT
 	events_get_at: (events: Ptr<AssEventsC>, index: SizeT) => Ptr<AssEventC>
 }
 
-type _expect0 = Expect<AreAllFunctionCFns<WASMExportsFn>>
+type _expect0 = Expect<AreAllFunctionCFns<ExportedCFunctions>>
 
 type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
 	? []
@@ -238,15 +254,7 @@ type GetExportFnsInUniformFormatManual<T> = {
 						GetJSTypeFromCTypeEnumSpecialCase<Ret>,
 						GetAnnotations<Ret>
 					>
-				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-					Ret extends void
-					? ExportEntryImpl<
-							K,
-							GetJSTypeFromCTypeArr<Args>,
-							'void',
-							[]
-						>
-					: [K, 'error', 'ret non ctype']
+				: [K, 'error', 'ret non ctype']
 			: [K, 'error', 'args not all ctypes']
 		: never
 }[keyof T]
@@ -270,20 +278,12 @@ type GetExportFnsInUniformFormatGenerated<T> = {
 						GetJSTypeFromCTypeEnumSpecialCase<Ret>,
 						GetAnnotations<Ret>
 					>
-				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-					Ret extends void
-					? ExportEntryImpl<
-							K,
-							GetJSTypeFromGeneratedCTypeArr<Args>,
-							'void',
-							[]
-						>
-					: [K, 'error', 'ret non generated ctype']
+				: [K, 'error', 'ret non generated ctype']
 			: [K, 'error', 'args not all generated ctypes']
 		: never
 }[keyof T]
 
-type _DeclaredExportFns = GetExportFnsInUniformFormatManual<WASMExportsFn>
+type _DeclaredExportFns = GetExportFnsInUniformFormatManual<ExportedCFunctions>
 
 type _GeneratedExportFns =
 	GetExportFnsInUniformFormatGenerated<ExportedFunctions>
@@ -398,24 +398,29 @@ type _expect_0_0 = Expect<Equal<_ExportedFunctionMismatchL, 0>>
 
 type _expect_0_1 = Expect<Equal<_ExportedFunctionMismatch, []>>
 
-interface WASMExports extends WebAssembly.Exports, Allocator, WASMExportsFn {}
+interface WASMExports
+	extends WebAssembly.Exports,
+		WASMExportsFnFromLibC,
+		WASMExportsFnWithoutLibC {}
+
+type ExportedCFunctions = Allocator & WASMExportsFnWithoutLibC
 
 interface TypedWasmFn {
 	platform_panic: (
 		file_path_ptr: Ptr<Char>,
 		line: Int,
 		message_ptr: Ptr<Char>
-	) => void
-	platform_log_start: (error: Bool) => void
-	platform_log_add: (message_ptr: Ptr<Char>) => void
-	platform_log_end: () => void
+	) => Void
+	platform_log_start: (error: Bool) => Void
+	platform_log_add: (message_ptr: Ptr<Char>) => Void
+	platform_log_end: () => Void
 	platform_string_conversion: (
 		data_ptr: Ptr<Void>,
 		len: SizeT,
 		format_ptr: Ptr<Char>,
 		out_data_ptr: Ptr<Ptr<Void>>,
 		out_len_ptr: Ptr<SizeT>
-	) => void
+	) => Void
 }
 
 type _expect1 = Expect<AreAllFunctionCFns<TypedWasmFn>>
@@ -476,7 +481,7 @@ class WASMWrapper {
 		return this.get_allocator()
 	}
 
-	public get functions(): WASMExportsFn {
+	public get functions(): WASMExportsFnWithoutLibC {
 		return this.wasm.instance.exports
 	}
 }
@@ -639,17 +644,21 @@ export class WasmBinding {
 				file_path_ptr: Ptr<Char>,
 				line: Int,
 				message_ptr: Ptr<Char>
-			) => {
+			): Void => {
 				wasm.platform_panic.call(wasm, file_path_ptr, line, message_ptr)
+				return c_void()
 			},
-			platform_log_start: (error: Bool): void => {
+			platform_log_start: (error: Bool): Void => {
 				wasm.platform_log_start.call(wasm, error)
+				return c_void()
 			},
-			platform_log_add: (message_ptr: Ptr<Char>): void => {
+			platform_log_add: (message_ptr: Ptr<Char>): Void => {
 				wasm.platform_log_add.call(wasm, message_ptr)
+				return c_void()
 			},
-			platform_log_end: (): void => {
+			platform_log_end: (): Void => {
 				wasm.platform_log_end.call(wasm)
+				return c_void()
 			},
 			platform_string_conversion: (
 				data_ptr: Ptr<Void>,
@@ -657,7 +666,7 @@ export class WasmBinding {
 				format_ptr: Ptr<Char>,
 				out_data_ptr: Ptr<Ptr<Void>>,
 				out_len_ptr: Ptr<SizeT>
-			): void => {
+			): Void => {
 				wasm.platform_string_conversion.call(
 					wasm,
 					data_ptr,
@@ -666,6 +675,7 @@ export class WasmBinding {
 					out_data_ptr,
 					out_len_ptr
 				)
+				return c_void()
 			},
 			memory,
 		}
@@ -1170,9 +1180,9 @@ type ArrayAccessFnsOfImpl<O> = ValidateArrayFns<
 
 type ArrayAccessFnsOf<O> = ArrayAccessFnsOfImpl<O>
 
-type _LengthFns = GetLengthFnsSimple<WASMExportsFn>
+type _LengthFns = GetLengthFnsSimple<ExportedCFunctions>
 
-type _IndexFns = GetIndexFnsSimple<WASMExportsFn>
+type _IndexFns = GetIndexFnsSimple<ExportedCFunctions>
 
 type _expect2 = Expect<Equal<_LengthFns, _IndexFns>>
 
@@ -1209,7 +1219,7 @@ type _expectcheck_1_1 = Expect<Equal<IsValidCListImpl<Test2FnsRes1>, true>>
 
 type _expectcheck_1_2 = Expect<Equal<Test2FnsRes1, 'abcs' | 'abcd'>>
 
-type ExportedCListAccessFns = ArrayAccessFnsOf<WASMExportsFn>
+type ExportedCListAccessFns = ArrayAccessFnsOf<WASMExportsFnWithoutLibC>
 
 type IsValidCListImpl<A> = A extends [never, ...args: unknown[]] ? false : true
 
@@ -1235,7 +1245,10 @@ type DEBUG_TYPE = false
 type NeverError<MSG> = DEBUG_TYPE extends true ? [never, MSG] : never
 
 type TypesFromFromLengthFnImpl<C extends ExportedCListAccessFns> =
-	FindElementWhereForFn<GetLengthFnsImpl<WASMExportsFn>, C> extends infer Temp
+	FindElementWhereForFn<
+		GetLengthFnsImpl<ExportedCFunctions>,
+		C
+	> extends infer Temp
 		? Temp extends [never, ...args: unknown[]]
 			? never
 			: Temp extends [[true, infer Res]]
@@ -1262,7 +1275,10 @@ type _expect4_1 = Expect<
 >
 
 type TypesFromFromIndexFnImpl<C extends ExportedCListAccessFns> =
-	FindElementWhereForFn<GetIndexFnsImpl<WASMExportsFn>, C> extends infer Temp
+	FindElementWhereForFn<
+		GetIndexFnsImpl<ExportedCFunctions>,
+		C
+	> extends infer Temp
 		? Temp extends [never, ...args: unknown[]]
 			? never
 			: Temp extends [[true, infer Res]]
@@ -1294,7 +1310,7 @@ export abstract class CArray<
 	}
 
 	protected override length_of_impl(underlying_type: Ptr<ListType>): SizeT {
-		const fn: WASMExportsFn[`${CFuncLit}_get_length`] =
+		const fn: WASMExportsFnWithoutLibC[`${CFuncLit}_get_length`] =
 			this.wasm.functions[`${this.c_func_lit}_get_length`]
 
 		return fn(underlying_type)
@@ -1304,7 +1320,7 @@ export abstract class CArray<
 		underlying_type: Ptr<ListType>,
 		index: SizeT
 	): Ptr<ElementType> {
-		const fn: WASMExportsFn[`${CFuncLit}_get_at`] =
+		const fn: WASMExportsFnWithoutLibC[`${CFuncLit}_get_at`] =
 			this.wasm.functions[`${this.c_func_lit}_get_at`]
 
 		return fn(underlying_type, index) as ElementType

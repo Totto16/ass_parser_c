@@ -1,7 +1,8 @@
 import type { ExportedFunctions } from 'src/generated/wasm_exports'
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
-type ValidJSTypes = number | bigint
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+type ValidJSTypes = number | bigint | void
 
 export interface AnnotationBase {
 	readonly __annotation: unique symbol
@@ -23,25 +24,38 @@ export interface Annotations<
 	readonly __free_fn: FREEFN
 }
 
-export interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes>
-	extends Annotations<NoAnnot, NoAnnot, NoAnnot> {
+interface CTypeSimpleImpl<Desc extends string, JSType extends ValidJSTypes> {
 	readonly __marker: unique symbol
 	readonly __type: JSType
 	readonly __desc: Desc
 }
 
-interface CTypeNested<
+export type CTypeSimple<
+	Desc extends string,
+	JSType extends ValidJSTypes,
+> = CTypeSimpleImpl<Desc, JSType> & Annotations<NoAnnot, NoAnnot, NoAnnot>
+
+interface CTypeNestedImpl<
 	Desc extends string,
 	NestedType extends CType,
 	JSType extends ValidJSTypes,
-> extends CTypeSimple<Desc, JSType> {
+> extends CTypeSimpleImpl<Desc, JSType> {
 	readonly __nested: NestedType
 }
+
+type CTypeNested<
+	Desc extends string,
+	NestedType extends CType,
+	JSType extends ValidJSTypes,
+> = CTypeNestedImpl<Desc, NestedType, JSType> & {
+	readonly __nested: NestedType
+} & Annotations<NoAnnot, NoAnnot, NoAnnot>
 
 export type CType<
 	Desc extends string = string,
 	JSType extends ValidJSTypes = ValidJSTypes,
-> = CTypeSimple<Desc, JSType> | CTypeNested<Desc, CType, JSType>
+> = (CTypeSimpleImpl<Desc, JSType> | CTypeNestedImpl<Desc, CType, JSType>) &
+	Annotations<AnnotationBase, AnnotationBase, AnnotationBase>
 
 export type IsCType<C> =
 	C extends CTypeSimple<infer _A, infer _B>
@@ -61,23 +75,18 @@ export type GetJSTypeFromCTypeEnumSpecialCase<C extends CType> =
 		? GetJSTypeFromCType<D>
 		: GetJSTypeFromCType<C>
 
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-type IRetCType<T> = T extends void ? true : IsCType<T>
-
-type IsCTypeArg<T> = IsCType<T>
-
 type AreAllCTypes<A extends readonly unknown[]> = A extends [
 	infer Head,
 	...infer Tail,
 ]
-	? IsCTypeArg<Head> extends true
+	? IsCType<Head> extends true
 		? AreAllCTypes<Tail>
 		: false
 	: true
 
 type IsCFunc<C> = C extends (...args: infer Args) => infer Ret
 	? AreAllCTypes<Args> extends true
-		? IRetCType<Ret>
+		? IsCType<Ret>
 		: false
 	: false
 
@@ -96,6 +105,17 @@ type _64BitNum = bigint
 type PtrType = _32BitNum
 
 export type Ptr<C extends CType> = CTypeNested<'ptr', C, PtrType>
+
+type _expect0_0 = Expect<
+	Equal<Annotated<Ptr<Int>, Annotations<NoAnnot, NoAnnot, NoAnnot>>, Ptr<Int>>
+>
+
+type _expect0_01 = Expect<
+	NotEqual<
+		Annotated<Ptr<Int>, Annotations<Malloced<'free'>, NoAnnot, NoAnnot>>,
+		Ptr<Int>
+	>
+>
 
 type _expect0_1 = Expect<NotEqual<Ptr<Char>, Ptr<Int>>>
 
@@ -133,7 +153,7 @@ type _expect3_1 = Expect<NotEqual<Char, Int>>
 
 type _expect3 = Expect<IsCType<Int>>
 
-export type Void = CTypeSimple<'void', PtrType>
+export type Void = CTypeSimple<'void', void>
 
 type _expect4_1 = Expect<NotEqual<Int, Void>>
 
@@ -238,12 +258,9 @@ type _expect8_7 = Expect<
 >
 
 export type Annotated<
-	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-	C extends CType | void,
+	C extends CType,
 	A extends Annotations<AnnotationBase, AnnotationBase, AnnotationBase>,
-> = C & {
-	readonly __annotated: A
-}
+> = C & A
 
 export type GetAnnotations<T> =
 	T extends Annotated<infer _F, infer A>

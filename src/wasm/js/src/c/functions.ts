@@ -1,6 +1,8 @@
 import type { Equal } from 'type-testing'
 import type {
 	Annotated,
+	AnnotationBase,
+	Annotations,
 	Bool,
 	CEnum,
 	Char,
@@ -8,6 +10,8 @@ import type {
 	GetEnumType,
 	GetJSTypeFromCType,
 	Int,
+	IsFreeFn,
+	NoAnnot,
 	Ptr,
 	SizeT,
 	UInt8T,
@@ -18,10 +22,18 @@ export type Mem = Uint8Array
 
 export type MemBuf = ArrayBuffer
 
-export interface Allocator {
+export interface Allocator<
+	A extends CType = Void,
+	T extends Ptr<A> = Ptr<A>,
+	PTR extends T['__malloced'] extends false
+		? never
+		: T = T['__malloced'] extends false ? never : T,
+> {
 	malloc: (amount: SizeT) => Ptr<Void>
-	free: <T extends Ptr<A>, A extends CType, T extends HasAnnotation<<>>(ptr: T) => Void
+	free: (ptr: PTR) => Annotated<Void, Annotations<NoAnnot, NoAnnot, IsFreeFn>>
 }
+
+export type WASMExportsFnFromLibC = Allocator
 
 export function get_value<C extends CType>(value_r: C): GetJSTypeFromCType<C> {
 	return value_r as unknown as GetJSTypeFromCType<C>
@@ -37,6 +49,11 @@ export function get_c_value<A, C extends CType>(
 
 export function nullptr(): Ptr<Void> {
 	return get_c_value<number, Ptr<Void>>(0)
+}
+
+export function c_void(): Void {
+	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+	return get_c_value<void, Void>(undefined)
 }
 
 export function ptr_cast<a extends CType, b extends CType>(
@@ -217,7 +234,9 @@ export function construct_ptr_error(
 	}
 }
 
-export type FreeFn<A extends CType> = (arg: Ptr<A>) => void
+export type FreeFn<A extends CType> = (
+	arg: Ptr<A>
+) => Annotated<Void, Annotations<AnnotationBase, AnnotationBase, IsFreeFn>>
 
 export type FreeData<A extends CType> = [value: Ptr<A>, free_fn: FreeFn<A>]
 
@@ -229,7 +248,10 @@ export class FreeList {
 	}
 
 	public add<B extends CType>(ptr: Ptr<B>, free_fn: FreeFn<B>): void {
-		this.list.push([ptr_cast<B, Void>(ptr), free_fn as FreeFn<Void>])
+		this.list.push([
+			ptr_cast<B, Void>(ptr),
+			free_fn as unknown as FreeFn<Void>,
+		])
 	}
 
 	public free(): void {

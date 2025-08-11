@@ -460,7 +460,7 @@ function toTsType(export_: FunctionExport): string {
 		})
 		.join(', ')
 
-	let returnType = 'void'
+	let returnType = 'Void'
 
 	if (export_.type.return !== undefined) {
 		returnType = wasmTypeToTSTypeString(export_.type.return)
@@ -579,7 +579,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot, Void } from '../c/types'
 
 `
 
