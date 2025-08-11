@@ -3,6 +3,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { TypeKind } from 'wasmparser/dist/cjs/WasmParser'
+
 import {
 	BinaryReader,
 	BinaryReaderState,
@@ -12,9 +14,9 @@ import {
 	type ITypeEntry,
 	type Type,
 	type IImportEntry,
+	type ISectionInformation,
+	SectionCode,
 } from 'wasmparser'
-
-import { TypeKind } from 'wasmparser/dist/cjs/WasmParser'
 
 interface FunctionType {
 	arguments: Type[]
@@ -24,6 +26,7 @@ interface FunctionType {
 interface FunctionExport {
 	name: string
 	type: FunctionType
+	annotations: Annotation[]
 }
 
 function isImportEntry(
@@ -41,6 +44,69 @@ export interface IFunctionTypeEntry {
 	returns: Type[]
 }
 
+interface CustomSection {
+	data: Uint8Array
+}
+
+interface Annotation {
+	name: string
+	params: string[]
+}
+
+function get_annotations(
+	customSections: Record<string, CustomSection>
+): Record<number, Annotation[]> {
+	const annotations: Record<number, Annotation[]> = {}
+
+	for (const [sectionName, section] of Object.entries(customSections)) {
+		// TODO: parse dwarf
+		// DW_TAG_subprogram (means function)
+		// DW_AT_name (has the name)
+		// DW_AT_type (points to the type)
+
+		// e.g. DW_TAG_pointer_type
+
+		if (sectionName.startsWith('llvm.func_attr.annotate.')) {
+			if (section.data.byteLength % 4 != 0) {
+				throw new Error(
+					'annotation section has not uint32_t as values!'
+				)
+			}
+			const data_view = new DataView(
+				section.data.buffer,
+				section.data.byteOffset,
+				section.data.byteLength
+			)
+
+			const fullName = sectionName.replace('llvm.func_attr.annotate.', '')
+
+			const parts = fullName.split(':')
+
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			const name = parts[0]!
+
+			const params = parts.slice(1)
+
+			const entry: Annotation = {
+				name,
+				params,
+			}
+
+			for (let i = 0; i < section.data.byteLength / 4; ++i) {
+				const index = data_view.getUint32(i * 4, true)
+
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+				if (annotations[index] === undefined) {
+					annotations[index] = []
+				}
+				annotations[index].push(entry)
+			}
+		}
+	}
+
+	return annotations
+}
+
 function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 	const parser = new BinaryReader()
 	parser.setData(data.buffer, 0, data.length)
@@ -50,9 +116,22 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 		index: number
 	}
 
+	type ISectionInformationFixed =
+		| { id: SectionCode.Custom; name: Uint8Array }
+		| { id: SectionCode; name: null }
+
+	interface CustomSectionInfo {
+		info: ISectionInformationFixed | null
+		data: Uint8Array | null
+	}
+
 	const functionExports: FunctionExportInternal[] = []
 	const typeEntries: ITypeEntry[] = []
 	const functionList: (IFunctionEntry | IImportEntry)[] = []
+
+	const currentSectionInfo: CustomSectionInfo = { data: null, info: null }
+
+	const customSections: Record<string, CustomSection> = {}
 
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 	parse_loop: while (true) {
@@ -74,9 +153,40 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 				break parse_loop
 			}
 			case BinaryReaderState.BEGIN_SECTION: {
+				currentSectionInfo.info =
+					parser.result as ISectionInformation as ISectionInformationFixed
 				break
 			}
 			case BinaryReaderState.END_SECTION: {
+				if (currentSectionInfo.info == null) {
+					return new Error(
+						'Parser error: section end before section begin?'
+					)
+				}
+
+				if (currentSectionInfo.info.id == SectionCode.Custom) {
+					const name = new TextDecoder().decode(
+						currentSectionInfo.info.name
+					)
+
+					if (name != 'name') {
+						if (currentSectionInfo.data == null) {
+							return new Error(
+								'Parser error: section end before section read: ' +
+									name
+							)
+						}
+
+						const customSection: CustomSection = {
+							data: currentSectionInfo.data,
+						}
+
+						customSections[name] = customSection
+					}
+				}
+
+				currentSectionInfo.data = null
+				currentSectionInfo.info = null
 				break
 			}
 			case BinaryReaderState.SKIPPING_SECTION: {
@@ -86,6 +196,13 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 				break
 			}
 			case BinaryReaderState.SECTION_RAW_DATA: {
+				if (currentSectionInfo.info == null) {
+					return new Error(
+						'Parser error: section read before section begin?'
+					)
+				}
+
+				currentSectionInfo.data = parser.result as Uint8Array | null
 				break
 			}
 			case BinaryReaderState.TYPE_SECTION_ENTRY: {
@@ -231,6 +348,9 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 
 	const results: FunctionExport[] = []
 
+	const annotations: Record<number, Annotation[]> =
+		get_annotations(customSections)
+
 	for (const export_ of functionExports) {
 		const functionEntry = functionList[export_.index]
 
@@ -239,6 +359,12 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 				`function entry not found for function ${export_.name}`
 			)
 		}
+
+		const funcAnnotations: Annotation[] =
+			annotations[export_.index] === undefined
+				? []
+				: // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+					annotations[export_.index]!
 
 		if (isImportEntry(functionEntry)) {
 			return new Error(
@@ -279,7 +405,7 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 			return: returnType,
 		}
 
-		results.push({ name: export_.name, type })
+		results.push({ name: export_.name, type, annotations: funcAnnotations })
 	}
 
 	return results
@@ -340,8 +466,35 @@ function toTsType(export_: FunctionExport): string {
 		returnType = wasmTypeToTSTypeString(export_.type.return)
 	}
 
+	ann_loop: for (const annotation of export_.annotations) {
+		for (const globalAnn of globalAnnotations) {
+			if (annotation.name === globalAnn.name) {
+				if (annotation.params.length != globalAnn.params) {
+					throw new Error(
+						`The ${globalAnn.name} annotation needs ${globalAnn.params.toString()} arguments, but ${annotation.params.length.toString()} given`
+					)
+				}
+
+				returnType = `Annotated<${returnType}, ${globalAnn.typename}<${annotation.params.map((p) => `"${p}"`).join(', ')}>>`
+				continue ann_loop
+			}
+		}
+
+		throw new Error(`Unrecognized annotation: ${annotation.name}`)
+	}
+
 	return `${export_.name}: (${functionParams}) => ${returnType}`
 }
+
+interface AnnotationSetting {
+	name: string
+	params: number
+	typename: string
+}
+
+const globalAnnotations: AnnotationSetting[] = [
+	{ name: 'malloced', params: 1, typename: 'Malloced' },
+]
 
 function generateTypes(exports: FunctionExport[]): string[] {
 	const neededTypes: Record<string, TSTypeRepr> = {}
@@ -365,24 +518,11 @@ function generateTypes(exports: FunctionExport[]): string[] {
 
 	const result: string[] = []
 
-	const generatedStructName = 'GeneratedCType'
+	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `interface ${generatedStructName}<Desc extends string, JSType> {
-	readonly __marker: unique symbol
-	readonly __type: JSType
-	readonly __desc: Desc
-}
+		const dataToAdd = `import type { CType, CTypeSimple } from '../c/types'
 
-export type ${generatedStructName}E = ${generatedStructName}<string, unknown>
-	
-export type GetJSTypeFrom${generatedStructName}<
-	C extends ${generatedStructName}E,
-> = C extends {
-	readonly __type: infer JSType
-}
-	? JSType
-	: never
 `
 
 		result.push(...dataToAdd.split('\n'))
@@ -392,6 +532,50 @@ export type GetJSTypeFrom${generatedStructName}<
 		const generatedType = `export type ${type.typename} = ${generatedStructName}<"${type.c_name}", ${type.underlying_type}>`
 
 		result.push(generatedType)
+	}
+
+	const annotated = `
+export type Annotated<C extends CType, A> = C & {
+	readonly __annotated: A
+}`
+
+	result.push(...annotated.split('\n'))
+
+	for (const annotation of globalAnnotations) {
+		switch (annotation.name) {
+			case 'malloced': {
+				const content = `
+export interface ${annotation.typename}<F extends keyof ExportedFunctions> {
+	readonly __call: F
+}
+
+export class ${annotation.typename}Disposable<
+	C extends CType,
+	Fn extends keyof ExportedFunctions,
+> implements Disposable
+{
+	private val: C
+	private fn: (f: C) => void
+
+	constructor(val: Annotated<C, ${annotation.typename}<Fn>>, fn: (f: C) => void) {
+		this.val = val
+		this.fn = fn
+	}
+
+	[Symbol.dispose](): void {
+		this.fn(this.val)
+	}
+}`
+
+				result.push(...content.split('\n'))
+				break
+			}
+			default: {
+				throw new Error(
+					`type generation not impleemnted for type: ${annotation.name}`
+				)
+			}
+		}
 	}
 
 	return result

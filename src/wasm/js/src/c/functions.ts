@@ -4,10 +4,12 @@ import type {
 	CEnum,
 	Char,
 	CType,
+	GetEnumType,
 	GetJSTypeFromCType,
 	Int,
 	Ptr,
 	SizeT,
+	UInt8T,
 	Void,
 } from './types'
 
@@ -46,9 +48,22 @@ export function get_c_enum_from_enum<
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 	E extends number,
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-	C extends CEnum<number, string, CType>,
+	C extends CEnum<E, string, CType>,
 >(enum_v: E): C {
 	return enum_v as unknown as C
+}
+
+export function enum_get_underlying_c_type<
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	E extends number,
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	C extends CEnum<E, string, CType>,
+>(enum_v: E): GetEnumType<C> {
+	return enum_v as unknown as GetEnumType<C>
+}
+
+export function uint8_t_to_int(i: UInt8T): Int {
+	return i as unknown as Int
 }
 
 export function c_bool_to_int(inp: Bool): Int {

@@ -1,8 +1,9 @@
+import type { Annotated } from 'src/generated/wasm_exports'
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
 type ValidJSTypes = number | bigint
 
-interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes> {
+export interface CTypeSimple<Desc extends string, JSType extends ValidJSTypes> {
 	readonly __marker: unique symbol
 	readonly __type: JSType
 	readonly __desc: Desc
@@ -154,6 +155,9 @@ type EnumType<C extends CType, D extends string> = CTypeNested<
 	readonly __name: D
 }
 
+export type GetEnumType<T> =
+	T extends CEnum<infer _A, infer _B, infer C> ? C : never
+
 export type CEnum<
 	C extends ValidJSTypes,
 	D extends string,
@@ -211,3 +215,6 @@ type _expect8_7 = Expect<
 		GetJSTypeFromCType<UInt8T>
 	>
 >
+
+//TODO: make annotations itself an array
+export type GetAnnotations<T> = T extends Annotated<infer _F, infer A> ? [A] : []

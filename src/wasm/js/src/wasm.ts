@@ -17,6 +17,8 @@ import {
 	type MemBuf,
 	get_value,
 	get_bool,
+	uint8_t_to_int,
+	enum_get_underlying_c_type,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -27,6 +29,7 @@ import type {
 	Char,
 	CStruct,
 	CType,
+	GetAnnotations,
 	GetJSTypeFromCType,
 	GetJSTypeFromCTypeEnumSpecialCase,
 	Int,
@@ -38,9 +41,9 @@ import type {
 	Void,
 } from './c/types'
 import type {
+	Annotated,
 	ExportedFunctions,
-	GeneratedCTypeE,
-	GetJSTypeFromGeneratedCType,
+	Malloced,
 } from './generated/wasm_exports'
 
 type AssParseResultC = CStruct<'AssParseResult'>
@@ -152,7 +155,10 @@ interface WASMExportsFn {
 		value: Int
 	) => void
 	//
-	allocator_get_statistics: () => Ptr<AllocatorStatistics>
+	allocator_get_statistics: () => Annotated<
+		Ptr<AllocatorStatistics>,
+		Malloced<'free'>
+	>
 	allocator_statistics_get_free: (
 		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
@@ -209,10 +215,11 @@ type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
 			]
 		: never
 
-interface ExportEntryImpl<Key, Args, Ret> {
+interface ExportEntryImpl<Key, Args, Ret, AN> {
 	readonly key: Key
 	readonly args: Args
 	readonly ret: Ret
+	readonly annotation: AN
 }
 
 type GetExportFnsInUniformFormatManual<T> = {
@@ -222,43 +229,48 @@ type GetExportFnsInUniformFormatManual<T> = {
 				? ExportEntryImpl<
 						K,
 						GetJSTypeFromCTypeArr<Args>,
-						GetJSTypeFromCTypeEnumSpecialCase<Ret>
+						GetJSTypeFromCTypeEnumSpecialCase<Ret>,
+						GetAnnotations<Ret>
 					>
 				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 					Ret extends void
-					? ExportEntryImpl<K, GetJSTypeFromCTypeArr<Args>, 'void'>
+					? ExportEntryImpl<
+							K,
+							GetJSTypeFromCTypeArr<Args>,
+							'void',
+							[]
+						>
 					: [K, 'error', 'ret non ctype']
 			: [K, 'error', 'args not all ctypes']
 		: never
 }[keyof T]
 
-type GetJSTypeFromGeneratedCTypeArr<A extends GeneratedCTypeE[]> = A extends []
+type GetJSTypeFromGeneratedCTypeArr<A extends CType[]> = A extends []
 	? []
-	: A extends [
-				infer First extends GeneratedCTypeE,
-				...infer Rest extends GeneratedCTypeE[],
-		  ]
+	: A extends [infer First extends CType, ...infer Rest extends CType[]]
 		? [
-				GetJSTypeFromGeneratedCType<First>,
+				GetJSTypeFromCTypeEnumSpecialCase<First>,
 				...GetJSTypeFromGeneratedCTypeArr<Rest>,
 			]
 		: never
 
 type GetExportFnsInUniformFormatGenerated<T> = {
 	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
-		? Args extends GeneratedCTypeE[]
-			? Ret extends GeneratedCTypeE
+		? Args extends CType[]
+			? Ret extends CType
 				? ExportEntryImpl<
 						K,
 						GetJSTypeFromGeneratedCTypeArr<Args>,
-						GetJSTypeFromGeneratedCType<Ret>
+						GetJSTypeFromCTypeEnumSpecialCase<Ret>,
+						GetAnnotations<Ret>
 					>
 				: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 					Ret extends void
 					? ExportEntryImpl<
 							K,
 							GetJSTypeFromGeneratedCTypeArr<Args>,
-							'void'
+							'void',
+							[]
 						>
 					: [K, 'error', 'ret non generated ctype']
 			: [K, 'error', 'args not all generated ctypes']
@@ -292,28 +304,34 @@ type UnionToTuple<T, L = LastOf<T>> = [T] extends [never]
 interface FindSuccess {
 	success: true
 }
-interface FindSuccessVal<Args, Ret> {
+interface FindSuccessVal<Args, Ret, AN> {
 	readonly args: Args
 	readonly ret: Ret
+	readonly annotation: AN
 }
 
 type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
 	? [never, 'error', 'end of list reached']
 	: ExportedFns extends [infer First, ...infer Rest]
-		? First extends ExportEntryImpl<infer Type2, infer Args, infer Ret>
+		? First extends ExportEntryImpl<
+				infer Type2,
+				infer Args,
+				infer Ret,
+				infer ANOT
+			>
 			? Equal<Type, Type2> extends true
-				? FindSuccessVal<Args, Ret>
+				? FindSuccessVal<Args, Ret, ANOT>
 				: FindByType<Rest, Type>
 			: [never, 'error', 'exported fns is not a list of valid types']
 		: [never, 'error', 'error 1']
 
 type _TestFindFn1 = [
-	ExportEntryImpl<'test1', 0, 0>,
-	ExportEntryImpl<'test3', 2, 2>,
+	ExportEntryImpl<'test1', 0, 0, []>,
+	ExportEntryImpl<'test3', 2, 2, []>,
 ]
 
 type _Expected_test_fn_1_0 = Expect<
-	Equal<FindByType<_TestFindFn1, 'test1'>, FindSuccessVal<0, 0>>
+	Equal<FindByType<_TestFindFn1, 'test1'>, FindSuccessVal<0, 0, []>>
 >
 
 type _Expected_test_fn_1_1 = Expect<
@@ -324,16 +342,23 @@ type _Expected_test_fn_1_1 = Expect<
 >
 
 type _Expected_test_fn_1_2 = Expect<
-	Equal<FindByType<_TestFindFn1, 'test3'>, FindSuccessVal<2, 2>>
+	Equal<FindByType<_TestFindFn1, 'test3'>, FindSuccessVal<2, 2, []>>
 >
 
 type FindMatchingFns<MyFn, ExportedFns extends unknown[]> =
-	MyFn extends ExportEntryImpl<infer Type1, infer Args1, infer Ret1>
+	MyFn extends ExportEntryImpl<
+		infer Type1,
+		infer Args1,
+		infer Ret1,
+		infer AN1
+	>
 		? FindByType<ExportedFns, Type1> extends infer TypeRes
-			? TypeRes extends FindSuccessVal<infer Args2, infer Ret2>
+			? TypeRes extends FindSuccessVal<infer Args2, infer Ret2, infer AN2>
 				? Equal<Args1, Args2> extends true
 					? Equal<Ret1, Ret2> extends true
-						? FindSuccess
+						? Equal<AN1, AN2> extends true
+							? FindSuccess
+							: ['error', 'annotation mismatch', Type1, AN1, AN2]
 						: ['error', 'ret mismatch', Type1, Ret1, Ret2]
 					: ['error', 'args mismatch', Type1, Args1, Args2]
 				: ['error', 'no such function', Type1, TypeRes]
@@ -831,8 +856,10 @@ export class WasmBinding {
 
 					return [
 						opV,
-						get_c_enum_from_enum<FontPreset, FontPresetC>(
-							settings.validate_settings.font_settings.preset
+						uint8_t_to_int(
+							enum_get_underlying_c_type<FontPreset, FontPresetC>(
+								settings.validate_settings.font_settings.preset
+							)
 						),
 					]
 				}
