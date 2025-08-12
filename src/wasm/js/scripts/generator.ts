@@ -460,7 +460,7 @@ function toTsType(export_: FunctionExport): string {
 		})
 		.join(', ')
 
-	let returnType = 'Void'
+	let returnType = 'void'
 
 	if (export_.type.return !== undefined) {
 		returnType = wasmTypeToTSTypeString(export_.type.return)
@@ -536,17 +536,18 @@ const globalAnnotations: AnnotationSetting[] = [
 
 function getDefaultAnnotations(): Annotations {
 	const annotations: Annotations = {
-		malloced: 'NoAnnot',
-		is_free_fn: 'NoAnnot',
-		string: 'NoAnnot',
+		malloced: 'NoAnnot<"malloced">',
+		string: 'NoAnnot<"cstr">',
+		is_free_fn: 'NoAnnot<"free_fn">',
 	}
 
 	return annotations
 }
 
-function areDefaultAnnotations(annots: Annotations): boolean {
-	for (const key of Object.keys(annots)) {
-		if (annots[key as keyof Annotations] !== 'NoAnnot') {
+function areDefaultAnnotations(annotations: Annotations): boolean {
+	for (const key of Object.keys(annotations)) {
+		const val = annotations[key as keyof Annotations]
+		if (/NoAnnot<".*">/.exec(val) == null) {
 			return false
 		}
 	}
@@ -579,7 +580,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot, Void } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot } from '../c/types'
 
 `
 
@@ -619,7 +620,7 @@ function generateFiles(options: GenerateOptions): void {
 
 	const jsTypes = generateTypes(exports)
 
-	const interface_ = `export interface ExportedFunctions {\n${exportedFunctionTypes.map((t) => `\t${t}`).join('\n')}\n}`
+	const interface_ = `export interface GeneratedExportedFunctions {\n${exportedFunctionTypes.map((t) => `\t${t}`).join('\n')}\n}`
 
 	const types = jsTypes.join('\n')
 
@@ -648,7 +649,6 @@ function main(): void {
 		outputFile: '',
 	}
 
-	// eslint-disable-next-line @typescript-eslint/prefer-for-of
 	for (let i = 0; i < process.argv.length; ++i) {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const value = process.argv[i]!

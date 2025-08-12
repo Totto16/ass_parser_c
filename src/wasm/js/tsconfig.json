@@ -29,6 +29,7 @@
 	"include": [
 		"src/**/*.ts",
 		"webpack.config.ts",
+		"eslint.config.ts"
 	],
 	"references": [
 		{

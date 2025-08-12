@@ -1,21 +1,27 @@
-import type { Equal } from 'type-testing'
-import type {
-	Annotated,
-	AnnotationBase,
-	Annotations,
-	Bool,
-	CEnum,
-	Char,
-	CType,
-	GetEnumType,
-	GetJSTypeFromCType,
-	Int,
-	IsFreeFn,
-	NoAnnot,
-	Ptr,
-	SizeT,
-	UInt8T,
-	Void,
+import type { Equal, Expect } from 'type-testing'
+import {
+	remove_annotations,
+	type Annotated,
+	type AnnotationBase,
+	type Annotations,
+	type Bool,
+	type CEnum,
+	type Char,
+	type CType,
+	type FreeFns,
+	type GetEnumType,
+	type GetJSTypeFromCType,
+	type Int,
+	type IsCString,
+	type IsCType,
+	type IsFreeFn,
+	type Malloced,
+	type MallocedDisposable,
+	type NoAnnot,
+	type Ptr,
+	type SizeT,
+	type UInt8T,
+	type Void,
 } from './types'
 
 export type Mem = Uint8Array
@@ -30,7 +36,12 @@ export interface Allocator<
 		: T = T['__malloced'] extends false ? never : T,
 > {
 	malloc: (amount: SizeT) => Ptr<Void>
-	free: (ptr: PTR) => Annotated<Void, Annotations<NoAnnot, NoAnnot, IsFreeFn>>
+	free: (
+		ptr: PTR
+	) => Annotated<
+		Void,
+		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
+	>
 }
 
 export type WASMExportsFnFromLibC = Allocator
@@ -51,11 +62,6 @@ export function nullptr(): Ptr<Void> {
 	return get_c_value<number, Ptr<Void>>(0)
 }
 
-export function c_void(): Void {
-	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-	return get_c_value<void, Void>(undefined)
-}
-
 export function ptr_cast<a extends CType, b extends CType>(
 	ptr_r: Ptr<a>
 ): Ptr<b> {
@@ -63,7 +69,6 @@ export function ptr_cast<a extends CType, b extends CType>(
 }
 
 export function get_c_enum_from_enum<
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 	E extends number,
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 	C extends CEnum<E, string, CType>,
@@ -72,9 +77,7 @@ export function get_c_enum_from_enum<
 }
 
 export function enum_get_underlying_c_type<
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 	E extends number,
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 	C extends CEnum<E, string, CType>,
 >(enum_v: E): GetEnumType<C> {
 	return enum_v as unknown as GetEnumType<C>
@@ -97,8 +100,19 @@ export function get_c_bool(inp: boolean): Bool {
 	return val as unknown as Bool
 }
 
-function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
-	let ptr = get_value<Ptr<Char>>(ptr_r)
+export type CStr = Annotated<
+	Ptr<Char>,
+	Annotations<
+		AnnotationBase<'malloced'>,
+		IsCString,
+		AnnotationBase<'free_fn'>
+	>
+>
+
+type _expect_cstr_is_ctype = Expect<Equal<IsCType<CStr>, true>>
+
+function cstrlen(mem: Mem, ptr_r: CStr): number {
+	let ptr = get_value<Ptr<Char>>(remove_annotations<CStr>(ptr_r))
 	let len = 0
 	while (mem[ptr] != 0) {
 		len++
@@ -107,10 +121,10 @@ function cstrlen(mem: Mem, ptr_r: Ptr<Char>): number {
 	return len
 }
 
-export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: Ptr<Char>): string {
+export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: CStr): string {
 	const mem = new Uint8Array(mem_buffer)
 
-	const ptr = get_value<Ptr<Char>>(ptr_r)
+	const ptr = get_value<Ptr<Char>>(remove_annotations<CStr>(ptr_r))
 
 	const len = cstrlen(mem, ptr_r)
 	const bytes = new Uint8Array(mem_buffer, ptr, len)
@@ -122,7 +136,7 @@ export interface SizedPtr {
 	len: SizeT
 }
 
-export interface CStr {
+export interface CStrSized {
 	data_ptr: Ptr<Char>
 	len: SizeT
 }
@@ -156,7 +170,7 @@ export function write_size_t_to_memory(
 	data.setUint32(get_value<Ptr<SizeT>>(ptr), get_value<SizeT>(value))
 }
 
-function sized_ptr_to_cstr(ptr: SizedPtr): CStr {
+function sized_ptr_to_cstr(ptr: SizedPtr): CStrSized {
 	return { data_ptr: ptr_cast<Void, Char>(ptr.data_ptr), len: ptr.len }
 }
 
@@ -187,7 +201,7 @@ export function allocate_js_utf8_string(
 	allocator: Allocator,
 	string: string,
 	allocate_bom = false
-): CStr {
+): CStrSized {
 	const encoded = new TextEncoder().encode(string + '\0')
 
 	let final_encoded = encoded
@@ -210,7 +224,7 @@ export function make_string_from_array_buffer(
 	buffer: MemBuf,
 	allocator: Allocator,
 	content: ArrayBuffer
-): CStr {
+): CStrSized {
 	const encoded = new Uint8Array(content.byteLength + 1)
 
 	encoded.set(new Uint8Array(content), 0)
@@ -236,27 +250,43 @@ export function construct_ptr_error(
 
 export type FreeFn<A extends CType> = (
 	arg: Ptr<A>
-) => Annotated<Void, Annotations<AnnotationBase, AnnotationBase, IsFreeFn>>
+) => Annotated<
+	Void,
+	Annotations<AnnotationBase<'malloced'>, AnnotationBase<'cstr'>, IsFreeFn>
+>
 
 export type FreeData<A extends CType> = [value: Ptr<A>, free_fn: FreeFn<A>]
 
 export class FreeList {
-	private list: FreeData<Void>[]
+	private list: MallocedDisposable<
+		FreeFns,
+		CType &
+			Annotations<
+				Malloced<FreeFns>,
+				AnnotationBase<'cstr'>,
+				AnnotationBase<'free_fn'>
+			>
+	>[]
 
 	constructor() {
 		this.list = []
 	}
 
-	public add<B extends CType>(ptr: Ptr<B>, free_fn: FreeFn<B>): void {
-		this.list.push([
-			ptr_cast<B, Void>(ptr),
-			free_fn as unknown as FreeFn<Void>,
-		])
+	public add<
+		F extends FreeFns,
+		C extends CType &
+			Annotations<
+				Malloced<F>,
+				AnnotationBase<'cstr'>,
+				AnnotationBase<'free_fn'>
+			>,
+	>(disposable: MallocedDisposable<F, C>): void {
+		this.list.push(disposable)
 	}
 
 	public free(): void {
 		for (const value of this.list) {
-			value[1](value[0])
+			value.free()
 		}
 	}
 }

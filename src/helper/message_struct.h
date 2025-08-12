@@ -20,4 +20,4 @@ typedef struct {
 
 [[nodiscard]] PUBLIC("get_message") ANNOTATION_CSTRING char* get_message(MessageStruct message);
 
-PUBLIC("free_message_struct") void free_message_struct(MessageStruct msg);
+PUBLIC("free_message_struct") ANNOTATION_FREE_FN void free_message_struct(MessageStruct msg);

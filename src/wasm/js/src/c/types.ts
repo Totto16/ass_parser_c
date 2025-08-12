@@ -1,23 +1,30 @@
-import type { ExportedFunctions } from 'src/generated/wasm_exports'
+import type { GeneratedExportedFunctions } from 'src/generated/wasm_exports'
 import type { Equal, Expect, NotEqual } from 'type-testing'
 
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type ValidJSTypes = number | bigint | void
 
-export interface AnnotationBase {
+type AnnotationType = 'malloced' | 'cstr' | 'free_fn'
+
+export interface AnnotationBase<AT extends AnnotationType> {
 	readonly __annotation: unique symbol
+	readonly __type: AT
 }
 
-export interface Annotation<VAL> extends AnnotationBase {
+export interface Annotation<VAL, AT extends AnnotationType>
+	extends AnnotationBase<AT> {
 	readonly value: VAL
 }
 
-export type NoAnnot = Annotation<false>
+export type NoAnnot<AT extends AnnotationType = AnnotationType> = Annotation<
+	false,
+	AT
+>
 
 export interface Annotations<
-	MAL extends AnnotationBase,
-	CSTR extends AnnotationBase,
-	FREEFN extends AnnotationBase,
+	MAL extends AnnotationBase<'malloced'>,
+	CSTR extends AnnotationBase<'cstr'>,
+	FREEFN extends AnnotationBase<'free_fn'>,
 > {
 	readonly __malloced: MAL
 	readonly __cstring: CSTR
@@ -30,39 +37,74 @@ interface CTypeSimpleImpl<Desc extends string, JSType extends ValidJSTypes> {
 	readonly __desc: Desc
 }
 
+type DefaultAnnotations = Annotations<
+	NoAnnot<'malloced'>,
+	NoAnnot<'cstr'>,
+	NoAnnot<'free_fn'>
+>
+
 export type CTypeSimple<
 	Desc extends string,
 	JSType extends ValidJSTypes,
-> = CTypeSimpleImpl<Desc, JSType> & Annotations<NoAnnot, NoAnnot, NoAnnot>
+> = CTypeSimpleImpl<Desc, JSType> & DefaultAnnotations
 
 interface CTypeNestedImpl<
 	Desc extends string,
-	NestedType extends CType,
+	NestedType extends CTypeNoAnnotations,
 	JSType extends ValidJSTypes,
 > extends CTypeSimpleImpl<Desc, JSType> {
 	readonly __nested: NestedType
 }
 
+type RawType<C extends CType> =
+	C extends CTypeNestedImpl<infer Desc, infer CType, infer JSType>
+		? CTypeNestedImpl<Desc, CType, JSType>
+		: C extends CTypeSimpleImpl<infer Desc, infer JSType>
+			? CTypeSimpleImpl<Desc, JSType>
+			: [never, 'error']
+
 type CTypeNested<
 	Desc extends string,
 	NestedType extends CType,
 	JSType extends ValidJSTypes,
-> = CTypeNestedImpl<Desc, NestedType, JSType> & {
-	readonly __nested: NestedType
-} & Annotations<NoAnnot, NoAnnot, NoAnnot>
+> = CTypeNestedImpl<Desc, RawType<NestedType>, JSType> & DefaultAnnotations
+
+export type CTypeNoAnnotations<
+	Desc extends string = string,
+	JSType extends ValidJSTypes = ValidJSTypes,
+> =
+	| CTypeNestedImpl<Desc, CTypeNoAnnotations, JSType>
+	| CTypeSimpleImpl<Desc, JSType>
 
 export type CType<
 	Desc extends string = string,
 	JSType extends ValidJSTypes = ValidJSTypes,
-> = (CTypeSimpleImpl<Desc, JSType> | CTypeNestedImpl<Desc, CType, JSType>) &
-	Annotations<AnnotationBase, AnnotationBase, AnnotationBase>
+> = CTypeNoAnnotations<Desc, JSType> &
+	Annotations<
+		AnnotationBase<'malloced'>,
+		AnnotationBase<'cstr'>,
+		AnnotationBase<'free_fn'>
+	>
 
 export type IsCType<C> =
-	C extends CTypeSimple<infer _A, infer _B>
+	C extends CTypeSimpleImpl<infer _A, infer _B>
 		? true
-		: C extends CTypeNested<infer B, infer _C, infer _D>
+		: C extends CTypeNestedImpl<infer B, infer _C, infer _D>
 			? IsCType<B>
-			: false
+			: C extends CType
+				? IsCType<RawType<C>>
+				: false
+
+type AnnotNotAssignableTo = (() => Annotated<
+	Ptr<Void>,
+	Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+>) extends () => infer V
+	? V extends Ptr<Void>
+		? ['error', V, Ptr<Void>, Equal<V, Ptr<Void>>]
+		: []
+	: never
+
+type _expect_annot_0 = Expect<Equal<[], AnnotNotAssignableTo>>
 
 export type GetJSTypeFromCType<C extends CType> = C extends {
 	readonly __type: infer JSType
@@ -75,28 +117,59 @@ export type GetJSTypeFromCTypeEnumSpecialCase<C extends CType> =
 		? GetJSTypeFromCType<D>
 		: GetJSTypeFromCType<C>
 
+type UnionToIntersection<U> = (
+	U extends unknown ? (k: U) => void : never
+) extends (k: infer I) => void
+	? I
+	: never
+
+type LastOf<T> =
+	UnionToIntersection<
+		T extends unknown ? () => T : never
+	> extends () => infer R
+		? R
+		: never
+
+type Push<T extends unknown[], V> = [...T, V]
+
+export type UnionToTuple<T, L = LastOf<T>> = [T] extends [never]
+	? []
+	: Push<UnionToTuple<Exclude<T, L>>, L>
+
+type IsCTypeArr<T> = IsCType<T> extends true ? [true] : [false, T]
+
 type AreAllCTypes<A extends readonly unknown[]> = A extends [
 	infer Head,
 	...infer Tail,
 ]
-	? IsCType<Head> extends true
-		? AreAllCTypes<Tail>
-		: false
-	: true
+	? IsCTypeArr<Head> extends infer Res
+		? Res extends [true]
+			? AreAllCTypes<Tail>
+			: [false, Res]
+		: [false, 'impl error 1', 'AreAllCTypes']
+	: [true]
 
-type IsCFunc<C> = C extends (...args: infer Args) => infer Ret
-	? AreAllCTypes<Args> extends true
-		? IsCType<Ret>
-		: false
-	: false
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+type IRetCType<T> = T extends void ? [true] : IsCTypeArr<T>
 
-type AreAllFunctionCFnImpl<O, T extends keyof O> = [T] extends [never]
-	? true
-	: IsCFunc<O[T]> extends true
-		? true
-		: false
+type IsCFunc<Args extends unknown[], Ret> =
+	AreAllCTypes<Args> extends infer Res
+		? Res extends [true]
+			? IRetCType<Ret>
+			: [false, Res]
+		: [false, 'impl error 1', 'IsCFunc']
 
-export type AreAllFunctionCFns<O> = AreAllFunctionCFnImpl<O, keyof O>
+type AreAllFunctionCFnImpl<T> = {
+	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
+		? IsCFunc<Args, Ret> extends infer Res
+			? Res extends [true]
+				? never
+				: [K, Res]
+			: never
+		: never
+}[keyof T]
+
+export type AreAllFunctionCFns<T> = UnionToTuple<AreAllFunctionCFnImpl<T>>
 
 type _32BitNum = number
 
@@ -107,12 +180,39 @@ type PtrType = _32BitNum
 export type Ptr<C extends CType> = CTypeNested<'ptr', C, PtrType>
 
 type _expect0_0 = Expect<
-	Equal<Annotated<Ptr<Int>, Annotations<NoAnnot, NoAnnot, NoAnnot>>, Ptr<Int>>
+	Equal<
+		Annotated<
+			Ptr<Int>,
+			Annotations<
+				NoAnnot<'malloced'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>
+			>
+		>,
+		Ptr<Int>
+	>
 >
 
 type _expect0_01 = Expect<
+	Equal<
+		Annotated<
+			Int,
+			Annotations<
+				NoAnnot<'malloced'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>
+			>
+		>,
+		Int
+	>
+>
+
+type _expect0_02 = Expect<
 	NotEqual<
-		Annotated<Ptr<Int>, Annotations<Malloced<'free'>, NoAnnot, NoAnnot>>,
+		Annotated<
+			Ptr<Int>,
+			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+		>,
 		Ptr<Int>
 	>
 >
@@ -203,7 +303,8 @@ export type CEnum<
 	C extends ValidJSTypes,
 	D extends string,
 	UnderlyingCType extends CType,
-> = CTypeNested<'enum', EnumType<UnderlyingCType, D>, C>
+> = CTypeNestedImpl<'enum', EnumType<UnderlyingCType, D>, C> &
+	DefaultAnnotations
 
 enum TestEnum {
 	'test1' = 0,
@@ -258,39 +359,91 @@ type _expect8_7 = Expect<
 >
 
 export type Annotated<
-	C extends CType,
-	A extends Annotations<AnnotationBase, AnnotationBase, AnnotationBase>,
-> = C & A
+	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+	C extends CType | void,
+	A extends Annotations<
+		AnnotationBase<'malloced'>,
+		AnnotationBase<'cstr'>,
+		AnnotationBase<'free_fn'>
+	>,
+	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+> = (C extends CType ? RawType<C> : C extends void ? Void : never) & A
 
 export type GetAnnotations<T> =
 	T extends Annotated<infer _F, infer A>
-		? A
-		: Annotations<NoAnnot, NoAnnot, NoAnnot>
+		? A extends Annotations<infer A, infer B, infer C>
+			? Annotations<A, B, C>
+			: A
+		: DefaultAnnotations
 
-export interface Malloced<F extends keyof ExportedFunctions>
-	extends Annotation<F> {
-	readonly __call_type: ExportedFunctions[F]
+type _expect_annot_get_0 = Expect<
+	Equal<DefaultAnnotations, GetAnnotations<Int>>
+>
+
+type _expect_annot_get_1 = Expect<
+	Equal<GetAnnotations<void>, GetAnnotations<Int>>
+>
+
+type RemoveAnnotations<C> = C extends CType
+	? RawType<C> & DefaultAnnotations
+	: never
+
+export function remove_annotations<A extends CType>(
+	a: A
+): RemoveAnnotations<A> {
+	return a as unknown as RemoveAnnotations<A>
 }
 
-export type IsCString = Annotation<'is_c_string'>
+type GetFreeFns<T> = {
+	[K in keyof T]: T[K] extends (...args: infer _Args) => infer Ret
+		? Ret extends Annotations<infer _A, infer _B, IsFreeFn>
+			? K
+			: never
+		: never
+}[keyof T]
 
-export type IsFreeFn = Annotation<'is_free_fn'>
+export type FreeFns = GetFreeFns<GeneratedExportedFunctions>
+
+type _expected_free_fns = Expect<
+	Equal<FreeFns, 'free' | 'free_parse_result' | 'free_message_struct'>
+>
+
+export interface Malloced<F extends FreeFns> extends Annotation<F, 'malloced'> {
+	readonly __call_type: GeneratedExportedFunctions[F]
+}
+
+export type IsCString = Annotation<'is_c_string', 'cstr'>
+
+export type IsFreeFn = Annotation<'is_free_fn', 'free_fn'>
 
 export class MallocedDisposable<
-	C extends CType,
-	Fn extends keyof ExportedFunctions,
-	AN extends Annotations<Malloced<Fn>, AnnotationBase, AnnotationBase>,
+	Fn extends FreeFns,
+	C extends CType &
+		Annotations<
+			Malloced<Fn>,
+			AnnotationBase<'cstr'>,
+			AnnotationBase<'free_fn'>
+		>,
 > implements Disposable
 {
-	private val: C
-	private fn: (f: C) => void
+	private val: RawType<C>
+	private fn: (f: RawType<C>) => void
 
-	constructor(val: Annotated<C, AN>, fn: (f: C) => void) {
-		this.val = val
+	constructor(val: C, fn: (f: RawType<C>) => void) {
+		this.val = remove_annotations(val)
 		this.fn = fn
 	}
 
+	private is_free = false
+
+	public free(): void {
+		if (!this.is_free) {
+			this.fn(this.val)
+
+			this.is_free = true
+		}
+	}
 	[Symbol.dispose](): void {
-		this.fn(this.val)
+		this.free()
 	}
 }

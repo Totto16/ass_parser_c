@@ -1,6 +1,5 @@
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
-import globals from 'globals'
 
 export default [
 	{
@@ -17,6 +16,9 @@ export default [
 	...tseslint.configs.stylisticTypeChecked,
 	...tseslint.configs.recommendedTypeChecked,
 	{
+		linterOptions: {
+			reportUnusedDisableDirectives: 'error',
+		},
 		languageOptions: {
 			parserOptions: {
 				project: './tsconfig.json',

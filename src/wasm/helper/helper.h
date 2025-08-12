@@ -57,7 +57,7 @@ PUBLIC("diagnostics_get_at")
 DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);
 
 PUBLIC("get_message_from_entry")
-ANNOTATION_MALLOCED_RESULT("free") MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
+ANNOTATION_MALLOCED_RESULT("free_message_struct") MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
 
 PUBLIC("diagnostic_get_file_pos")
 FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);
