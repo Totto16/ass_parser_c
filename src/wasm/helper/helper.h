@@ -9,21 +9,19 @@
 
 #include "../../public/ass_parser_lib.h"
 
-// expose allocator statistics
-
-PUBLIC("allocator_get_statistics") ANNOTATION_MALLOCED_RESULT("free") AllocatorStatistics* allocator_get_statistics(void);
+PUBLIC("allocator_get_statistics") AllocatorStatistics* allocator_get_statistics(void);
 
 PUBLIC("allocator_statistics_get_free")
-uint64_t allocator_statistics_get_free(AllocatorStatistics statistics);
+uint64_t allocator_statistics_get_free(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_total")
-uint64_t allocator_statistics_get_total(AllocatorStatistics statistics);
+uint64_t allocator_statistics_get_total(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_used")
-uint64_t allocator_statistics_get_used(AllocatorStatistics statistics);
+uint64_t allocator_statistics_get_used(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_metadata")
-uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics);
+uint64_t allocator_statistics_get_metadata(AllocatorStatistics* statistics);
 
 PUBLIC("source_from_string")
 ANNOTATION_MALLOCED_RESULT("free") AssSource* source_from_string(const char* source, size_t len);
@@ -57,7 +55,8 @@ PUBLIC("diagnostics_get_at")
 DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);
 
 PUBLIC("get_message_from_entry")
-ANNOTATION_MALLOCED_RESULT("free_message_struct") MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
+ANNOTATION_MALLOCED_RESULT("free_message_struct")
+MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
 
 PUBLIC("diagnostic_get_file_pos")
 FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);

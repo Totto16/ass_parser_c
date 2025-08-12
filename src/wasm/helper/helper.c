@@ -5,33 +5,30 @@
 
 #include <stb/ds.h>
 
+// this is a hack, so that I don't need malloc the result, since only ptrs can be returned to wasm
+static AllocatorStatistics g_global_stats = {};
+
 AllocatorStatistics* allocator_get_statistics(void) {
 
-	AllocatorStatistics* result = malloc(sizeof(AllocatorStatistics));
+	g_global_stats = my_malloc_get_statistics();
 
-	if(result == NULL) {
-		return NULL;
-	}
-
-	*result = my_malloc_get_statistics();
-
-	return result;
+	return &g_global_stats;
 }
 
-uint64_t allocator_statistics_get_free(AllocatorStatistics statistics) {
-	return statistics.free;
+uint64_t allocator_statistics_get_free(AllocatorStatistics* statistics) {
+	return statistics->free;
 }
 
-uint64_t allocator_statistics_get_total(AllocatorStatistics statistics) {
-	return statistics.total;
+uint64_t allocator_statistics_get_total(AllocatorStatistics* statistics) {
+	return statistics->total;
 }
 
-uint64_t allocator_statistics_get_used(AllocatorStatistics statistics) {
-	return statistics.used;
+uint64_t allocator_statistics_get_used(AllocatorStatistics* statistics) {
+	return statistics->used;
 }
 
-uint64_t allocator_statistics_get_metadata(AllocatorStatistics statistics) {
-	return statistics.metadata;
+uint64_t allocator_statistics_get_metadata(AllocatorStatistics* statistics) {
+	return statistics->metadata;
 }
 
 AssSource* source_from_string(const char* const source, size_t len) {

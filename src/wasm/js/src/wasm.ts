@@ -180,10 +180,8 @@ interface WASMExportsFnWithoutLibC {
 		value: Int
 	) => void
 	//
-	allocator_get_statistics: () => Annotated<
-		Ptr<AllocatorStatistics>,
-		Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
-	>
+	allocator_get_statistics: () => Ptr<AllocatorStatistics> // statically allocated
+
 	allocator_statistics_get_free: (
 		statistics: Ptr<AllocatorStatistics>
 	) => UInt64T
@@ -773,25 +771,23 @@ export class WasmBinding {
 	}
 
 	public allocator_get_statistics(): AllocatorStatisticsJS {
-		using c_statictics = get_malloced_disposable(
-			this.wasm.functions.allocator_get_statistics(),
-			this.wasm,
-			'free'
-		)
+		const c_statictics: Ptr<AllocatorStatistics> =
+			this.wasm.functions.allocator_get_statistics()
 
 		const result: AllocatorStatisticsImpl<UInt64T> = {
 			free: this.wasm.functions.allocator_statistics_get_free(
-				c_statictics.value
+				c_statictics
 			),
 			total: this.wasm.functions.allocator_statistics_get_total(
-				c_statictics.value
+				c_statictics
 			),
 			used: this.wasm.functions.allocator_statistics_get_used(
-				c_statictics.value
+				c_statictics
 			),
-			metadata: this.wasm.functions.allocator_statistics_get_metadata(
-				c_statictics.value
-			),
+			metadata:
+				this.wasm.functions.allocator_statistics_get_metadata(
+					c_statictics
+				),
 		}
 
 		const js_result: AllocatorStatisticsJS = {
@@ -1087,10 +1083,10 @@ abstract class CDisposable implements Disposable {
 
 	protected abstract set_freed(): void
 
-	private is_free = false
+	#is_free = false
 
 	protected assert_not_freed(message = ''): void {
-		if (this.is_free) {
+		if (this.#is_free) {
 			throw new Error(
 				`Tried to operate on freed value:${message ? ` ${message}` : ''}`
 			)
@@ -1098,10 +1094,10 @@ abstract class CDisposable implements Disposable {
 	}
 
 	public free(): void {
-		if (!this.is_free) {
+		if (!this.#is_free) {
 			this.freelist.free()
 
-			this.is_free = true
+			this.#is_free = true
 
 			this.set_freed()
 		}
@@ -1113,8 +1109,8 @@ abstract class CDisposable implements Disposable {
 }
 
 export class AssParseResult extends CDisposable {
-	private wasm: WASMWrapper
-	private result: MallocedAnnotationWrapper<
+	#wasm: WASMWrapper
+	#result: MallocedAnnotationWrapper<
 		'free_parse_result',
 		Annotated<
 			Ptr<AssParseResultC>,
@@ -1143,8 +1139,8 @@ export class AssParseResult extends CDisposable {
 	) {
 		super(freelist)
 
-		this.wasm = wasm
-		this.result = result
+		this.#wasm = wasm
+		this.#result = result
 
 		freelist.add_already_disposed(result)
 	}
@@ -1159,7 +1155,7 @@ export class AssParseResult extends CDisposable {
 		}
 
 		this.is_error_value = get_bool(
-			this.wasm.functions.parse_result_is_error(this.result.value)
+			this.#wasm.functions.parse_result_is_error(this.#result.value)
 		)
 
 		return this.is_error_value
@@ -1168,17 +1164,17 @@ export class AssParseResult extends CDisposable {
 	public diagnostics(): Diagnostics {
 		this.assert_not_freed('result is a valid ptr')
 
-		const c_diagnostics = this.wasm.functions.get_diagnostics_from_result(
-			this.result.value
+		const c_diagnostics = this.#wasm.functions.get_diagnostics_from_result(
+			this.#result.value
 		)
 
-		const diagnostics = new Diagnostics(this.wasm, c_diagnostics)
+		const diagnostics = new Diagnostics(this.#wasm, c_diagnostics)
 
 		return diagnostics
 	}
 
 	protected set_freed(): void {
-		this.result.value = ptr_cast<Void, AssParseResultC>(nullptr())
+		this.#result.value = ptr_cast<Void, AssParseResultC>(nullptr())
 	}
 }
 

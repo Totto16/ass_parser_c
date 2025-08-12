@@ -25,7 +25,7 @@ export interface GeneratedExportedFunctions {
 	realloc: (p_0: I32, p_1: I32) => I32
 	ass_parser_lib_version: () => Annotated<I32, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">>>
 	ass_parser_lib_commit_hash: () => Annotated<I32, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">>>
-	allocator_get_statistics: () => Annotated<I32, Annotations<Malloced<"free">, NoAnnot<"cstr">, NoAnnot<"free_fn">>>
+	allocator_get_statistics: () => I32
 	allocator_statistics_get_free: (p_0: I32) => I64
 	allocator_statistics_get_total: (p_0: I32) => I64
 	allocator_statistics_get_used: (p_0: I32) => I64
