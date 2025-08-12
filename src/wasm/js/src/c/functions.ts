@@ -16,6 +16,7 @@ import {
 	type IsCType,
 	type IsFreeFn,
 	type Malloced,
+	type MallocedAnnotationWrapper,
 	type MallocedDisposable,
 	type NoAnnot,
 	type Ptr,
@@ -28,18 +29,15 @@ export type Mem = Uint8Array
 
 export type MemBuf = ArrayBuffer
 
-export interface Allocator<
-	A extends CType = Void,
-	T extends Ptr<A> = Ptr<A>,
-	PTR extends T['__malloced'] extends false
-		? never
-		: T = T['__malloced'] extends false ? never : T,
-> {
+export interface Allocator {
 	malloc: (amount: SizeT) => Ptr<Void>
 	free: (
-		ptr: PTR
+		ptr: Annotated<
+			Ptr<Void>,
+			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+		>
 	) => Annotated<
-		Void,
+		void,
 		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
 	>
 }
@@ -62,10 +60,28 @@ export function nullptr(): Ptr<Void> {
 	return get_c_value<number, Ptr<Void>>(0)
 }
 
-export function ptr_cast<a extends CType, b extends CType>(
-	ptr_r: Ptr<a>
-): Ptr<b> {
-	return ptr_r as unknown as Ptr<b>
+type ReturnTypeFromPTrCast<A extends CType, B extends CType, P> =
+	P extends Ptr<A>
+		? Ptr<B>
+		: P extends Annotated<Ptr<A>, Annotations<infer A1, infer A2, infer A3>>
+			? Annotated<Ptr<B>, Annotations<A1, A2, A3>>
+			: never
+
+export function ptr_cast<
+	A extends CType,
+	B extends CType,
+	P extends
+		| Ptr<A>
+		| Annotated<
+				Ptr<A>,
+				Annotations<
+					AnnotationBase<'malloced'>,
+					AnnotationBase<'cstr'>,
+					AnnotationBase<'free_fn'>
+				>
+		  > = Ptr<A>,
+>(ptr_r: P): ReturnTypeFromPTrCast<A, B, P> {
+	return ptr_r as unknown as ReturnTypeFromPTrCast<A, B, P>
 }
 
 export function get_c_enum_from_enum<
@@ -257,19 +273,33 @@ export type FreeFn<A extends CType> = (
 
 export type FreeData<A extends CType> = [value: Ptr<A>, free_fn: FreeFn<A>]
 
+type FreeListInnerType = MallocedAnnotationWrapper<
+	FreeFns,
+	CType &
+		Annotations<
+			Malloced<FreeFns>,
+			AnnotationBase<'cstr'>,
+			AnnotationBase<'free_fn'>
+		>
+>
+
 export class FreeList {
-	private list: MallocedDisposable<
-		FreeFns,
-		CType &
-			Annotations<
-				Malloced<FreeFns>,
-				AnnotationBase<'cstr'>,
-				AnnotationBase<'free_fn'>
-			>
-	>[]
+	private list: FreeListInnerType[]
 
 	constructor() {
 		this.list = []
+	}
+
+	public add_already_disposed<
+		F extends FreeFns,
+		C extends CType &
+			Annotations<
+				Malloced<F>,
+				AnnotationBase<'cstr'>,
+				AnnotationBase<'free_fn'>
+			>,
+	>(disposable: MallocedAnnotationWrapper<F, C>): void {
+		this.list.push(disposable as unknown as FreeListInnerType)
 	}
 
 	public add<
@@ -281,7 +311,9 @@ export class FreeList {
 				AnnotationBase<'free_fn'>
 			>,
 	>(disposable: MallocedDisposable<F, C>): void {
-		this.list.push(disposable)
+		this.list.push(
+			disposable.release_into_self_managed() as unknown as FreeListInnerType
+		)
 	}
 
 	public free(): void {

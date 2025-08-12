@@ -416,7 +416,9 @@ export type IsCString = Annotation<'is_c_string', 'cstr'>
 
 export type IsFreeFn = Annotation<'is_free_fn', 'free_fn'>
 
-export class MallocedDisposable<
+type MallocedFreeFn<C> = (f: C) => void
+
+export class MallocedAnnotationWrapper<
 	Fn extends FreeFns,
 	C extends CType &
 		Annotations<
@@ -424,17 +426,24 @@ export class MallocedDisposable<
 			AnnotationBase<'cstr'>,
 			AnnotationBase<'free_fn'>
 		>,
-> implements Disposable
-{
-	private val: RawType<C>
-	private fn: (f: RawType<C>) => void
+> {
+	private val: C
+	private fn: MallocedFreeFn<C>
 
-	constructor(val: C, fn: (f: RawType<C>) => void) {
-		this.val = remove_annotations(val)
+	constructor(val: C, fn: MallocedFreeFn<C>) {
+		this.val = val
 		this.fn = fn
 	}
 
 	private is_free = false
+
+	public get value(): RemoveAnnotations<C> {
+		return remove_annotations(this.val)
+	}
+
+	public set value(val: RemoveAnnotations<C>) {
+		this.val = val as unknown as C
+	}
 
 	public free(): void {
 		if (!this.is_free) {
@@ -443,7 +452,35 @@ export class MallocedDisposable<
 			this.is_free = true
 		}
 	}
+}
+
+export class MallocedDisposable<
+		Fn extends FreeFns,
+		C extends CType &
+			Annotations<
+				Malloced<Fn>,
+				AnnotationBase<'cstr'>,
+				AnnotationBase<'free_fn'>
+			>,
+	>
+	extends MallocedAnnotationWrapper<Fn, C>
+	implements Disposable
+{
+	public release_into_self_managed(): MallocedAnnotationWrapper<Fn, C> {
+		this.mark_released()
+		return this
+	}
+
+	private is_released = false
+
+	private mark_released(): void {
+		this.is_released = true
+	}
+
 	[Symbol.dispose](): void {
-		this.free()
+		if (!this.is_released) {
+			this.free()
+			this.is_released = true
+		}
 	}
 }

@@ -21,7 +21,6 @@ import {
 	enum_get_underlying_c_type,
 	type WASMExportsFnFromLibC,
 	type CStr,
-	type CStrSized,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -50,6 +49,9 @@ import {
 	MallocedDisposable,
 	type UnionToTuple,
 	type Void,
+	type FreeFns,
+	type AnnotationBase,
+	type MallocedAnnotationWrapper,
 } from './c/types'
 import type { GeneratedExportedFunctions } from './generated/wasm_exports'
 
@@ -196,7 +198,14 @@ interface WASMExportsFnWithoutLibC {
 	) => UInt64T
 	//
 	free_parse_result: (
-		result: Ptr<AssParseResultC>
+		result: Annotated<
+			Ptr<AssParseResultC>,
+			Annotations<
+				Malloced<'free_parse_result'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>
+			>
+		>
 	) => Annotated<
 		void,
 		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
@@ -241,7 +250,14 @@ interface WASMExportsFnWithoutLibC {
 		Annotations<NoAnnot<'malloced'>, IsCString, NoAnnot<'free_fn'>>
 	>
 	free_message_struct: (
-		message: Ptr<MessageStructC>
+		message: Annotated<
+			Ptr<MessageStructC>,
+			Annotations<
+				Malloced<'free_message_struct'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>
+			>
+		>
 	) => Annotated<
 		void,
 		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
@@ -477,6 +493,12 @@ type DeepPartial<T> = T extends (...args: unknown[]) => unknown
 			? { [P in keyof T]?: DeepPartial<T[P]> }
 			: T
 
+type GetFreeFnFromFn<Fn extends FreeFns> = Fn extends 'free'
+	? Allocator['free']
+	: Fn extends keyof WASMExportsFnWithoutLibC
+		? WASMExportsFnWithoutLibC[Fn]
+		: never
+
 class WASMWrapper {
 	private wasm: WASM
 	private memory: WebAssembly.Memory
@@ -509,6 +531,40 @@ class WASMWrapper {
 	public get functions(): WASMExportsFnWithoutLibC {
 		return this.wasm.instance.exports
 	}
+
+	public get_free_fn<Fn extends FreeFns>(fn: Fn): GetFreeFnFromFn<Fn> {
+		function is_free(f: FreeFns): f is 'free' {
+			return f == 'free'
+		}
+
+		if (is_free(fn)) {
+			return this.allocator.free as GetFreeFnFromFn<Fn>
+		}
+		return this.functions[
+			fn as keyof WASMExportsFnWithoutLibC
+		] as unknown as GetFreeFnFromFn<Fn>
+	}
+}
+
+function get_malloced_disposable<
+	Fn extends FreeFns,
+	C extends CType &
+		Annotations<
+			Malloced<Fn>,
+			AnnotationBase<'cstr'>,
+			AnnotationBase<'free_fn'>
+		>,
+>(value: C, wasm: WASMWrapper, fn: Fn): MallocedDisposable<Fn, C> {
+	return new MallocedDisposable<Fn, C>(value, (to_free: C): void => {
+		type Param<Fn1 extends FreeFns> = Fn1 extends 'free'
+			? Parameters<Allocator['free']>[0]
+			: Fn1 extends keyof WASMExportsFnWithoutLibC
+				? Parameters<WASMExportsFnWithoutLibC[Fn1]>[0]
+				: never
+		;(wasm.get_free_fn<Fn>(fn) as (p: Param<Fn>) => void)(
+			to_free as unknown as Param<Fn>
+		)
+	})
 }
 
 export class WasmBinding {
@@ -717,25 +773,24 @@ export class WasmBinding {
 	}
 
 	public allocator_get_statistics(): AllocatorStatisticsJS {
-		using c_statictics = new MallocedDisposable(
+		using c_statictics = get_malloced_disposable(
 			this.wasm.functions.allocator_get_statistics(),
-			(val) => {
-				this.wasm.allocator.free(val)
-			}
+			this.wasm,
+			'free'
 		)
 
 		const result: AllocatorStatisticsImpl<UInt64T> = {
 			free: this.wasm.functions.allocator_statistics_get_free(
-				c_statictics.val
+				c_statictics.value
 			),
 			total: this.wasm.functions.allocator_statistics_get_total(
-				c_statictics.val
+				c_statictics.value
 			),
 			used: this.wasm.functions.allocator_statistics_get_used(
-				c_statictics.val
+				c_statictics.value
 			),
 			metadata: this.wasm.functions.allocator_statistics_get_metadata(
-				c_statictics.val
+				c_statictics.value
 			),
 		}
 
@@ -951,7 +1006,10 @@ export class WasmBinding {
 		source: string | File,
 		settings: DeepPartial<ParseSettings>
 	): Promise<AssParseResult> {
-		let ass_source: Ptr<AssSource>
+		let ass_source_raw: Annotated<
+			Ptr<AssSource>,
+			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+		>
 
 		if (typeof source === 'string') {
 			const source_string = allocate_js_utf8_string(
@@ -961,7 +1019,7 @@ export class WasmBinding {
 				true
 			)
 
-			ass_source = this.wasm.functions.source_from_string(
+			ass_source_raw = this.wasm.functions.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
@@ -974,32 +1032,47 @@ export class WasmBinding {
 				content
 			)
 
-			ass_source = this.wasm.functions.source_from_string(
+			ass_source_raw = this.wasm.functions.source_from_string(
 				source_string.data_ptr,
 				source_string.len
 			)
 		}
 
-		const parse_settings: Ptr<ParseSettingsC> =
-			this.wasm.functions.default_parse_settings()
+		using ass_source = get_malloced_disposable<
+			'free',
+			typeof ass_source_raw
+		>(ass_source_raw, this.wasm, 'free')
 
-		this.modify_parse_settings(parse_settings, settings)
+		using parse_settings = get_malloced_disposable<
+			'free',
+			ReturnType<typeof this.wasm.functions.default_parse_settings>
+		>(this.wasm.functions.default_parse_settings(), this.wasm, 'free')
 
-		const result = this.wasm.functions.parse_ass(ass_source, parse_settings)
+		this.modify_parse_settings(parse_settings.value, settings)
+
+		using result = get_malloced_disposable<
+			'free_parse_result',
+			ReturnType<typeof this.wasm.functions.parse_ass>
+		>(
+			this.wasm.functions.parse_ass(
+				ass_source.value,
+				parse_settings.value
+			),
+			this.wasm,
+			'free_parse_result'
+		)
 
 		const freelist = new FreeList()
 
-		freelist.add(
-			ptr_cast<AssSource, Void>(ass_source),
-			this.wasm.allocator.free
-		)
+		freelist.add(ass_source)
 
-		freelist.add(
-			ptr_cast<ParseSettingsC, Void>(parse_settings),
-			this.wasm.allocator.free
-		)
+		freelist.add(parse_settings)
 
-		const ass_result = new AssParseResult(this.wasm, result, freelist)
+		const ass_result = new AssParseResult(
+			this.wasm,
+			result.release_into_self_managed(),
+			freelist
+		)
 
 		return ass_result
 	}
@@ -1041,11 +1114,31 @@ abstract class CDisposable implements Disposable {
 
 export class AssParseResult extends CDisposable {
 	private wasm: WASMWrapper
-	private result: Ptr<AssParseResultC>
+	private result: MallocedAnnotationWrapper<
+		'free_parse_result',
+		Annotated<
+			Ptr<AssParseResultC>,
+			Annotations<
+				Malloced<'free_parse_result'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>
+			>
+		>
+	>
 
 	constructor(
 		wasm: WASMWrapper,
-		result: Ptr<AssParseResultC>,
+		result: MallocedAnnotationWrapper<
+			'free_parse_result',
+			Annotated<
+				Ptr<AssParseResultC>,
+				Annotations<
+					Malloced<'free_parse_result'>,
+					NoAnnot<'cstr'>,
+					NoAnnot<'free_fn'>
+				>
+			>
+		>,
 		freelist: FreeList
 	) {
 		super(freelist)
@@ -1053,7 +1146,7 @@ export class AssParseResult extends CDisposable {
 		this.wasm = wasm
 		this.result = result
 
-		freelist.add(result, this.wasm.functions.free_parse_result)
+		freelist.add_already_disposed(result)
 	}
 
 	private is_error_value: null | boolean = null
@@ -1066,7 +1159,7 @@ export class AssParseResult extends CDisposable {
 		}
 
 		this.is_error_value = get_bool(
-			this.wasm.functions.parse_result_is_error(this.result)
+			this.wasm.functions.parse_result_is_error(this.result.value)
 		)
 
 		return this.is_error_value
@@ -1076,7 +1169,7 @@ export class AssParseResult extends CDisposable {
 		this.assert_not_freed('result is a valid ptr')
 
 		const c_diagnostics = this.wasm.functions.get_diagnostics_from_result(
-			this.result
+			this.result.value
 		)
 
 		const diagnostics = new Diagnostics(this.wasm, c_diagnostics)
@@ -1085,7 +1178,7 @@ export class AssParseResult extends CDisposable {
 	}
 
 	protected set_freed(): void {
-		this.result = ptr_cast<Void, AssParseResultC>(nullptr())
+		this.result.value = ptr_cast<Void, AssParseResultC>(nullptr())
 	}
 }
 
@@ -1332,7 +1425,11 @@ export abstract class CArray<
 		const fn: WASMExportsFnWithoutLibC[`${CFuncLit}_get_length`] =
 			this.wasm.functions[`${this.c_func_lit}_get_length`]
 
-		return fn(underlying_type)
+		return fn(
+			underlying_type as Parameters<
+				WASMExportsFnWithoutLibC[`${CFuncLit}_get_length`]
+			>[0]
+		)
 	}
 
 	protected override element_get_at_impl(
@@ -1342,7 +1439,12 @@ export abstract class CArray<
 		const fn: WASMExportsFnWithoutLibC[`${CFuncLit}_get_at`] =
 			this.wasm.functions[`${this.c_func_lit}_get_at`]
 
-		return fn(underlying_type, index) as ElementType
+		return fn(
+			underlying_type as Parameters<
+				WASMExportsFnWithoutLibC[`${CFuncLit}_get_at`]
+			>[0],
+			index
+		) as ElementType
 	}
 }
 
@@ -1397,13 +1499,13 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 		element: Ptr<DiagnosticC>
 	): Diagnostic {
 		using message_ptr = new MallocedDisposable(
-			his.wasm.functions.get_message_from_entry(element),
+			this.wasm.functions.get_message_from_entry(element),
 			(val) => {
 				this.wasm.functions.free_message_struct(val)
 			}
 		)
 
-		const message = this.get_string_from_message_struct(message_ptr.val)
+		const message = this.get_string_from_message_struct(message_ptr.value)
 
 		const file_pos_ptr =
 			this.wasm.functions.diagnostic_get_file_pos(element)
