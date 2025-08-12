@@ -1145,20 +1145,20 @@ export class AssParseResult extends CDisposable {
 		freelist.add_already_disposed(result)
 	}
 
-	private is_error_value: null | boolean = null
+	#is_error_value: null | boolean = null
 
 	public is_error(): boolean {
 		this.assert_not_freed('result is a valid ptr')
 
-		if (this.is_error_value !== null) {
-			return this.is_error_value
+		if (this.#is_error_value !== null) {
+			return this.#is_error_value
 		}
 
-		this.is_error_value = get_bool(
+		this.#is_error_value = get_bool(
 			this.#wasm.functions.parse_result_is_error(this.#result.value)
 		)
 
-		return this.is_error_value
+		return this.#is_error_value
 	}
 
 	public diagnostics(): Diagnostics {

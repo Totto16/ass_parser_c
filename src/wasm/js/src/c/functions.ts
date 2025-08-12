@@ -187,7 +187,10 @@ export function write_size_t_to_memory(
 }
 
 function sized_ptr_to_cstr(ptr: SizedPtr): CStrSized {
-	return { data_ptr: ptr_cast<Void, Char>(ptr.data_ptr), len: ptr.len }
+	return {
+		data_ptr: ptr_cast<Void, Char>(ptr.data_ptr),
+		len: get_c_value<number, SizeT>(get_value<SizeT>(ptr.len) - 1),
+	}
 }
 
 function copy_js_array_to_wasm_memory(
