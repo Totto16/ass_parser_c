@@ -40,8 +40,11 @@ size_t strlen(const char* s) {
 	return s - a;
 }
 
+// see:
+// https://github.com/esmil/musl/blob/194f9cf93da8ae62491b7386edf481ea8565ae4e/src/string/strcmp.c
 int strcmp(const char* s1, const char* s2) {
-	return __builtin_strcmp(s1, s2);
+	for (; *s1==*s2 && *s1; s1++, s2++);
+	return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
 
 int strcasecmp(const char* s1, const char* s2) {

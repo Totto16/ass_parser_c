@@ -114,7 +114,7 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 			break;
 		}
 		default: {
-			PANIC("UNRECAHBLE");
+			PANIC("UNREACHABLE");
 			break;
 		}
 	}
