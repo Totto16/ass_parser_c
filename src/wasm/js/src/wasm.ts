@@ -1075,10 +1075,14 @@ export class WasmBinding {
 }
 
 abstract class CDisposable implements Disposable {
-	protected freelist: FreeList
+	#freelist: FreeList
+
+	protected get freelist(): FreeList {
+		return this.#freelist
+	}
 
 	constructor(freelist: FreeList) {
-		this.freelist = freelist
+		this.#freelist = freelist
 	}
 
 	protected abstract set_freed(): void
@@ -1095,7 +1099,7 @@ abstract class CDisposable implements Disposable {
 
 	public free(): void {
 		if (!this.#is_free) {
-			this.freelist.free()
+			this.#freelist.free()
 
 			this.#is_free = true
 
