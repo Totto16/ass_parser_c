@@ -79,6 +79,14 @@ type AssEventC = CStruct<'AssEvent'>
 
 type _expect_1 = Expect<CheckIsCArrayType<AssEventsC, AssEventC, 'events'>>
 
+type AssStylesC = CStruct<'AssStyles'>
+
+type AssStyleC = CStruct<'AssStyle'>
+
+type _expect_2 = Expect<CheckIsCArrayType<AssStylesC, AssStyleC, 'styles'>>
+
+type ScriptInfoC = CStruct<'ScriptInfo'>
+
 type AssResultC = CStruct<'AssResult'>
 
 type MessageStructC = CStruct<'MessageStruct'>
@@ -264,6 +272,16 @@ interface WASMExportsFnWithoutLibC {
 	//
 	events_get_length: (events: Ptr<AssEventsC>) => SizeT
 	events_get_at: (events: Ptr<AssEventsC>, index: SizeT) => Ptr<AssEventC>
+	//
+	styles_get_length: (events: Ptr<AssStylesC>) => SizeT
+	styles_get_at: (events: Ptr<AssStylesC>, index: SizeT) => Ptr<AssStyleC>
+	//
+	get_script_info_from_ass_result: (
+		ass_result: Ptr<AssResultC>
+	) => Ptr<ScriptInfoC>
+	get_styles_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssStylesC>
+	get_events_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssEventsC>
+	//
 }
 
 type _NotCFuncsExportedCFunctions = AreAllFunctionCFns<ExportedCFunctions>
@@ -1178,6 +1196,22 @@ export class AssParseResult extends CDisposable {
 		return diagnostics
 	}
 
+	public result(): AssResult {
+		this.assert_not_freed('result is a valid ptr')
+
+		if (this.is_error()) {
+			throw new Error(`Tried to get result value on error result`)
+		}
+
+		const c_ass_result = this.#wasm.functions.parse_result_get_value(
+			this.#result.value
+		)
+
+		const ass_result = new AssResult(this.#wasm, c_ass_result)
+
+		return ass_result
+	}
+
 	protected set_freed(): void {
 		this.#result.value = ptr_cast<Void, AssParseResultC>(nullptr())
 	}
@@ -1529,5 +1563,92 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 		const severity = this.get_severity_from_c(severity_c)
 
 		return { message, position, severity }
+	}
+}
+
+export class AssResult {
+	#wasm: WASMWrapper
+	#ass_result: Ptr<AssResultC>
+
+	constructor(wasm: WASMWrapper, ass_result: Ptr<AssResultC>) {
+		this.#wasm = wasm
+		this.#ass_result = ass_result
+	}
+
+	public script_info(): ScriptInfo {
+		const c_script_info =
+			this.#wasm.functions.get_script_info_from_ass_result(
+				this.#ass_result
+			)
+
+		const script_info = new ScriptInfo(this.#wasm, c_script_info)
+
+		return script_info
+	}
+
+	public styles(): Styles {
+		const c_styles = this.#wasm.functions.get_styles_from_ass_result(
+			this.#ass_result
+		)
+
+		const styles = new Styles(this.#wasm, c_styles)
+
+		return styles
+	}
+
+	public events(): Events {
+		const c_events = this.#wasm.functions.get_events_from_ass_result(
+			this.#ass_result
+		)
+
+		const events = new Events(this.#wasm, c_events)
+
+		return events
+	}
+}
+
+export class ScriptInfo {
+	#wasm: WASMWrapper
+	#script_info: Ptr<ScriptInfoC>
+
+	constructor(wasm: WASMWrapper, script_info: Ptr<ScriptInfoC>) {
+		this.#wasm = wasm
+		this.#script_info = script_info
+	}
+
+	public todo(): void {
+		console.log(this.#wasm, this.#script_info)
+	}
+}
+
+export interface AssStyle {
+	todo: number
+}
+
+export class Styles extends CArray<AssStyle, 'styles'> {
+	constructor(wasm: WASMWrapper, style: Ptr<AssStylesC>) {
+		super(wasm, style, 'styles')
+	}
+
+	protected override convert_element_from_c_to_js(
+		element: Ptr<AssStyleC>
+	): AssStyle {
+		return { todo: get_value(element) }
+	}
+}
+
+export interface AssEvent {
+	todo: number
+}
+
+export class Events extends CArray<AssEvent, 'events'> {
+	constructor(wasm: WASMWrapper, event: Ptr<AssEventsC>) {
+		super(wasm, event, 'events')
+	}
+
+	protected override convert_element_from_c_to_js(
+		element: Ptr<AssEventC>
+	): AssEvent {
+		return { todo: get_value(element) }
 	}
 }

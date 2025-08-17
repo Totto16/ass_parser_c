@@ -75,3 +75,18 @@ size_t events_get_length(AssEvents* events);
 
 PUBLIC("events_get_at")
 AssEventEntry* events_get_at(AssEvents* events, size_t index);
+
+PUBLIC("styles_get_length")
+size_t styles_get_length(AssStyles* styles);
+
+//TODO: annotate nullable
+PUBLIC("styles_get_at")
+AssStyleEntry* styles_get_at(AssStyles* styles, size_t index);
+
+PUBLIC("get_script_info_from_ass_result")
+AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result);
+
+PUBLIC("get_styles_from_ass_result") AssStyles* get_styles_from_ass_result(AssResult* ass_result);
+
+PUBLIC("get_events_from_ass_result")
+AssEvents* get_events_from_ass_result(AssResult* ass_result);

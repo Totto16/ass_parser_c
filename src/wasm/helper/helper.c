@@ -171,3 +171,27 @@ AssEventEntry* events_get_at(AssEvents* events, size_t index) {
 
 	return &(events->entries[index]);
 }
+
+size_t styles_get_length(AssStyles* styles) {
+	return stbds_arrlenu(styles->entries);
+}
+
+AssStyleEntry* styles_get_at(AssStyles* styles, size_t index) {
+	if(index >= stbds_arrlenu(styles->entries)) {
+		return NULL;
+	}
+
+	return &(styles->entries[index]);
+}
+
+AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result) {
+	return &ass_result->script_info;
+}
+
+AssStyles* get_styles_from_ass_result(AssResult* ass_result) {
+	return &ass_result->styles;
+}
+
+AssEvents* get_events_from_ass_result(AssResult* ass_result) {
+	return &ass_result->events;
+}

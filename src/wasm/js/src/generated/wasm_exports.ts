@@ -43,5 +43,10 @@ export interface GeneratedExportedFunctions {
 	file_pos_get_column: (p_0: I32) => I32
 	events_get_length: (p_0: I32) => I32
 	events_get_at: (p_0: I32, p_1: I32) => I32
+	styles_get_length: (p_0: I32) => I32
+	styles_get_at: (p_0: I32, p_1: I32) => I32
+	get_script_info_from_ass_result: (p_0: I32) => I32
+	get_styles_from_ass_result: (p_0: I32) => I32
+	get_events_from_ass_result: (p_0: I32) => I32
 	_initialize: () => void
 }
