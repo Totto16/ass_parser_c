@@ -239,6 +239,7 @@ interface WASMExportsFnWithoutLibC {
 	//
 	file_pos_get_line: (pos: Ptr<FilePosC>) => SizeT
 	file_pos_get_column: (pos: Ptr<FilePosC>) => SizeT
+	is_empty_pos: (pos: Ptr<FilePosC>) => Bool
 	//
 	is_empty_message_struct: (message: Ptr<MessageStructC>) => Bool
 	get_message: (
@@ -1203,7 +1204,7 @@ type DiagnosticSeverityC = CEnum<
 export interface Diagnostic {
 	message: string
 	severity: DiagnosticSeverity
-	position: FilePos
+	position: FilePos | undefined
 }
 
 type ParamsOf<F> = F extends (...args: infer Args) => infer Rest
@@ -1453,7 +1454,17 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 		super(wasm, diagnostics, 'diagnostics')
 	}
 
-	private get_file_pos_from_c(file_pos_c: Ptr<FilePosC>): FilePos {
+	private get_file_pos_from_c(
+		file_pos_c: Ptr<FilePosC>
+	): FilePos | undefined {
+		const is_empty_pos = get_bool(
+			this.wasm.functions.is_empty_pos(file_pos_c)
+		)
+
+		if (is_empty_pos) {
+			return undefined
+		}
+
 		const line: number = get_value<SizeT>(
 			this.wasm.functions.file_pos_get_line(file_pos_c)
 		)
@@ -1510,7 +1521,8 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 		const file_pos_ptr =
 			this.wasm.functions.diagnostic_get_file_pos(element)
 
-		const position: FilePos = this.get_file_pos_from_c(file_pos_ptr)
+		const position: FilePos | undefined =
+			this.get_file_pos_from_c(file_pos_ptr)
 
 		const severity_c = this.wasm.functions.diagnostic_get_severity(element)
 

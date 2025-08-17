@@ -9,6 +9,7 @@ export interface GeneratedExportedFunctions {
 	free_message_struct: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn>>
 	get_message: (p_0: I32) => Annotated<I32, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">>>
 	malloc: (p_0: I32) => I32
+	is_empty_pos: (p_0: I32) => I32
 	uu_encode: (p_0: I32, p_1: I32) => void
 	uu_decode: (p_0: I32, p_1: I32) => void
 	is_empty_message_struct: (p_0: I32) => I32
