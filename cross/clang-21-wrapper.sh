@@ -2,8 +2,8 @@
 
 set -eu
 
-CLANG="clang-20"
-WASM_LD="wasm-ld-20"
+CLANG="clang-21"
+WASM_LD="wasm-ld-21"
 
 # Capture all args
 ARGS=("$@")
