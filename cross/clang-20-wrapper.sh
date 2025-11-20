@@ -2,8 +2,6 @@
 
 set -eu
 
-#!/bin/bash
-
 CLANG="clang-20"
 WASM_LD="wasm-ld-20"
 
@@ -19,6 +17,10 @@ for arg in "${ARGS[@]}"; do
     case "$arg" in
     -fuse-ld=wasm-ld*)
         USE_WASM_LD="true"
+        ;;
+    -Wl,--version)
+        IS_LINKING="true"
+        NEW_ARGS+=("$arg")
         ;;
     -c)
         IS_LINKING="false"
