@@ -25,6 +25,7 @@ import {
 	is_not_null,
 	get_ptr_value,
 	get_enum_value,
+	Unref,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -121,6 +122,7 @@ export enum FontPreset {
 }
 
 type FontPresetC = CEnum<FontPreset, 'FontPreset', UInt8T>
+
 export interface FontSettings {
 	preset: FontPreset
 }
@@ -1292,7 +1294,7 @@ export class AssParseResult extends CDisposable {
 		return diagnostics_ref
 	}
 
-	public result(): AssResult {
+	public result_ref(): AssResultRef {
 		this.assert_not_freed('result is a valid ptr')
 
 		if (this.is_error()) {
@@ -1303,7 +1305,7 @@ export class AssParseResult extends CDisposable {
 			this.#result.value
 		)
 
-		const ass_result = new AssResult(this.#wasm, c_ass_result)
+		const ass_result = new AssResultRef(this.#wasm, c_ass_result)
 
 		return ass_result
 	}
@@ -1625,7 +1627,7 @@ export abstract class CArray<
 		) as ElementType
 	}
 
-	public unref(): JsElement[] {
+	public override unref(): JsElement[] {
 		const result: JsElement[] = []
 
 		for (let i = 0; i < this.length; ++i) {
@@ -1724,7 +1726,99 @@ export class DiagnosticsRef extends CArray<Diagnostic, 'diagnostics'> {
 	}
 }
 
-export class AssResult {
+export type LineType = 'CrLf' | 'Lf' | 'Cr'
+
+enum LineTypeCEnum {
+	'CrLf' = 0,
+	'Lf',
+	'Cr',
+}
+
+type LineTypeC = CEnum<LineTypeCEnum, 'LineType', UInt8T>
+
+export type FileType =
+	| 'Unknown'
+	| 'UTF-8'
+	| 'UTF-16BE'
+	| 'UTF-16LE'
+	| 'UTF-32BE'
+	| 'UTF-32LE'
+
+enum FileTypeCEnum {
+	'Unknown' = 0,
+	'UTF-8',
+	'UTF-16BE',
+	'UTF-16LE',
+	'UTF-32BE',
+	'UTF-32LE',
+}
+
+type FileTypeC = CEnum<FileTypeCEnum, 'FileType', UInt8T>
+
+export interface FileProps {
+	line_type: LineType
+	file_type: FileType
+}
+
+export type ScriptType = 'Unknown' | 'V4' | 'V4Plus'
+
+enum ScriptTypeCEnum {
+	'Unknown' = 0,
+	'V4',
+	'V4Plus',
+}
+
+type ScriptTypeC = CEnum<ScriptTypeCEnum, 'ScriptType', UInt8T>
+
+export type WrapStyle = 'Smart' | 'EOL' | 'NoWrap' | 'SmartLow'
+
+enum WrapStyleCEnum {
+	'Smart' = 0,
+	'EOL',
+	'NoWrap',
+	'SmartLow',
+}
+
+type WrapStyleC = CEnum<WrapStyleCEnum, 'WrapStyle', UInt8T>
+
+export interface AssScriptInfo {
+	title: string
+	original_script: string
+	original_translation: string
+	original_editing: string
+	original_timing: string
+	synch_point: string
+	script_updated_by: string
+	update_details: string
+	script_type: ScriptType
+	collisions: string
+	play_res_y: SizeT
+	play_res_x: SizeT
+	play_depth: string
+	timer: string
+	wrap_style: WrapStyle
+	// not documented, but present
+	scaled_border_and_shadow: boolean
+	video_aspect_ratio: SizeT
+	video_zoom: SizeT
+	ycbcr_matrix: string
+}
+
+export type ExtraSectionEntry = Record<string, string>
+
+export type ExtraSections = Record<string, ExtraSectionEntry>
+
+export interface AssResult {
+	script_info: AssScriptInfo
+	styles: AssStyle[]
+	events: AssEvent[]
+	//fonts: AssFonts
+	//graphics: AssGraphics
+	extra_sections: ExtraSections
+	file_props: FileProps
+}
+
+export class AssResultRef extends Unref<AssResult> {
 	#wasm: WASMWrapper
 	#ass_result: Ptr<AssResultC>
 
@@ -1744,24 +1838,34 @@ export class AssResult {
 		return script_info
 	}
 
-	public styles(): Styles {
+	public styles_ref(): StylesRef {
 		const c_styles = this.#wasm.functions.get_styles_from_ass_result(
 			this.#ass_result
 		)
 
-		const styles = new Styles(this.#wasm, c_styles)
+		const styles = new StylesRef(this.#wasm, c_styles)
 
 		return styles
 	}
 
-	public events(): Events {
+	public events_ref(): EventsRef {
 		const c_events = this.#wasm.functions.get_events_from_ass_result(
 			this.#ass_result
 		)
 
-		const events = new Events(this.#wasm, c_events)
+		const events = new EventsRef(this.#wasm, c_events)
 
 		return events
+	}
+
+	public override unref(): AssResult {
+		return {
+			script_info: 'TODO',
+			styles: this.styles_ref().unref(),
+			events: this.events_ref().unref(),
+			extra_sections: 'TODO',
+			file_props: 'TODO',
+		}
 	}
 }
 
@@ -1783,7 +1887,7 @@ export interface AssStyle {
 	todo: number
 }
 
-export class Styles extends CArray<AssStyle, 'styles'> {
+export class StylesRef extends CArray<AssStyle, 'styles'> {
 	constructor(wasm: WASMWrapper, style: Ptr<AssStylesC>) {
 		super(wasm, style, 'styles')
 	}
@@ -1799,7 +1903,7 @@ export interface AssEvent {
 	todo: number
 }
 
-export class Events extends CArray<AssEvent, 'events'> {
+export class EventsRef extends CArray<AssEvent, 'events'> {
 	constructor(wasm: WASMWrapper, event: Ptr<AssEventsC>) {
 		super(wasm, event, 'events')
 	}
