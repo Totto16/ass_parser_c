@@ -1624,6 +1624,16 @@ export abstract class CArray<
 			index
 		) as ElementType
 	}
+
+	public unref(): JsElement[] {
+		const result: JsElement[] = []
+
+		for (let i = 0; i < this.length; ++i) {
+			result.push(this.get_element_at(i))
+		}
+
+		return result
+	}
 }
 
 export class DiagnosticsRef extends CArray<Diagnostic, 'diagnostics'> {

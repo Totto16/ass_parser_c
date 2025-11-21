@@ -387,17 +387,26 @@ export class IndexOutOfBoundError extends RangeError {
 	}
 }
 
+//TODO: assert, that JsElement is no c type, annotate all c types with a class, that say, that it is one!
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+export abstract class Unref<JsElement> {
+	public abstract unref(): JsElement
+}
+
 export abstract class CArrayGeneric<
-	JsElement,
-	ListType extends CType,
-	ElementType extends CType,
-> implements Iterable<JsElement>
+		JsElement,
+		ListType extends CType,
+		ElementType extends CType,
+	>
+	extends Unref<JsElement[]>
+	implements Iterable<JsElement>
 {
 	private underlying_type: Ptr<ListType>;
 
 	[index: number]: JsElement
 
 	constructor(underlying_type: Ptr<ListType>) {
+		super()
 		this.underlying_type = underlying_type
 
 		return new Proxy(this, {
@@ -482,6 +491,10 @@ export abstract class CArrayGeneric<
 		}
 
 		return cached_entry
+	}
+
+	public get_element_at(index: number): JsElement {
+		return this.element_at_impl(index)
 	}
 
 	public at(index: number): JsElement | undefined {

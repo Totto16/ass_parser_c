@@ -1,4 +1,4 @@
-import { FontPreset, WasmBinding } from './wasm'
+import { FontPreset, WasmBinding, type Diagnostic } from './wasm'
 
 import { uiStart } from './ui'
 
@@ -22,10 +22,10 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	console.log('is result error: ', result.is_error())
 
 	// if result is cleaned up, this gets freed!
-	const diagnostics_ref = result.diagnostics_ref()
+	const diagnostics: Diagnostic[] = result.diagnostics_ref().unref()
 
-	console.log('diagnostics length', diagnostics_ref.length)
-	for (const diagnostic of diagnostics_ref) {
+	console.log('diagnostics length', diagnostics.length)
+	for (const diagnostic of diagnostics) {
 		console.log('diagnostic', diagnostic)
 	}
 
