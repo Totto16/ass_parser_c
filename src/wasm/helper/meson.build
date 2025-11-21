@@ -1,1 +1,1 @@
-lib_src_files += files('helper.c','helper.h')
+lib_src_files += files('helper.c', 'helper.h')
