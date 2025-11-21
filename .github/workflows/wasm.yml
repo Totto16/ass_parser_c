@@ -1,0 +1,50 @@
+name: WASM CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  wasm:
+    name: Wasm build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+      - name: Setup Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+          echo "CC=clang-21" >> "$GITHUB_ENV"
+          echo "CXX=clang++-21" >> "$GITHUB_ENV"
+
+      # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+      - name: Setup meson
+        run: |
+          pip install meson --break-system-packages
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build libfontconfig-dev -y --no-install-recommends
+
+      - name: Configure
+        run: meson setup build_wasm --cross ./cross/wasm-clang-21.ini -Dbuildtype=release --fatal-meson-warnings
+
+      - name: Build
+        run: meson compile -C build_wasm
+
+      - name: Build Web Content
+        run: |
+          cd src/wasm/js
+          pnpm run build:prod
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Web Content (With wasm)
+          path: |
+            ./src/wasm/js/dist
