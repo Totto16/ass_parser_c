@@ -9,7 +9,7 @@
 typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] PUBLIC("parse_ass") ANNOTATION_MALLOCED_RESULT("free_parse_result")
-    AssParseResult* parse_ass(AssSource source, ParseSettings settings);
+    ANNOTATION_NULLABLE AssParseResult* parse_ass(AssSource source, ParseSettings settings);
 
 [[nodiscard]] Diagnostics get_diagnostics_from_result(AssParseResult* result);
 

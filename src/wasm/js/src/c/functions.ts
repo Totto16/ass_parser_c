@@ -15,6 +15,7 @@ import {
 	type IsCString,
 	type IsCType,
 	type IsFreeFn,
+	type IsNullable,
 	type Malloced,
 	type MallocedAnnotationWrapper,
 	type MallocedDisposable,
@@ -34,11 +35,21 @@ export interface Allocator {
 	free: (
 		ptr: Annotated<
 			Ptr<Void>,
-			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+			Annotations<
+				Malloced<'free'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
+			>
 		>
 	) => Annotated<
 		void,
-		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			IsFreeFn,
+			NoAnnot<'nullable'>
+		>
 	>
 }
 
@@ -63,8 +74,11 @@ export function nullptr(): Ptr<Void> {
 type ReturnTypeFromPTrCast<A extends CType, B extends CType, P> =
 	P extends Ptr<A>
 		? Ptr<B>
-		: P extends Annotated<Ptr<A>, Annotations<infer A1, infer A2, infer A3>>
-			? Annotated<Ptr<B>, Annotations<A1, A2, A3>>
+		: P extends Annotated<
+					Ptr<A>,
+					Annotations<infer A1, infer A2, infer A3, infer A4>
+			  >
+			? Annotated<Ptr<B>, Annotations<A1, A2, A3, A4>>
 			: never
 
 export function ptr_cast<
@@ -77,7 +91,8 @@ export function ptr_cast<
 				Annotations<
 					AnnotationBase<'malloced'>,
 					AnnotationBase<'cstr'>,
-					AnnotationBase<'free_fn'>
+					AnnotationBase<'free_fn'>,
+					AnnotationBase<'nullable'>
 				>
 		  > = Ptr<A>,
 >(ptr_r: P): ReturnTypeFromPTrCast<A, B, P> {
@@ -121,7 +136,8 @@ export type CStr = Annotated<
 	Annotations<
 		AnnotationBase<'malloced'>,
 		IsCString,
-		AnnotationBase<'free_fn'>
+		AnnotationBase<'free_fn'>,
+		AnnotationBase<'nullable'>
 	>
 >
 
@@ -271,7 +287,12 @@ export type FreeFn<A extends CType> = (
 	arg: Ptr<A>
 ) => Annotated<
 	Void,
-	Annotations<AnnotationBase<'malloced'>, AnnotationBase<'cstr'>, IsFreeFn>
+	Annotations<
+		AnnotationBase<'malloced'>,
+		AnnotationBase<'cstr'>,
+		IsFreeFn,
+		AnnotationBase<'nullable'>
+	>
 >
 
 export type FreeData<A extends CType> = [value: Ptr<A>, free_fn: FreeFn<A>]
@@ -282,7 +303,8 @@ type FreeListInnerType = MallocedAnnotationWrapper<
 		Annotations<
 			Malloced<FreeFns>,
 			AnnotationBase<'cstr'>,
-			AnnotationBase<'free_fn'>
+			AnnotationBase<'free_fn'>,
+			AnnotationBase<'nullable'>
 		>
 >
 
@@ -299,7 +321,8 @@ export class FreeList {
 			Annotations<
 				Malloced<F>,
 				AnnotationBase<'cstr'>,
-				AnnotationBase<'free_fn'>
+				AnnotationBase<'free_fn'>,
+				AnnotationBase<'nullable'>
 			>,
 	>(disposable: MallocedAnnotationWrapper<F, C>): void {
 		this.list.push(disposable as unknown as FreeListInnerType)
@@ -311,7 +334,8 @@ export class FreeList {
 			Annotations<
 				Malloced<F>,
 				AnnotationBase<'cstr'>,
-				AnnotationBase<'free_fn'>
+				AnnotationBase<'free_fn'>,
+				AnnotationBase<'nullable'>
 			>,
 	>(disposable: MallocedDisposable<F, C>): void {
 		this.list.push(
@@ -448,4 +472,35 @@ export abstract class CArrayGeneric<
 			yield this.element_at_impl(i)
 		}
 	}
+}
+
+export function assert_not_null<
+	T extends CType,
+	A extends AnnotationBase<'malloced'>,
+	B extends AnnotationBase<'cstr'>,
+	C extends AnnotationBase<'free_fn'>,
+>(
+	value: Annotated<T, Annotations<A, B, C, IsNullable>>
+): GetJSTypeFromCType<T> extends number
+	? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
+	: never {
+	if (get_value(value) == 0) {
+		throw new Error('value is null')
+	}
+	return value as unknown as GetJSTypeFromCType<T> extends number
+		? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
+		: never
+}
+
+export function is_not_null<
+	T extends CType,
+	A extends AnnotationBase<'malloced'>,
+	B extends AnnotationBase<'cstr'>,
+	C extends AnnotationBase<'free_fn'>,
+>(
+	value:
+		| Annotated<T, Annotations<A, B, C, IsNullable>>
+		| Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
+): value is Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>> {
+	return get_value(value) != 0
 }

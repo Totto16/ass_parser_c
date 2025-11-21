@@ -107,6 +107,8 @@ function get_annotations(
 	return annotations
 }
 
+//Note: https://github.com/wasdk/wasmparser is old, and still uses NonSharedBuffer
+// eslint-disable-next-line @typescript-eslint/no-deprecated
 function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 	const parser = new BinaryReader()
 	parser.setData(data.buffer, 0, data.length)
@@ -496,6 +498,7 @@ function toTsType(export_: FunctionExport): string {
 			'malloced',
 			'string',
 			'is_free_fn',
+			'nullable',
 		]
 		const annotValues: string[] = keysInOrder.map((key) => annotations[key])
 		returnType = `Annotated<${returnType}, Annotations<${annotValues.join(', ')}>>`
@@ -508,6 +511,7 @@ interface Annotations {
 	malloced: string
 	string: string
 	is_free_fn: string
+	nullable: string
 }
 
 interface AnnotationSetting {
@@ -532,6 +536,11 @@ const globalAnnotations: AnnotationSetting[] = [
 		params: 0,
 		typename: 'IsFreeFn',
 	},
+	{
+		name: 'nullable',
+		params: 0,
+		typename: 'IsNullable',
+	},
 ]
 
 function getDefaultAnnotations(): Annotations {
@@ -539,6 +548,7 @@ function getDefaultAnnotations(): Annotations {
 		malloced: 'NoAnnot<"malloced">',
 		string: 'NoAnnot<"cstr">',
 		is_free_fn: 'NoAnnot<"free_fn">',
+		nullable: 'NoAnnot<"nullable">',
 	}
 
 	return annotations
@@ -580,7 +590,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, Malloced, NoAnnot } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot } from '../c/types'
 
 `
 

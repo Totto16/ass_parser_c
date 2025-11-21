@@ -21,6 +21,8 @@ import {
 	enum_get_underlying_c_type,
 	type WASMExportsFnFromLibC,
 	type CStr,
+	assert_not_null,
+	is_not_null,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -52,6 +54,8 @@ import {
 	type FreeFns,
 	type AnnotationBase,
 	type MallocedAnnotationWrapper,
+	type IsNullable,
+	type NullChecked,
 } from './c/types'
 import type { GeneratedExportedFunctions } from './generated/wasm_exports'
 
@@ -166,7 +170,8 @@ interface WASMExportsFnWithoutLibC {
 		Annotations<
 			Malloced<'free_parse_result'>,
 			NoAnnot<'cstr'>,
-			NoAnnot<'free_fn'>
+			NoAnnot<'free_fn'>,
+			IsNullable
 		>
 	>
 	//
@@ -175,12 +180,22 @@ interface WASMExportsFnWithoutLibC {
 		len: SizeT
 	) => Annotated<
 		Ptr<AssSource>,
-		Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+		Annotations<
+			Malloced<'free'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
 	>
 	//
 	default_parse_settings: () => Annotated<
 		Ptr<ParseSettingsC>,
-		Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+		Annotations<
+			Malloced<'free'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
 	>
 	set_settings_option: (
 		ptr: Ptr<ParseSettingsC>,
@@ -209,12 +224,18 @@ interface WASMExportsFnWithoutLibC {
 			Annotations<
 				Malloced<'free_parse_result'>,
 				NoAnnot<'cstr'>,
-				NoAnnot<'free_fn'>
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
 			>
 		>
 	) => Annotated<
 		void,
-		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			IsFreeFn,
+			NoAnnot<'nullable'>
+		>
 	>
 	//
 	get_diagnostics_from_result: (
@@ -230,7 +251,16 @@ interface WASMExportsFnWithoutLibC {
 	diagnostics_get_at: (
 		diagnostics: Ptr<DiagnosticsC>,
 		index: SizeT
-	) => Ptr<DiagnosticC>
+	) => Annotated<
+		Ptr<DiagnosticC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+
 	//
 	get_message_from_entry: (
 		element: Ptr<DiagnosticC>
@@ -239,7 +269,8 @@ interface WASMExportsFnWithoutLibC {
 		Annotations<
 			Malloced<'free_message_struct'>,
 			NoAnnot<'cstr'>,
-			NoAnnot<'free_fn'>
+			NoAnnot<'free_fn'>,
+			IsNullable
 		>
 	>
 	diagnostic_get_file_pos: (element: Ptr<DiagnosticC>) => Ptr<FilePosC>
@@ -254,7 +285,12 @@ interface WASMExportsFnWithoutLibC {
 		message: Ptr<MessageStructC>
 	) => Annotated<
 		Ptr<Char>,
-		Annotations<NoAnnot<'malloced'>, IsCString, NoAnnot<'free_fn'>>
+		Annotations<
+			NoAnnot<'malloced'>,
+			IsCString,
+			NoAnnot<'free_fn'>,
+			NoAnnot<'nullable'>
+		>
 	>
 	free_message_struct: (
 		message: Annotated<
@@ -262,19 +298,47 @@ interface WASMExportsFnWithoutLibC {
 			Annotations<
 				Malloced<'free_message_struct'>,
 				NoAnnot<'cstr'>,
-				NoAnnot<'free_fn'>
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
 			>
 		>
 	) => Annotated<
 		void,
-		Annotations<NoAnnot<'malloced'>, NoAnnot<'cstr'>, IsFreeFn>
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			IsFreeFn,
+			NoAnnot<'nullable'>
+		>
 	>
 	//
 	events_get_length: (events: Ptr<AssEventsC>) => SizeT
-	events_get_at: (events: Ptr<AssEventsC>, index: SizeT) => Ptr<AssEventC>
+	events_get_at: (
+		events: Ptr<AssEventsC>,
+		index: SizeT
+	) => Annotated<
+		Ptr<AssEventC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 	//
 	styles_get_length: (events: Ptr<AssStylesC>) => SizeT
-	styles_get_at: (events: Ptr<AssStylesC>, index: SizeT) => Ptr<AssStyleC>
+	styles_get_at: (
+		events: Ptr<AssStylesC>,
+		index: SizeT
+	) => Annotated<
+		Ptr<AssStyleC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 	//
 	get_script_info_from_ass_result: (
 		ass_result: Ptr<AssResultC>
@@ -569,7 +633,8 @@ function get_malloced_disposable<
 		Annotations<
 			Malloced<Fn>,
 			AnnotationBase<'cstr'>,
-			AnnotationBase<'free_fn'>
+			AnnotationBase<'free_fn'>,
+			AnnotationBase<'nullable'>
 		>,
 >(value: C, wasm: WASMWrapper, fn: Fn): MallocedDisposable<Fn, C> {
 	return new MallocedDisposable<Fn, C>(value, (to_free: C): void => {
@@ -1023,7 +1088,12 @@ export class WasmBinding {
 	): Promise<AssParseResult> {
 		let ass_source_raw: Annotated<
 			Ptr<AssSource>,
-			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+			Annotations<
+				Malloced<'free'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>,
+				IsNullable
+			>
 		>
 
 		if (typeof source === 'string') {
@@ -1065,17 +1135,25 @@ export class WasmBinding {
 
 		this.modify_parse_settings(parse_settings.value, settings)
 
+		const raw_result: Annotated<
+			Ptr<AssParseResultC>,
+			Annotations<
+				Malloced<'free_parse_result'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>,
+				IsNullable
+			>
+		> = this.wasm.functions.parse_ass(
+			ass_source.value,
+			parse_settings.value
+		)
+
+		const raw_result_non_null = assert_not_null(raw_result)
+
 		using result = get_malloced_disposable<
 			'free_parse_result',
-			ReturnType<typeof this.wasm.functions.parse_ass>
-		>(
-			this.wasm.functions.parse_ass(
-				ass_source.value,
-				parse_settings.value
-			),
-			this.wasm,
-			'free_parse_result'
-		)
+			NullChecked<ReturnType<typeof this.wasm.functions.parse_ass>>
+		>(raw_result_non_null, this.wasm, 'free_parse_result')
 
 		const freelist = new FreeList()
 
@@ -1140,7 +1218,8 @@ export class AssParseResult extends CDisposable {
 			Annotations<
 				Malloced<'free_parse_result'>,
 				NoAnnot<'cstr'>,
-				NoAnnot<'free_fn'>
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
 			>
 		>
 	>
@@ -1154,7 +1233,8 @@ export class AssParseResult extends CDisposable {
 				Annotations<
 					Malloced<'free_parse_result'>,
 					NoAnnot<'cstr'>,
-					NoAnnot<'free_fn'>
+					NoAnnot<'free_fn'>,
+					NoAnnot<'nullable'>
 				>
 			>
 		>,
@@ -1248,12 +1328,12 @@ type ParamsOf<F> = F extends (...args: infer Args) => infer Rest
 type ValidLengthArrayFn<F> =
 	ParamsOf<F> extends [args: infer Args, infer Rest]
 		? Rest extends SizeT
-			? Args extends [infer A]
-				? A extends Ptr<infer C>
+			? Args extends [infer FirstArg]
+				? FirstArg extends Ptr<infer C>
 					? IsCType<C> extends true
 						? [true, C]
-						: [false, 'Ptr without CTpye as first argument']
-					: [false, 'no ptr as first argument', { o: A }]
+						: [false, 'Ptr without CType as first argument']
+					: [false, 'no ptr as first argument', { o: FirstArg }]
 				: [false, 'args amount invalid']
 			: [false, 'invalid return type']
 		: [false, 'no fn']
@@ -1266,18 +1346,32 @@ type GetLengthFnsImpl<T> = {
 
 type ValidGetArrayFn<F> =
 	ParamsOf<F> extends [args: infer Args, infer Rest]
-		? Args extends [infer A, infer B]
-			? A extends Ptr<infer C>
+		? Args extends [infer FirstArg, infer B]
+			? FirstArg extends Ptr<infer C>
 				? IsCType<C> extends true
 					? B extends SizeT
-						? Rest extends Ptr<infer D>
+						? Rest extends Annotated<
+								Ptr<infer D>,
+								Annotations<
+									NoAnnot<'malloced'>,
+									NoAnnot<'cstr'>,
+									NoAnnot<'free_fn'>,
+									IsNullable
+								>
+							>
 							? IsCType<D> extends true
 								? [true, [C, D]]
-								: [false, 'Ptr without CTpye as return type']
-							: [false, 'no ptr as return type']
+								: [false, 'Ptr without CType as return type']
+							: Rest extends Ptr<infer C>
+								? [
+										false,
+										'return type is not nullable, but a pointer',
+										{ o: C },
+									]
+								: [false, 'no ptr as return type', { o: Rest }]
 						: [false, 'invalid second argument type']
-					: [false, 'Ptr without CTpye as first argument']
-				: [false, 'no ptr as first argument']
+					: [false, 'Ptr without CType as first argument']
+				: [false, 'no ptr as first argument', { o: FirstArg }]
 			: [false, 'args amount invalid']
 		: [false, 'no fn']
 
@@ -1335,7 +1429,18 @@ type _expect2 = Expect<Equal<_LengthFns, _IndexFns>>
 
 interface Test1Fns {
 	abcs_get_length: (a: Ptr<Void>) => SizeT
-	abcs_get_at: (a: Ptr<Char>, index: SizeT) => Ptr<SizeT>
+	abcs_get_at: (
+		a: Ptr<Char>,
+		index: SizeT
+	) => Annotated<
+		Ptr<SizeT>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 }
 
 type _expectcheck_0_0 = Expect<Equal<GetIndexFnsSimple<Test1Fns>, 'abcs'>>
@@ -1350,10 +1455,32 @@ type TestStruct = CStruct<'TestStructFormFns'>
 
 interface Test2Fns {
 	abcs_get_length: (a: Ptr<Void>) => SizeT
-	abcs_get_at: (a: Ptr<Void>, index: SizeT) => Ptr<SizeT>
+	abcs_get_at: (
+		a: Ptr<Void>,
+		index: SizeT
+	) => Annotated<
+		Ptr<SizeT>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 
 	abcd_get_length: (a: Ptr<TestStruct>) => SizeT
-	abcd_get_at: (a: Ptr<TestStruct>, index: SizeT) => Ptr<SizeT>
+	abcd_get_at: (
+		a: Ptr<TestStruct>,
+		index: SizeT
+	) => Annotated<
+		Ptr<SizeT>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 }
 
 type _expectcheck_1_0 = Expect<
@@ -1546,7 +1673,9 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 		using message_ptr = new MallocedDisposable(
 			this.wasm.functions.get_message_from_entry(element),
 			(val) => {
-				this.wasm.functions.free_message_struct(val)
+				if (is_not_null(val)) {
+					this.wasm.functions.free_message_struct(val)
+				}
 			}
 		)
 

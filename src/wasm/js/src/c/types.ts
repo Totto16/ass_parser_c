@@ -4,7 +4,7 @@ import type { Equal, Expect, NotEqual } from 'type-testing'
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type ValidJSTypes = number | bigint | void
 
-type AnnotationType = 'malloced' | 'cstr' | 'free_fn'
+type AnnotationType = 'malloced' | 'cstr' | 'free_fn' | 'nullable'
 
 export interface AnnotationBase<AT extends AnnotationType> {
 	readonly __annotation: unique symbol
@@ -25,10 +25,12 @@ export interface Annotations<
 	MAL extends AnnotationBase<'malloced'>,
 	CSTR extends AnnotationBase<'cstr'>,
 	FREEFN extends AnnotationBase<'free_fn'>,
+	NULLABLE extends AnnotationBase<'nullable'>,
 > {
 	readonly __malloced: MAL
 	readonly __cstring: CSTR
 	readonly __free_fn: FREEFN
+	readonly __nullable: NULLABLE
 }
 
 interface CTypeSimpleImpl<Desc extends string, JSType extends ValidJSTypes> {
@@ -40,7 +42,8 @@ interface CTypeSimpleImpl<Desc extends string, JSType extends ValidJSTypes> {
 type DefaultAnnotations = Annotations<
 	NoAnnot<'malloced'>,
 	NoAnnot<'cstr'>,
-	NoAnnot<'free_fn'>
+	NoAnnot<'free_fn'>,
+	NoAnnot<'nullable'>
 >
 
 export type CTypeSimple<
@@ -83,7 +86,8 @@ export type CType<
 	Annotations<
 		AnnotationBase<'malloced'>,
 		AnnotationBase<'cstr'>,
-		AnnotationBase<'free_fn'>
+		AnnotationBase<'free_fn'>,
+		AnnotationBase<'nullable'>
 	>
 
 export type IsCType<C> =
@@ -97,7 +101,12 @@ export type IsCType<C> =
 
 type AnnotNotAssignableTo = (() => Annotated<
 	Ptr<Void>,
-	Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+	Annotations<
+		Malloced<'free'>,
+		NoAnnot<'cstr'>,
+		NoAnnot<'free_fn'>,
+		NoAnnot<'nullable'>
+	>
 >) extends () => infer V
 	? V extends Ptr<Void>
 		? ['error', V, Ptr<Void>, Equal<V, Ptr<Void>>]
@@ -186,7 +195,8 @@ type _expect0_0 = Expect<
 			Annotations<
 				NoAnnot<'malloced'>,
 				NoAnnot<'cstr'>,
-				NoAnnot<'free_fn'>
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
 			>
 		>,
 		Ptr<Int>
@@ -200,7 +210,8 @@ type _expect0_01 = Expect<
 			Annotations<
 				NoAnnot<'malloced'>,
 				NoAnnot<'cstr'>,
-				NoAnnot<'free_fn'>
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
 			>
 		>,
 		Int
@@ -211,7 +222,12 @@ type _expect0_02 = Expect<
 	NotEqual<
 		Annotated<
 			Ptr<Int>,
-			Annotations<Malloced<'free'>, NoAnnot<'cstr'>, NoAnnot<'free_fn'>>
+			Annotations<
+				Malloced<'free'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
+			>
 		>,
 		Ptr<Int>
 	>
@@ -364,15 +380,16 @@ export type Annotated<
 	A extends Annotations<
 		AnnotationBase<'malloced'>,
 		AnnotationBase<'cstr'>,
-		AnnotationBase<'free_fn'>
+		AnnotationBase<'free_fn'>,
+		AnnotationBase<'nullable'>
 	>,
 	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 > = (C extends CType ? RawType<C> : C extends void ? Void : never) & A
 
 export type GetAnnotations<T> =
 	T extends Annotated<infer _F, infer A>
-		? A extends Annotations<infer A, infer B, infer C>
-			? Annotations<A, B, C>
+		? A extends Annotations<infer A, infer B, infer C, infer D>
+			? Annotations<A, B, C, D>
 			: A
 		: DefaultAnnotations
 
@@ -382,6 +399,45 @@ type _expect_annot_get_0 = Expect<
 
 type _expect_annot_get_1 = Expect<
 	Equal<GetAnnotations<void>, GetAnnotations<Int>>
+>
+
+export type NullChecked<A> =
+	A extends Annotated<
+		infer CT,
+		Annotations<infer B, infer C, infer D, infer E>
+	>
+		? E extends IsNullable
+			? Annotated<CT, Annotations<B, C, D, NoAnnot<'nullable'>>>
+			: [false, 'not nullable in the first place']
+		: never
+
+type _expect_nullchecked_0 = Expect<
+	Equal<NullChecked<Void>, [false, 'not nullable in the first place']>
+>
+
+type _expect_nullchecked_1 = Expect<
+	Equal<
+		NullChecked<
+			Annotated<
+				Ptr<Int>,
+				Annotations<
+					NoAnnot<'malloced'>,
+					NoAnnot<'cstr'>,
+					NoAnnot<'free_fn'>,
+					IsNullable
+				>
+			>
+		>,
+		Annotated<
+			Ptr<Int>,
+			Annotations<
+				NoAnnot<'malloced'>,
+				NoAnnot<'cstr'>,
+				NoAnnot<'free_fn'>,
+				NoAnnot<'nullable'>
+			>
+		>
+	>
 >
 
 type RemoveAnnotations<C> = C extends CType
@@ -396,7 +452,7 @@ export function remove_annotations<A extends CType>(
 
 type GetFreeFns<T> = {
 	[K in keyof T]: T[K] extends (...args: infer _Args) => infer Ret
-		? Ret extends Annotations<infer _A, infer _B, IsFreeFn>
+		? Ret extends Annotations<infer _A, infer _B, IsFreeFn, infer _C>
 			? K
 			: never
 		: never
@@ -416,6 +472,8 @@ export type IsCString = Annotation<'is_c_string', 'cstr'>
 
 export type IsFreeFn = Annotation<'is_free_fn', 'free_fn'>
 
+export type IsNullable = Annotation<'is_nullable', 'nullable'>
+
 type MallocedFreeFn<C> = (f: C) => void
 
 export class MallocedAnnotationWrapper<
@@ -424,7 +482,8 @@ export class MallocedAnnotationWrapper<
 		Annotations<
 			Malloced<Fn>,
 			AnnotationBase<'cstr'>,
-			AnnotationBase<'free_fn'>
+			AnnotationBase<'free_fn'>,
+			AnnotationBase<'nullable'>
 		>,
 > {
 	private val: C
@@ -460,7 +519,8 @@ export class MallocedDisposable<
 			Annotations<
 				Malloced<Fn>,
 				AnnotationBase<'cstr'>,
-				AnnotationBase<'free_fn'>
+				AnnotationBase<'free_fn'>,
+				AnnotationBase<'nullable'>
 			>,
 	>
 	extends MallocedAnnotationWrapper<Fn, C>
