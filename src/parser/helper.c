@@ -89,7 +89,7 @@ static double pow_10_manual_d(size_t amount) {
 
 	size_t suffix_power_of_10 = suffix.length;
 
-	final_value = final_value + (double)suffix_num / (POW_10(suffix_power_of_10));
+	final_value = final_value + ((double)suffix_num / (POW_10(suffix_power_of_10)));
 
 	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return final_value;

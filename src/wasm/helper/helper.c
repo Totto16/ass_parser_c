@@ -144,6 +144,11 @@ MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry) {
 	return result;
 }
 
+void free_message_struct_ptr_js(MessageStruct* msg) {
+	free_message_struct(*msg);
+	free(msg);
+}
+
 FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry) {
 	return &(entry->position);
 }

@@ -72,6 +72,17 @@ type CTypeNested<
 	JSType extends ValidJSTypes,
 > = CTypeNestedImpl<Desc, RawType<NestedType>, JSType> & DefaultAnnotations
 
+export type OnlySimpleTypes<C extends CType> =
+	C extends CTypeNested<infer _A, infer _B, infer _C>
+		? { __error: 'not a simple c type' }
+		: C
+
+type _expect_only_simple_types1 = Expect<Equal<OnlySimpleTypes<Void>, Void>>
+type _expect_only_simple_types2 = Expect<Equal<OnlySimpleTypes<SizeT>, SizeT>>
+type _expect_only_simple_types3 = Expect<
+	Equal<OnlySimpleTypes<Ptr<SizeT>>, { __error: 'not a simple c type' }>
+>
+
 export type CTypeNoAnnotations<
 	Desc extends string = string,
 	JSType extends ValidJSTypes = ValidJSTypes,

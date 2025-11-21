@@ -59,6 +59,8 @@ PUBLIC("get_message_from_entry")
 ANNOTATION_MALLOCED_RESULT("free_message_struct")
 ANNOTATION_NULLABLE MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
 
+PUBLIC("free_message_struct") ANNOTATION_FREE_FN void free_message_struct_ptr_js(MessageStruct* msg);
+
 PUBLIC("diagnostic_get_file_pos")
 FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);
 

@@ -1,4 +1,4 @@
-import { WasmBinding } from './wasm'
+import { FontPreset, WasmBinding } from './wasm'
 
 import { uiStart } from './ui'
 
@@ -10,9 +10,13 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 		strict_settings: {
 			allow_unrecognized_file_encoding: true,
 		},
+		validate_settings: {
+			font_settings: {
+				preset: FontPreset.disabled,
+			},
+		},
 	})
 
-	//TODO
 	console.log('result', result)
 
 	console.log('is result error: ', result.is_error())
@@ -24,14 +28,23 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 		console.log('diagnostic', diagnostic)
 	}
 
-	console.log(instance.allocator_get_statistics())
+	//TODO: display diagnostics and result / error in case
+	if (result.is_error()) {
+		console.error('The result is an error')
+	} else {
+		const assResult = result.result()
+		console.log(assResult)
+	}
 }
 
 async function main(): Promise<void> {
 	const instance = await WasmBinding.getInstance('/static/')
 
 	uiStart((file) => {
-		void process_file(instance, file)
+		void process_file(instance, file).then(() => {
+			console.log('at end')
+			console.log(instance.allocator_get_statistics())
+		})
 	})
 }
 

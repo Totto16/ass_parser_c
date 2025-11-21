@@ -6,7 +6,6 @@ export type I64 = CTypeSimple<"int64_t", bigint>
 
 export interface GeneratedExportedFunctions {
 	free: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn, NoAnnot<"nullable">>>
-	free_message_struct: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn, NoAnnot<"nullable">>>
 	get_message: (p_0: I32) => Annotated<I32, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
 	malloc: (p_0: I32) => I32
 	is_empty_pos: (p_0: I32) => I32
@@ -37,6 +36,7 @@ export interface GeneratedExportedFunctions {
 	diagnostics_get_length: (p_0: I32) => I32
 	diagnostics_get_at: (p_0: I32, p_1: I32) => Annotated<I32, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
 	get_message_from_entry: (p_0: I32) => Annotated<I32, Annotations<Malloced<"free_message_struct">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	free_message_struct: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn, NoAnnot<"nullable">>>
 	diagnostic_get_file_pos: (p_0: I32) => I32
 	diagnostic_get_severity: (p_0: I32) => I32
 	file_pos_get_line: (p_0: I32) => I32

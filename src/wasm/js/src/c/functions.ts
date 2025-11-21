@@ -20,6 +20,7 @@ import {
 	type MallocedAnnotationWrapper,
 	type MallocedDisposable,
 	type NoAnnot,
+	type OnlySimpleTypes,
 	type Ptr,
 	type SizeT,
 	type UInt8T,
@@ -55,8 +56,28 @@ export interface Allocator {
 
 export type WASMExportsFnFromLibC = Allocator
 
-export function get_value<C extends CType>(value_r: C): GetJSTypeFromCType<C> {
+function get_value_impl<C extends CType>(value_r: C): GetJSTypeFromCType<C> {
 	return value_r as unknown as GetJSTypeFromCType<C>
+}
+
+export function get_value<C extends CType>(
+	value_r: OnlySimpleTypes<C>
+): GetJSTypeFromCType<C> {
+	return get_value_impl(value_r as C)
+}
+
+export function get_enum_value<
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	C extends CEnum<E, string, CType>,
+	E extends number,
+>(value_r: C): E {
+	return get_value_impl(value_r)
+}
+
+export function get_ptr_value<D extends CType>(
+	value_r: Ptr<D>
+): GetJSTypeFromCType<Ptr<D>> {
+	return get_value_impl(value_r)
 }
 
 export function get_c_value<A, C extends CType>(
@@ -71,7 +92,7 @@ export function nullptr(): Ptr<Void> {
 	return get_c_value<number, Ptr<Void>>(0)
 }
 
-type ReturnTypeFromPTrCast<A extends CType, B extends CType, P> =
+type ReturnTypeFromPtrCast<A extends CType, B extends CType, P> =
 	P extends Ptr<A>
 		? Ptr<B>
 		: P extends Annotated<
@@ -95,8 +116,8 @@ export function ptr_cast<
 					AnnotationBase<'nullable'>
 				>
 		  > = Ptr<A>,
->(ptr_r: P): ReturnTypeFromPTrCast<A, B, P> {
-	return ptr_r as unknown as ReturnTypeFromPTrCast<A, B, P>
+>(ptr_r: P): ReturnTypeFromPtrCast<A, B, P> {
+	return ptr_r as unknown as ReturnTypeFromPtrCast<A, B, P>
 }
 
 export function get_c_enum_from_enum<
@@ -144,7 +165,7 @@ export type CStr = Annotated<
 type _expect_cstr_is_ctype = Expect<Equal<IsCType<CStr>, true>>
 
 function cstrlen(mem: Mem, ptr_r: CStr): number {
-	let ptr = get_value<Ptr<Char>>(remove_annotations<CStr>(ptr_r))
+	let ptr = get_ptr_value<Char>(remove_annotations<CStr>(ptr_r))
 	let len = 0
 	while (mem[ptr] != 0) {
 		len++
@@ -156,7 +177,7 @@ function cstrlen(mem: Mem, ptr_r: CStr): number {
 export function cstr_by_ptr(mem_buffer: MemBuf, ptr_r: CStr): string {
 	const mem = new Uint8Array(mem_buffer)
 
-	const ptr = get_value<Ptr<Char>>(remove_annotations<CStr>(ptr_r))
+	const ptr = get_ptr_value<Char>(remove_annotations<CStr>(ptr_r))
 
 	const len = cstrlen(mem, ptr_r)
 	const bytes = new Uint8Array(mem_buffer, ptr, len)
@@ -177,7 +198,7 @@ export function get_sized_ptr_from_memory(
 	buffer: MemBuf,
 	size_ptr: SizedPtr
 ): Uint8Array {
-	const ptr = get_value<Ptr<Void>>(size_ptr.data_ptr)
+	const ptr = get_ptr_value<Void>(size_ptr.data_ptr)
 	const len = get_value<SizeT>(size_ptr.len)
 
 	return new Uint8Array(buffer, ptr, len)
@@ -190,7 +211,7 @@ export function write_ptr_to_memory<A extends CType>(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_value<Ptr<Ptr<A>>>(ptr), get_value<Ptr<A>>(value))
+	data.setUint32(get_ptr_value<Ptr<A>>(ptr), get_ptr_value<A>(value))
 }
 export function write_size_t_to_memory(
 	buffer: MemBuf,
@@ -199,7 +220,7 @@ export function write_size_t_to_memory(
 ): void {
 	const data = new DataView(buffer)
 
-	data.setUint32(get_value<Ptr<SizeT>>(ptr), get_value<SizeT>(value))
+	data.setUint32(get_ptr_value<SizeT>(ptr), get_value<SizeT>(value))
 }
 
 function sized_ptr_to_cstr(ptr: SizedPtr): CStrSized {
@@ -220,7 +241,7 @@ function copy_js_array_to_wasm_memory(
 
 	const data_ptr: Ptr<Void> = allocator.malloc(str_length)
 
-	const ptr = get_value<Ptr<Void>>(data_ptr)
+	const ptr = get_ptr_value<Void>(data_ptr)
 
 	if (ptr == 0) {
 		throw new Error('allocation failed')
@@ -474,24 +495,6 @@ export abstract class CArrayGeneric<
 	}
 }
 
-export function assert_not_null<
-	T extends CType,
-	A extends AnnotationBase<'malloced'>,
-	B extends AnnotationBase<'cstr'>,
-	C extends AnnotationBase<'free_fn'>,
->(
-	value: Annotated<T, Annotations<A, B, C, IsNullable>>
-): GetJSTypeFromCType<T> extends number
-	? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
-	: never {
-	if (get_value(value) == 0) {
-		throw new Error('value is null')
-	}
-	return value as unknown as GetJSTypeFromCType<T> extends number
-		? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
-		: never
-}
-
 export function is_not_null<
 	T extends CType,
 	A extends AnnotationBase<'malloced'>,
@@ -502,5 +505,23 @@ export function is_not_null<
 		| Annotated<T, Annotations<A, B, C, IsNullable>>
 		| Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
 ): value is Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>> {
-	return get_value(value) != 0
+	return get_value_impl(value) != 0
+}
+
+export function assert_not_null<
+	T extends CType,
+	A extends AnnotationBase<'malloced'>,
+	B extends AnnotationBase<'cstr'>,
+	C extends AnnotationBase<'free_fn'>,
+>(
+	value: Annotated<T, Annotations<A, B, C, IsNullable>>
+): GetJSTypeFromCType<T> extends number
+	? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
+	: never {
+	if (!is_not_null(value)) {
+		throw new Error('value is null')
+	}
+	return value as unknown as GetJSTypeFromCType<T> extends number
+		? Annotated<T, Annotations<A, B, C, NoAnnot<'nullable'>>>
+		: never
 }

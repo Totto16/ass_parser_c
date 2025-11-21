@@ -23,6 +23,8 @@ import {
 	type CStr,
 	assert_not_null,
 	is_not_null,
+	get_ptr_value,
+	get_enum_value,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -634,7 +636,7 @@ function get_malloced_disposable<
 			Malloced<Fn>,
 			AnnotationBase<'cstr'>,
 			AnnotationBase<'free_fn'>,
-			AnnotationBase<'nullable'>
+			NoAnnot<'nullable'>
 		>,
 >(value: C, wasm: WASMWrapper, fn: Fn): MallocedDisposable<Fn, C> {
 	return new MallocedDisposable<Fn, C>(value, (to_free: C): void => {
@@ -1123,15 +1125,29 @@ export class WasmBinding {
 			)
 		}
 
+		if (!is_not_null(ass_source_raw)) {
+			throw new Error('failed to allocate source')
+		}
+
 		using ass_source = get_malloced_disposable<
 			'free',
-			typeof ass_source_raw
+			NullChecked<
+				ReturnType<typeof this.wasm.functions.source_from_string>
+			>
 		>(ass_source_raw, this.wasm, 'free')
+
+		const parse_settings_raw = this.wasm.functions.default_parse_settings()
+
+		if (!is_not_null(parse_settings_raw)) {
+			throw new Error('failed to allocate parse settings')
+		}
 
 		using parse_settings = get_malloced_disposable<
 			'free',
-			ReturnType<typeof this.wasm.functions.default_parse_settings>
-		>(this.wasm.functions.default_parse_settings(), this.wasm, 'free')
+			NullChecked<
+				ReturnType<typeof this.wasm.functions.default_parse_settings>
+			>
+		>(parse_settings_raw, this.wasm, 'free')
 
 		this.modify_parse_settings(parse_settings.value, settings)
 
@@ -1637,7 +1653,10 @@ export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
 	}
 
 	private get_severity_from_c(sev: DiagnosticSeverityC): DiagnosticSeverity {
-		const severity: DiagnosticSeverityCEnum = get_value(sev)
+		const severity: DiagnosticSeverityCEnum = get_enum_value<
+			DiagnosticSeverityC,
+			DiagnosticSeverityCEnum
+		>(sev)
 
 		switch (severity) {
 			case DiagnosticSeverityCEnum.warning:
@@ -1762,7 +1781,7 @@ export class Styles extends CArray<AssStyle, 'styles'> {
 	protected override convert_element_from_c_to_js(
 		element: Ptr<AssStyleC>
 	): AssStyle {
-		return { todo: get_value(element) }
+		return { todo: get_ptr_value<AssStyleC>(element) }
 	}
 }
 
@@ -1778,6 +1797,6 @@ export class Events extends CArray<AssEvent, 'events'> {
 	protected override convert_element_from_c_to_js(
 		element: Ptr<AssEventC>
 	): AssEvent {
-		return { todo: get_value(element) }
+		return { todo: get_ptr_value<AssEventC>(element) }
 	}
 }
