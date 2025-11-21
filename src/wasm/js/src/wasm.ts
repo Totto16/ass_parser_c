@@ -1280,16 +1280,16 @@ export class AssParseResult extends CDisposable {
 		return this.#is_error_value
 	}
 
-	public diagnostics(): Diagnostics {
+	public diagnostics_ref(): DiagnosticsRef {
 		this.assert_not_freed('result is a valid ptr')
 
 		const c_diagnostics = this.#wasm.functions.get_diagnostics_from_result(
 			this.#result.value
 		)
 
-		const diagnostics = new Diagnostics(this.#wasm, c_diagnostics)
+		const diagnostics_ref = new DiagnosticsRef(this.#wasm, c_diagnostics)
 
-		return diagnostics
+		return diagnostics_ref
 	}
 
 	public result(): AssResult {
@@ -1626,7 +1626,7 @@ export abstract class CArray<
 	}
 }
 
-export class Diagnostics extends CArray<Diagnostic, 'diagnostics'> {
+export class DiagnosticsRef extends CArray<Diagnostic, 'diagnostics'> {
 	constructor(wasm: WASMWrapper, diagnostics: Ptr<DiagnosticsC>) {
 		super(wasm, diagnostics, 'diagnostics')
 	}

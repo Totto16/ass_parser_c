@@ -21,10 +21,11 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 
 	console.log('is result error: ', result.is_error())
 
-	const diagnostics = result.diagnostics()
+	// if result is cleaned up, this gets freed!
+	const diagnostics_ref = result.diagnostics_ref()
 
-	console.log('diagnostics length', diagnostics.length)
-	for (const diagnostic of diagnostics) {
+	console.log('diagnostics length', diagnostics_ref.length)
+	for (const diagnostic of diagnostics_ref) {
 		console.log('diagnostic', diagnostic)
 	}
 
