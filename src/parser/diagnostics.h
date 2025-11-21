@@ -24,9 +24,7 @@ typedef enum : uint8_t {
 	DiagnosticSeverityError,
 } DiagnosticSeverity;
 
-#define ENUM_ANNOT_DiagnosticSeverity \
-	ENUM_JS_ANNOT("DiagnosticSeverity", uint8_t, DiagnosticSeverityWarning = 0, \
-	              DiagnosticSeverityError)
+#define ENUM_ANNOT_DiagnosticSeverity ENUM_ANNOT_C(DiagnosticSeverity, uint8_t)
 
 typedef struct {
 	const char* section;

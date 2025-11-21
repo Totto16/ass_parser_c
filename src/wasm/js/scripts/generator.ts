@@ -438,6 +438,10 @@ function wasmTypeToTSTypeRepr(type_: Type): TSTypeRepr {
 	}
 }
 
+function get_enum_wrapper_type(enum_category: EnumCategory): string {
+	return `"${enum_category.c_name}", ${enum_category.underlying_type}`
+}
+
 function wasmTypeToTSTypeString(
 	type_: Type,
 	category: Category | null
@@ -447,10 +451,12 @@ function wasmTypeToTSTypeString(
 	}
 
 	let wrapper = ''
+	let inner_type = wasmTypeToTSTypeRepr(type_).typename
 
-	switch (category) {
+	switch (category.type) {
 		case 'enum': {
-			wrapper = 'CEnumWrapper'
+			wrapper = 'EnumWrapper'
+			inner_type = get_enum_wrapper_type(category)
 			break
 		}
 		case 'literal': {
@@ -462,7 +468,7 @@ function wasmTypeToTSTypeString(
 			break
 		}
 		case 'void': {
-			throw new Error('void categgory not expected here')
+			throw new Error('void category not expected here')
 		}
 		default: {
 			throw new Error(
@@ -471,13 +477,11 @@ function wasmTypeToTSTypeString(
 		}
 	}
 
-	const original = wasmTypeToTSTypeRepr(type_).typename
-
 	if (wrapper === '') {
-		return original
+		return inner_type
 	}
 
-	return `${wrapper}<${original}>`
+	return `${wrapper}<${inner_type}>`
 }
 
 interface TSFunctionParam {
@@ -485,11 +489,56 @@ interface TSFunctionParam {
 	value: string
 }
 
-type Result<V, E> = [value: V, err: null] | [value: null, err: E]
+interface Ok<V> {
+	ok: true
+	value: V
+}
+interface Err<E> {
+	ok: false
+	error: E
+}
 
-type Category = 'literal' | 'pointer' | 'void' | 'enum'
+type Result<V, E> = Ok<V> | Err<E>
 
-function parseCategory(inp: string): Category | null {
+function isOk<V, E>(res: Result<V, E>): res is Ok<V> {
+	return res.ok
+}
+
+function isErr<V, E>(res: Result<V, E>): res is Err<E> {
+	return !isOk(res)
+}
+
+function makeErr<V, E>(error: E): Result<V, E> {
+	return { ok: false, error }
+}
+
+function makeOk<V, E>(value: V): Result<V, E> {
+	return { ok: true, value }
+}
+
+function getErr<E>(value: Err<E>): E {
+	return value.error
+}
+
+function getOk<V>(value: Ok<V>): V {
+	return value.value
+}
+
+type CategoryType = 'literal' | 'pointer' | 'void' | 'enum'
+
+interface EnumCategory {
+	type: 'enum'
+	c_name: string
+	underlying_type: string
+}
+
+interface NormalCategory {
+	type: Exclude<CategoryType, 'enum'>
+}
+
+type Category = NormalCategory | EnumCategory
+
+function parseCategoryType(inp: string): CategoryType | null {
 	switch (inp.toLowerCase()) {
 		case 'literal': {
 			return 'literal'
@@ -513,45 +562,182 @@ function getUniqueItems<T>(array: T[]): T[] {
 	return [...new Set(array)]
 }
 
-function getCategory(annotations: Annotation[]): Result<Category, string> {
-	let categories: string[] = []
+function paramsToString(params: ParamsRestriction): string {
+	if (typeof params === 'number') {
+		return params.toString()
+	}
+
+	const [start, end] = params
+
+	if (end === null) {
+		return `[${start.toString()}, ...]`
+	}
+
+	return `[${start.toString()}, ${end.toString()}]`
+}
+
+function isValidParamsRestriction(
+	length: number,
+	params: ParamsRestriction
+): boolean {
+	if (typeof params === 'number') {
+		return length === params
+	}
+
+	const [start, end] = params
+
+	if (length < start) {
+		return false
+	}
+
+	if (end !== null && end > length) {
+		return false
+	}
+
+	return true
+}
+
+function findOneAnnotation(
+	annotation_setting: AnnotationSettingSkip,
+	annotations: Annotation[]
+): Result<string[], string> {
+	let collected: string[][] = []
 
 	for (const annotation of annotations) {
-		if (annotation.name === 'category') {
-			if (annotation.params.length !== 1) {
-				return [
-					null,
-					`annotation 'category' needs one argument, but got ${annotation.params.length.toString()}`,
-				]
+		if (annotation.name === annotation_setting.name) {
+			if (
+				!isValidParamsRestriction(
+					annotation.params.length,
+					annotation_setting.params
+				)
+			) {
+				return makeErr(
+					`annotation '${annotation_setting.name}' needs ${paramsToString(annotation_setting.params)} arguments, but ${annotation.params.length.toString()} given`
+				)
 			}
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			categories.push(annotation.params[0]!)
+			collected.push(annotation.params)
 		}
 	}
 
-	if (categories.length === 0) {
-		return [null, `no 'category' annotation found, that is required`]
+	if (collected.length === 0) {
+		return makeErr(
+			`no '${annotation_setting.name}' annotation found, that is required`
+		)
 	}
 
-	categories = getUniqueItems(categories)
+	collected = getUniqueItems(collected)
 
-	if (categories.length !== 1) {
-		return [
-			null,
-			`annotation 'category' to often specified for function: ${categories.join(', ')}`,
-		]
+	if (collected.length !== 1) {
+		return makeErr(
+			`annotation '${annotation_setting.name}' to often specified for function: ${collected.join(', ')}`
+		)
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-	const category = categories[0]!
+	const result = collected[0]!
 
-	const parsedCategory = parseCategory(category)
+	return makeOk(result)
+}
 
-	if (parsedCategory === null) {
-		return [null, `failed to parse category: ${category}`]
+function c_underlying_type_to_js_string(type_: string): Result<string, string> {
+	switch (type_) {
+		case 'uint8_t':
+			return makeOk('UInt8T')
+
+		default:
+			return makeErr(`Got unknown C underlying type: ${type_}`)
+	}
+}
+
+function parse_catgeory_enum(
+	annotations: Annotation[]
+): Result<EnumCategory, string> {
+	const categoryExtensionResult = findOneAnnotation(
+		categoryExtensionAnnotation,
+		annotations
+	)
+
+	if (isErr(categoryExtensionResult)) {
+		return categoryExtensionResult
 	}
 
-	return [parsedCategory, null]
+	const [enum_name, c_name, underlying_type_raw] = assertArrayLen(
+		getOk(categoryExtensionResult),
+		3
+	) as [string, string, string]
+
+	if (enum_name !== 'enum') {
+		return makeErr(
+			`first argument for '${categoryExtensionAnnotation.name}' annotation needs to be 'enum' for a enum 'category'`
+		)
+	}
+
+	const underlying_typeResult =
+		c_underlying_type_to_js_string(underlying_type_raw)
+
+	if (isErr(underlying_typeResult)) {
+		return underlying_typeResult
+	}
+
+	const underlying_type = getOk(underlying_typeResult)
+
+	const cat: EnumCategory = {
+		type: 'enum',
+		c_name,
+		underlying_type,
+	}
+
+	return makeOk(cat)
+}
+
+function assertArrayLen<A = unknown>(
+	array: A[],
+	params: ParamsRestriction
+): A[] {
+	if (!isValidParamsRestriction(array.length, params)) {
+		throw new Array(
+			`Array has not expected length of ${paramsToString(params)} but has length ${array.length}`
+		)
+	}
+
+	return array
+}
+
+function getCategory(annotations: Annotation[]): Result<Category, string> {
+	const categoryResult = findOneAnnotation(categoryAnnotation, annotations)
+
+	if (isErr(categoryResult)) {
+		return categoryResult
+	}
+
+	const category = assertArrayLen(getOk(categoryResult), 1)[0]!
+
+	const parsedCategoryType = parseCategoryType(category)
+
+	if (parsedCategoryType === null) {
+		return makeErr(`failed to parse category '${category}'`)
+	}
+
+	let parsedCategory: Category
+
+	if (parsedCategoryType !== 'enum') {
+		parsedCategory = {
+			type: parsedCategoryType,
+		} as NormalCategory
+	} else {
+		const parsedCategoryEnum = parse_catgeory_enum(annotations)
+
+		if (isErr(parsedCategoryEnum)) {
+			return makeErr(
+				`failed to parse 'enum' category: ${getErr(parsedCategoryEnum)}`
+			)
+		}
+
+		parsedCategory = getOk(parsedCategoryEnum)
+	}
+
+	return makeOk(parsedCategory)
 }
 
 interface TypeError {
@@ -578,29 +764,23 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 
 	const category_result = getCategory(export_.annotations)
 
-	if (category_result[0] == null) {
-		return [
-			null,
-			{
-				name: export_.name,
-				message: category_result[1],
-			},
-		]
+	if (isErr(category_result)) {
+		return makeErr({
+			name: export_.name,
+			message: getErr(category_result),
+		})
 	}
 
-	const category: Category = category_result[0]
+	const category: Category = getOk(category_result)
 
 	if (export_.type.return !== undefined) {
 		returnType = wasmTypeToTSTypeString(export_.type.return, category)
 	} else {
-		if (category !== 'void') {
-			return [
-				null,
-				{
-					name: export_.name,
-					message: `expected void function ot have category void, but got: ${category}`,
-				},
-			]
+		if (category.type !== 'void') {
+			return makeErr({
+				name: export_.name,
+				message: `expected void function ot have category void, but got: ${category.type}`,
+			})
 		}
 	}
 
@@ -609,9 +789,14 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 	ann_loop: for (const annotation of export_.annotations) {
 		for (const globalAnn of globalAnnotations) {
 			if (annotation.name === globalAnn.name) {
-				if (annotation.params.length != globalAnn.params) {
+				if (
+					!isValidParamsRestriction(
+						annotation.params.length,
+						globalAnn.params
+					)
+				) {
 					throw new Error(
-						`The ${globalAnn.name} annotation needs ${globalAnn.params.toString()} arguments, but ${annotation.params.length.toString()} given`
+						`The ${globalAnn.name} annotation needs ${paramsToString(globalAnn.params)} arguments, but ${annotation.params.length.toString()} given`
 					)
 				}
 
@@ -630,13 +815,10 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 			}
 		}
 
-		return [
-			null,
-			{
-				name: export_.name,
-				message: `Unrecognized annotation: ${annotation.name}`,
-			},
-		]
+		return makeErr({
+			name: export_.name,
+			message: `Unrecognized annotation: ${annotation.name}`,
+		})
 	}
 
 	if (!areDefaultAnnotations(annotations)) {
@@ -650,7 +832,7 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 		returnType = `Annotated<${returnType}, Annotations<${annotValues.join(', ')}>>`
 	}
 
-	return [`${export_.name}: (${functionParams}) => ${returnType}`, null]
+	return makeOk(`${export_.name}: (${functionParams}) => ${returnType}`)
 }
 
 interface Annotations {
@@ -660,16 +842,29 @@ interface Annotations {
 	nullable: string
 }
 
+type ParamsRestriction = number | [number, number | null]
+
 interface AnnotationSettingNormal {
 	name: keyof Annotations
-	params: number
+	params: ParamsRestriction
 	typename: string
 }
 
 interface AnnotationSettingSkip {
 	name: string
-	params: number
+	params: ParamsRestriction
 	skip: boolean
+}
+
+const categoryAnnotation: AnnotationSettingSkip = {
+	name: 'category',
+	params: 1,
+	skip: true,
+}
+const categoryExtensionAnnotation: AnnotationSettingSkip = {
+	name: 'category_extension',
+	params: [3, null],
+	skip: true,
 }
 
 // eslint-disable-next-line @typescript-eslint/array-type
@@ -696,11 +891,8 @@ const globalAnnotations: Array<
 		params: 0,
 		typename: 'IsNullable',
 	},
-	{
-		name: 'category',
-		params: 1,
-		skip: true,
-	},
+	categoryAnnotation,
+	categoryExtensionAnnotation,
 ]
 
 function isSkipAnnotation(
@@ -756,7 +948,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { Annotated, Annotations, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CEnum, CType, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot, Ptr, UInt8T } from '../c/types'
 
 `
 
@@ -769,7 +961,21 @@ function generateTypes(exports: FunctionExport[]): string[] {
 		result.push(generatedType)
 	}
 
-	//TODO: generate export type Ptr<T> = ...
+	result.push(`
+
+export type CategoryWrapper<T extends CType, Desc extends string> = {
+	readonly __wrapper: '__generated_from_category'
+	readonly __wrapper_type: Desc
+} & T
+
+export type PtrWrapper<T extends CType> = CategoryWrapper<Ptr<T>, 'ptr'>
+type JSEnumWrapper = number 
+export type EnumWrapper<
+	CName extends string,
+	UnderlyingType extends CType,
+> = CategoryWrapper<CEnum<JSEnumWrapper, CName, UnderlyingType>, 'enum'>
+
+`)
 
 	return result
 }
@@ -785,10 +991,10 @@ function results_map_get_values<V, E>(
 	const result: [values: V[], errors: E[]] = [[], []]
 
 	for (const value of arr) {
-		if (value[0] === null) {
-			result[1].push(value[1] as E)
+		if (isErr(value)) {
+			result[1].push(getErr(value))
 		} else {
-			result[0].push(value[0] as V)
+			result[0].push(getOk(value))
 		}
 	}
 

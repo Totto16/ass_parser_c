@@ -68,7 +68,7 @@ PUBLIC("diagnostic_get_file_pos")
 CATEGORY_POINTER FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);
 
 PUBLIC("diagnostic_get_severity")
-CATEGORY_ENUM JS_ANNOTATION_ENUM(ENUM_ANNOT_DiagnosticSeverity)
+CATEGORY_ENUM(ENUM_ANNOT_DiagnosticSeverity)
 DiagnosticSeverity diagnostic_get_severity(DiagnosticEntry* entry);
 
 PUBLIC("file_pos_get_line") CATEGORY_LITERAL size_t file_pos_get_line(FilePos* pos);
