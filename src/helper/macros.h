@@ -8,7 +8,7 @@
 #define ASSERT(x, msg) /* NOLINT(readability-identifier-naming) */ \
 	do { \
 		UNUSED((x)); \
-		UNUSE((msg)); \
+		UNUSED((msg)); \
 	} while(false)
 
 #else
