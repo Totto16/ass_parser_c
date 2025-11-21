@@ -9,7 +9,7 @@ export default [
 		},
 	},
 	{
-		ignores: ['dist/**'],
+		ignores: ['dist/**', 'scripts/meson_copy.js'],
 	},
 	eslint.configs.recommended,
 	...tseslint.configs.strictTypeChecked,
@@ -22,7 +22,6 @@ export default [
 		languageOptions: {
 			parserOptions: {
 				project: './tsconfig.json',
-				projectService: true,
 				warnOnUnsupportedTypeScriptVersion: true,
 			},
 		},
@@ -53,6 +52,14 @@ export default [
 		languageOptions: {
 			parserOptions: {
 				project: './tsconfig.json',
+			},
+		},
+	},
+	{
+		files: ['scripts/generator.ts'],
+		languageOptions: {
+			parserOptions: {
+				project: './tsconfig.script.json',
 			},
 		},
 	},

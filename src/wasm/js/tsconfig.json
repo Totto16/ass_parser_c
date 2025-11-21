@@ -10,7 +10,7 @@
 		"baseUrl": ".",
 		"target": "es6",
 		"lib": [
-			"es5",
+			"ES2022",
 			"dom"
 		],
 		"sourceMap": true,
