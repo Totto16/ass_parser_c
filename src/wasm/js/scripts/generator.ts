@@ -53,7 +53,7 @@ interface Annotation {
 	params: string[]
 }
 
-function get_annotations(
+function getAnnotations(
 	customSections: Record<string, CustomSection>
 ): Record<number, Annotation[]> {
 	const annotations: Record<number, Annotation[]> = {}
@@ -72,7 +72,7 @@ function get_annotations(
 					'annotation section has not uint32_t as values!'
 				)
 			}
-			const data_view = new DataView(
+			const dataView = new DataView(
 				section.data.buffer,
 				section.data.byteOffset,
 				section.data.byteLength
@@ -93,7 +93,7 @@ function get_annotations(
 			}
 
 			for (let i = 0; i < section.data.byteLength / 4; ++i) {
-				const index = data_view.getUint32(i * 4, true)
+				const index = dataView.getUint32(i * 4, true)
 
 				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 				if (annotations[index] === undefined) {
@@ -136,7 +136,7 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 	const customSections: Record<string, CustomSection> = {}
 
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	parse_loop: while (true) {
+	parseLoopLabel: while (true) {
 		if (!parser.read()) {
 			return parser.error
 		}
@@ -152,7 +152,7 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 				break
 			}
 			case BinaryReaderState.END_WASM: {
-				break parse_loop
+				break parseLoopLabel
 			}
 			case BinaryReaderState.BEGIN_SECTION: {
 				currentSectionInfo.info =
@@ -351,7 +351,7 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 	const results: FunctionExport[] = []
 
 	const annotations: Record<number, Annotation[]> =
-		get_annotations(customSections)
+		getAnnotations(customSections)
 
 	for (const export_ of functionExports) {
 		const functionEntry = functionList[export_.index]
@@ -415,8 +415,8 @@ function getExports(data: NonSharedBuffer): Error | FunctionExport[] {
 
 interface TSTypeRepr {
 	typename: string
-	underlying_type: string
-	c_name: string
+	underlyingType: string
+	cName: string
 }
 
 function wasmTypeToTSTypeRepr(type_: Type): TSTypeRepr {
@@ -424,22 +424,22 @@ function wasmTypeToTSTypeRepr(type_: Type): TSTypeRepr {
 		case TypeKind.i32:
 			return {
 				typename: 'I32',
-				c_name: 'int32_t',
-				underlying_type: 'number',
+				cName: 'int32_t',
+				underlyingType: 'number',
 			}
 		case TypeKind.i64:
 			return {
 				typename: 'I64',
-				c_name: 'int64_t',
-				underlying_type: 'bigint',
+				cName: 'int64_t',
+				underlyingType: 'bigint',
 			}
 		default:
 			throw new Error(`Got unknown wasm type: ${type_.kind.toString()}`)
 	}
 }
 
-function get_enum_wrapper_type(enum_category: EnumCategory): string {
-	return `"${enum_category.c_name}", ${enum_category.underlying_type}`
+function getEnumWrapperType(enumCategory: EnumCategory): string {
+	return `"${enumCategory.cName}", ${enumCategory.underlyingType}`
 }
 
 function wasmTypeToTSTypeString(
@@ -451,12 +451,12 @@ function wasmTypeToTSTypeString(
 	}
 
 	let wrapper = ''
-	let inner_type = wasmTypeToTSTypeRepr(type_).typename
+	let innerType = wasmTypeToTSTypeRepr(type_).typename
 
 	switch (category.type) {
 		case 'enum': {
 			wrapper = 'EnumWrapper'
-			inner_type = get_enum_wrapper_type(category)
+			innerType = getEnumWrapperType(category)
 			break
 		}
 		case 'literal': {
@@ -478,10 +478,10 @@ function wasmTypeToTSTypeString(
 	}
 
 	if (wrapper === '') {
-		return inner_type
+		return innerType
 	}
 
-	return `${wrapper}<${inner_type}>`
+	return `${wrapper}<${innerType}>`
 }
 
 interface TSFunctionParam {
@@ -528,8 +528,8 @@ type CategoryType = 'literal' | 'pointer' | 'void' | 'enum'
 
 interface EnumCategory {
 	type: 'enum'
-	c_name: string
-	underlying_type: string
+	cName: string
+	underlyingType: string
 }
 
 interface NormalCategory {
@@ -598,31 +598,30 @@ function isValidParamsRestriction(
 }
 
 function findOneAnnotation(
-	annotation_setting: AnnotationSettingSkip,
+	annotationSetting: AnnotationSettingSkip,
 	annotations: Annotation[]
 ): Result<string[], string> {
 	let collected: string[][] = []
 
 	for (const annotation of annotations) {
-		if (annotation.name === annotation_setting.name) {
+		if (annotation.name === annotationSetting.name) {
 			if (
 				!isValidParamsRestriction(
 					annotation.params.length,
-					annotation_setting.params
+					annotationSetting.params
 				)
 			) {
 				return makeErr(
-					`annotation '${annotation_setting.name}' needs ${paramsToString(annotation_setting.params)} arguments, but ${annotation.params.length.toString()} given`
+					`annotation '${annotationSetting.name}' needs ${paramsToString(annotationSetting.params)} arguments, but ${annotation.params.length.toString()} given`
 				)
 			}
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			collected.push(annotation.params)
 		}
 	}
 
 	if (collected.length === 0) {
 		return makeErr(
-			`no '${annotation_setting.name}' annotation found, that is required`
+			`no '${annotationSetting.name}' annotation found, that is required`
 		)
 	}
 
@@ -630,7 +629,7 @@ function findOneAnnotation(
 
 	if (collected.length !== 1) {
 		return makeErr(
-			`annotation '${annotation_setting.name}' to often specified for function: ${collected.join(', ')}`
+			`annotation '${annotationSetting.name}' to often specified for function: ${collected.join(', ')}`
 		)
 	}
 
@@ -640,7 +639,7 @@ function findOneAnnotation(
 	return makeOk(result)
 }
 
-function c_underlying_type_to_js_string(type_: string): Result<string, string> {
+function underlyingTypefromCToJS(type_: string): Result<string, string> {
 	switch (type_) {
 		case 'uint8_t':
 			return makeOk('UInt8T')
@@ -650,7 +649,7 @@ function c_underlying_type_to_js_string(type_: string): Result<string, string> {
 	}
 }
 
-function parse_catgeory_enum(
+function parseCatgeoryEnum(
 	annotations: Annotation[]
 ): Result<EnumCategory, string> {
 	const categoryExtensionResult = findOneAnnotation(
@@ -662,30 +661,29 @@ function parse_catgeory_enum(
 		return categoryExtensionResult
 	}
 
-	const [enum_name, c_name, underlying_type_raw] = assertArrayLen(
+	const [enumName, cName, underlyingTypeRaw] = assertArrayLen(
 		getOk(categoryExtensionResult),
 		3
 	) as [string, string, string]
 
-	if (enum_name !== 'enum') {
+	if (enumName !== 'enum') {
 		return makeErr(
 			`first argument for '${categoryExtensionAnnotation.name}' annotation needs to be 'enum' for a enum 'category'`
 		)
 	}
 
-	const underlying_typeResult =
-		c_underlying_type_to_js_string(underlying_type_raw)
+	const underlyingTypeResult = underlyingTypefromCToJS(underlyingTypeRaw)
 
-	if (isErr(underlying_typeResult)) {
-		return underlying_typeResult
+	if (isErr(underlyingTypeResult)) {
+		return underlyingTypeResult
 	}
 
-	const underlying_type = getOk(underlying_typeResult)
+	const underlyingType = getOk(underlyingTypeResult)
 
 	const cat: EnumCategory = {
 		type: 'enum',
-		c_name,
-		underlying_type,
+		cName,
+		underlyingType,
 	}
 
 	return makeOk(cat)
@@ -696,8 +694,8 @@ function assertArrayLen<A = unknown>(
 	params: ParamsRestriction
 ): A[] {
 	if (!isValidParamsRestriction(array.length, params)) {
-		throw new Array(
-			`Array has not expected length of ${paramsToString(params)} but has length ${array.length}`
+		throw new Error(
+			`Array has not expected length of ${paramsToString(params)} but has length ${array.length.toString()}`
 		)
 	}
 
@@ -711,6 +709,7 @@ function getCategory(annotations: Annotation[]): Result<Category, string> {
 		return categoryResult
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 	const category = assertArrayLen(getOk(categoryResult), 1)[0]!
 
 	const parsedCategoryType = parseCategoryType(category)
@@ -726,7 +725,7 @@ function getCategory(annotations: Annotation[]): Result<Category, string> {
 			type: parsedCategoryType,
 		} as NormalCategory
 	} else {
-		const parsedCategoryEnum = parse_catgeory_enum(annotations)
+		const parsedCategoryEnum = parseCatgeoryEnum(annotations)
 
 		if (isErr(parsedCategoryEnum)) {
 			return makeErr(
@@ -762,16 +761,16 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 
 	let returnType = 'void'
 
-	const category_result = getCategory(export_.annotations)
+	const categoryResult = getCategory(export_.annotations)
 
-	if (isErr(category_result)) {
+	if (isErr(categoryResult)) {
 		return makeErr({
 			name: export_.name,
-			message: getErr(category_result),
+			message: getErr(categoryResult),
 		})
 	}
 
-	const category: Category = getOk(category_result)
+	const category: Category = getOk(categoryResult)
 
 	if (export_.type.return !== undefined) {
 		returnType = wasmTypeToTSTypeString(export_.type.return, category)
@@ -786,7 +785,7 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 
 	const annotations: Annotations = getDefaultAnnotations()
 
-	ann_loop: for (const annotation of export_.annotations) {
+	annLoopLabel: for (const annotation of export_.annotations) {
 		for (const globalAnn of globalAnnotations) {
 			if (annotation.name === globalAnn.name) {
 				if (
@@ -801,7 +800,7 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 				}
 
 				if (isSkipAnnotation(globalAnn)) {
-					continue ann_loop
+					continue annLoopLabel
 				}
 
 				const annotType: string =
@@ -811,7 +810,7 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 
 				annotations[globalAnn.name] = annotType
 
-				continue ann_loop
+				continue annLoopLabel
 			}
 		}
 
@@ -956,7 +955,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	}
 
 	for (const type of Object.values(neededTypes)) {
-		const generatedType = `export type ${type.typename} = ${generatedStructName}<"${type.c_name}", ${type.underlying_type}>`
+		const generatedType = `export type ${type.typename} = ${generatedStructName}<"${type.cName}", ${type.underlyingType}>`
 
 		result.push(generatedType)
 	}
@@ -985,7 +984,7 @@ interface GenerateOptions {
 	outputFile: string
 }
 
-function results_map_get_values<V, E>(
+function resultsMapGetValues<V, E>(
 	arr: Result<V, E>[]
 ): [values: V[], errors: E[]] {
 	const result: [values: V[], errors: E[]] = [[], []]
@@ -1018,7 +1017,7 @@ function generateFiles(options: GenerateOptions): void {
 		return toTsType(export_)
 	})
 
-	const [exportedFunctionTypes, errors] = results_map_get_values(
+	const [exportedFunctionTypes, errors] = resultsMapGetValues(
 		exportedFunctionResults
 	)
 

@@ -62,5 +62,17 @@ export default [
 				project: './tsconfig.script.json',
 			},
 		},
+		rules: {
+			camelcase: [
+				'error',
+				{
+					properties: 'always',
+					ignoreDestructuring: true,
+					ignoreImports: true,
+					ignoreGlobals: true,
+					allow: ['_should_be_never', 'is_free_fn'],
+				},
+			],
+		},
 	},
 ]
