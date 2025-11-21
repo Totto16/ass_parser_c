@@ -9,26 +9,28 @@
 
 #include "../../public/ass_parser_lib.h"
 
-PUBLIC("allocator_get_statistics") AllocatorStatistics* allocator_get_statistics(void);
+PUBLIC("allocator_get_statistics")
+CATEGORY_POINTER AllocatorStatistics* allocator_get_statistics(void);
 
 PUBLIC("allocator_statistics_get_free")
-uint64_t allocator_statistics_get_free(AllocatorStatistics* statistics);
+CATEGORY_LITERAL uint64_t allocator_statistics_get_free(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_total")
-uint64_t allocator_statistics_get_total(AllocatorStatistics* statistics);
+CATEGORY_LITERAL uint64_t allocator_statistics_get_total(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_used")
-uint64_t allocator_statistics_get_used(AllocatorStatistics* statistics);
+CATEGORY_LITERAL uint64_t allocator_statistics_get_used(AllocatorStatistics* statistics);
 
 PUBLIC("allocator_statistics_get_metadata")
-uint64_t allocator_statistics_get_metadata(AllocatorStatistics* statistics);
+CATEGORY_LITERAL uint64_t allocator_statistics_get_metadata(AllocatorStatistics* statistics);
 
 PUBLIC("source_from_string")
 ANNOTATION_MALLOCED_RESULT("free")
 ANNOTATION_NULLABLE AssSource* source_from_string(const char* source, size_t len);
 
 PUBLIC("default_parse_settings")
-ANNOTATION_MALLOCED_RESULT("free") ANNOTATION_NULLABLE ParseSettings* default_parse_settings(void);
+ANNOTATION_MALLOCED_RESULT("free")
+ANNOTATION_NULLABLE ParseSettings* default_parse_settings(void);
 
 typedef enum : uint8_t {
 	//
@@ -47,10 +49,10 @@ typedef enum : uint8_t {
 } SettingsOption;
 
 PUBLIC("set_settings_option")
-void set_settings_option(ParseSettings* settings, SettingsOption option, int value);
+CATEGORY_VOID void set_settings_option(ParseSettings* settings, SettingsOption option, int value);
 
 PUBLIC("diagnostics_get_length")
-size_t diagnostics_get_length(Diagnostics* diagnostics);
+CATEGORY_LITERAL size_t diagnostics_get_length(Diagnostics* diagnostics);
 
 PUBLIC("diagnostics_get_at")
 ANNOTATION_NULLABLE DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);
@@ -59,36 +61,40 @@ PUBLIC("get_message_from_entry")
 ANNOTATION_MALLOCED_RESULT("free_message_struct")
 ANNOTATION_NULLABLE MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry);
 
-PUBLIC("free_message_struct") ANNOTATION_FREE_FN void free_message_struct_ptr_js(MessageStruct* msg);
+PUBLIC("free_message_struct")
+ANNOTATION_FREE_FN void free_message_struct_ptr_js(MessageStruct* msg);
 
 PUBLIC("diagnostic_get_file_pos")
-FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);
+CATEGORY_POINTER FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry);
 
 PUBLIC("diagnostic_get_severity")
-DiagnosticSeverity diagnostic_get_severity(DiagnosticEntry* entry);
+CATEGORY_ENUM DiagnosticSeverity diagnostic_get_severity(DiagnosticEntry* entry);
 
-PUBLIC("file_pos_get_line")
-size_t file_pos_get_line(FilePos* pos);
+PUBLIC("file_pos_get_line") CATEGORY_LITERAL size_t file_pos_get_line(FilePos* pos);
 
-PUBLIC("file_pos_get_column")
-size_t file_pos_get_column(FilePos* pos);
+PUBLIC("file_pos_get_column") CATEGORY_LITERAL size_t file_pos_get_column(FilePos* pos);
 
-PUBLIC("events_get_length")
-size_t events_get_length(AssEvents* events);
+PUBLIC("events_get_length") CATEGORY_LITERAL size_t events_get_length(AssEvents* events);
 
 PUBLIC("events_get_at")
 ANNOTATION_NULLABLE AssEventEntry* events_get_at(AssEvents* events, size_t index);
 
-PUBLIC("styles_get_length")
-size_t styles_get_length(AssStyles* styles);
+PUBLIC("styles_get_length") CATEGORY_LITERAL size_t styles_get_length(AssStyles* styles);
 
 PUBLIC("styles_get_at")
 ANNOTATION_NULLABLE AssStyleEntry* styles_get_at(AssStyles* styles, size_t index);
 
 PUBLIC("get_script_info_from_ass_result")
-AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result);
+CATEGORY_POINTER AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result);
 
-PUBLIC("get_styles_from_ass_result") AssStyles* get_styles_from_ass_result(AssResult* ass_result);
+PUBLIC("get_styles_from_ass_result")
+CATEGORY_POINTER AssStyles* get_styles_from_ass_result(AssResult* ass_result);
 
 PUBLIC("get_events_from_ass_result")
-AssEvents* get_events_from_ass_result(AssResult* ass_result);
+CATEGORY_POINTER AssEvents* get_events_from_ass_result(AssResult* ass_result);
+
+PUBLIC("get_extra_sections_from_ass_result")
+CATEGORY_POINTER ExtraSections* get_extra_sections_from_ass_result(AssResult* ass_result);
+
+PUBLIC("get_file_props_from_ass_result")
+CATEGORY_POINTER FileProps* get_file_props_from_ass_result(AssResult* ass_result);

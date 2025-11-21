@@ -16,8 +16,9 @@ typedef struct {
 
 #define EMPTY_MESSAGE_STRUCT() STATIC_MESSAGE_STRUCT(NULL)
 
-[[nodiscard]] PUBLIC("is_empty_message_struct") bool is_empty_message_struct(MessageStruct message);
+[[nodiscard]] PUBLIC("is_empty_message_struct") CATEGORY_LITERAL bool is_empty_message_struct(MessageStruct message);
 
-[[nodiscard]] PUBLIC("get_message") ANNOTATION_CSTRING char* get_message(MessageStruct message);
+[[nodiscard]] PUBLIC("get_message") ANNOTATION_CSTRING char*
+    get_message(MessageStruct message);
 
 void free_message_struct(MessageStruct msg);

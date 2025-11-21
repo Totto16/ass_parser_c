@@ -438,8 +438,48 @@ function wasmTypeToTSTypeRepr(type_: Type): TSTypeRepr {
 	}
 }
 
-function wasmTypeToTSTypeString(type_: Type): string {
-	return wasmTypeToTSTypeRepr(type_).typename
+function wasmTypeToTSTypeString(
+	type_: Type,
+	category: Category | null
+): string {
+	if (category === null) {
+		return wasmTypeToTSTypeRepr(type_).typename
+	}
+
+	let wrapper = ''
+
+	switch (category) {
+		case 'enum': {
+			wrapper = 'CEnumWrapper'
+			break
+		}
+		case 'literal': {
+			wrapper = ''
+			break
+		}
+		case 'pointer': {
+			wrapper = 'PtrWrapper'
+			break
+		}
+		case 'struct': {
+			wrapper = 'StructWrapper'
+			break
+		}
+		case 'void': {
+			throw new Error('void categgory not expected here')
+		}
+		default: {
+			throw new Error(`Got unknown category type: ${category}`)
+		}
+	}
+
+	const original = wasmTypeToTSTypeRepr(type_).typename
+
+	if (wrapper === '') {
+		return original
+	}
+
+	return `${wrapper}<${original}>`
 }
 
 interface TSFunctionParam {
@@ -447,10 +487,87 @@ interface TSFunctionParam {
 	value: string
 }
 
-function toTsType(export_: FunctionExport): string {
+type Result<V, E> = [value: V, err: null] | [value: null, err: E]
+
+type Category = 'literal' | 'struct' | 'pointer' | 'void' | 'enum'
+
+function parseCategory(inp: string): Category | null {
+	switch (inp.toLowerCase()) {
+		case 'literal': {
+			return 'literal'
+		}
+		case 'struct': {
+			return 'struct'
+		}
+		case 'pointer': {
+			return 'pointer'
+		}
+		case 'void': {
+			return 'void'
+		}
+		case 'enum': {
+			return 'enum'
+		}
+		default: {
+			return null
+		}
+	}
+}
+
+function getUniqueItems<T>(array: T[]): T[] {
+	return [...new Set(array)]
+}
+
+function getCategory(annotations: Annotation[]): Result<Category, string> {
+	let categories: string[] = []
+
+	for (const annotation of annotations) {
+		if (annotation.name === 'category') {
+			if (annotation.params.length !== 1) {
+				return [
+					null,
+					`annotation 'category' needs one argument, but got ${annotation.params.length.toString()}`,
+				]
+			}
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			categories.push(annotation.params[0]!)
+		}
+	}
+
+	if (categories.length === 0) {
+		return [null, `no 'category' annotation found, that is required`]
+	}
+
+	categories = getUniqueItems(categories)
+
+	if (categories.length !== 1) {
+		return [
+			null,
+			`annotation 'category' to often specified for function: ${categories.join(', ')}`,
+		]
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+	const category = categories[0]!
+
+	const parsedCategory = parseCategory(category)
+
+	if (parsedCategory === null) {
+		return [null, `failed to parse category: ${category}`]
+	}
+
+	return [parsedCategory, null]
+}
+
+interface TypeError {
+	name: string
+	message: string
+}
+
+function toTsType(export_: FunctionExport): Result<string, TypeError> {
 	const params: TSFunctionParam[] = export_.type.arguments.map(
 		(arg, idx): TSFunctionParam => {
-			const value = wasmTypeToTSTypeString(arg)
+			const value = wasmTypeToTSTypeString(arg, null)
 
 			return { name: `p_${idx.toString()}`, value }
 		}
@@ -464,8 +581,32 @@ function toTsType(export_: FunctionExport): string {
 
 	let returnType = 'void'
 
+	const category_result = getCategory(export_.annotations)
+
+	if (category_result[0] == null) {
+		return [
+			null,
+			{
+				name: export_.name,
+				message: category_result[1],
+			},
+		]
+	}
+
+	const category: Category = category_result[0]
+
 	if (export_.type.return !== undefined) {
-		returnType = wasmTypeToTSTypeString(export_.type.return)
+		returnType = wasmTypeToTSTypeString(export_.type.return, category)
+	} else {
+		if (category !== 'void') {
+			return [
+				null,
+				{
+					name: export_.name,
+					message: `expected void function ot have category void, but got: ${category}`,
+				},
+			]
+		}
 	}
 
 	const annotations: Annotations = getDefaultAnnotations()
@@ -479,6 +620,10 @@ function toTsType(export_: FunctionExport): string {
 					)
 				}
 
+				if (isSkipAnnotation(globalAnn)) {
+					continue ann_loop
+				}
+
 				const annotType: string =
 					annotation.params.length == 0
 						? globalAnn.typename
@@ -490,7 +635,13 @@ function toTsType(export_: FunctionExport): string {
 			}
 		}
 
-		throw new Error(`Unrecognized annotation: ${annotation.name}`)
+		return [
+			null,
+			{
+				name: export_.name,
+				message: `Unrecognized annotation: ${annotation.name}`,
+			},
+		]
 	}
 
 	if (!areDefaultAnnotations(annotations)) {
@@ -504,7 +655,7 @@ function toTsType(export_: FunctionExport): string {
 		returnType = `Annotated<${returnType}, Annotations<${annotValues.join(', ')}>>`
 	}
 
-	return `${export_.name}: (${functionParams}) => ${returnType}`
+	return [`${export_.name}: (${functionParams}) => ${returnType}`, null]
 }
 
 interface Annotations {
@@ -514,13 +665,22 @@ interface Annotations {
 	nullable: string
 }
 
-interface AnnotationSetting {
+interface AnnotationSettingNormal {
 	name: keyof Annotations
 	params: number
 	typename: string
 }
 
-const globalAnnotations: AnnotationSetting[] = [
+interface AnnotationSettingSkip {
+	name: string
+	params: number
+	skip: boolean
+}
+
+// eslint-disable-next-line @typescript-eslint/array-type
+const globalAnnotations: Array<
+	AnnotationSettingNormal | AnnotationSettingSkip
+> = [
 	{
 		name: 'malloced',
 		params: 1,
@@ -541,7 +701,18 @@ const globalAnnotations: AnnotationSetting[] = [
 		params: 0,
 		typename: 'IsNullable',
 	},
+	{
+		name: 'category',
+		params: 1,
+		skip: true,
+	},
 ]
+
+function isSkipAnnotation(
+	annotation: AnnotationSettingNormal | AnnotationSettingSkip
+): annotation is AnnotationSettingSkip {
+	return (annotation as { skip?: boolean | undefined }).skip !== undefined
+}
 
 function getDefaultAnnotations(): Annotations {
 	const annotations: Annotations = {
@@ -603,12 +774,30 @@ function generateTypes(exports: FunctionExport[]): string[] {
 		result.push(generatedType)
 	}
 
+	//TODO: generate export type Ptr<T> = ...
+
 	return result
 }
 
 interface GenerateOptions {
 	inputFile: string
 	outputFile: string
+}
+
+function results_map_get_values<V, E>(
+	arr: Result<V, E>[]
+): [values: V[], errors: E[]] {
+	const result: [values: V[], errors: E[]] = [[], []]
+
+	for (const value of arr) {
+		if (value[0] === null) {
+			result[1].push(value[1] as E)
+		} else {
+			result[0].push(value[0] as V)
+		}
+	}
+
+	return result
 }
 
 function generateFiles(options: GenerateOptions): void {
@@ -624,9 +813,22 @@ function generateFiles(options: GenerateOptions): void {
 		throw exports
 	}
 
-	const exportedFunctionTypes = exports.map((export_) => {
+	const exportedFunctionResults = exports.map((export_) => {
 		return toTsType(export_)
 	})
+
+	const [exportedFunctionTypes, errors] = results_map_get_values(
+		exportedFunctionResults
+	)
+
+	if (errors.length !== 0) {
+		for (const err of errors) {
+			console.error(
+				`An error occurred, while handling function ${err.name}: ${err.message}`
+			)
+		}
+		throw new Error('Errors occurred, see above')
+	}
 
 	const jsTypes = generateTypes(exports)
 

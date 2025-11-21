@@ -13,7 +13,8 @@ typedef struct AssParseResultImpl AssParseResult;
 
 [[nodiscard]] Diagnostics get_diagnostics_from_result(AssParseResult* result);
 
-[[nodiscard]] PUBLIC("parse_result_is_error") bool parse_result_is_error(AssParseResult* result);
+[[nodiscard]] PUBLIC("parse_result_is_error") CATEGORY_LITERAL
+    bool parse_result_is_error(AssParseResult* result);
 
 [[nodiscard]] AssResult parse_result_get_value(AssParseResult* result);
 
@@ -28,8 +29,9 @@ PUBLIC("free_parse_result") ANNOTATION_FREE_FN void free_parse_result(AssParseRe
 #ifdef __WASM__
 
 PUBLIC("get_diagnostics_from_result")
-Diagnostics* get_diagnostics_from_result_js(AssParseResult* result);
+CATEGORY_POINTER Diagnostics* get_diagnostics_from_result_js(AssParseResult* result);
 
-PUBLIC("parse_result_get_value") AssResult* parse_result_get_value_js(AssParseResult* result);
+PUBLIC("parse_result_get_value")
+CATEGORY_POINTER AssResult* parse_result_get_value_js(AssParseResult* result);
 
 #endif

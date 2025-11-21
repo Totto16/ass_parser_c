@@ -39,7 +39,7 @@ typedef enum : uint8_t {
 
 #define EMPTY_POS() ((FilePos){ .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL })
 
-[[nodiscard]] PUBLIC("is_empty_pos") bool is_empty_pos(FilePos pos);
+[[nodiscard]] PUBLIC("is_empty_pos") CATEGORY_LITERAL bool is_empty_pos(FilePos pos);
 
 [[nodiscard]] StrView str_view_from_data(Codepoints data);
 

@@ -200,3 +200,11 @@ AssStyles* get_styles_from_ass_result(AssResult* ass_result) {
 AssEvents* get_events_from_ass_result(AssResult* ass_result) {
 	return &ass_result->events;
 }
+
+ExtraSections* get_extra_sections_from_ass_result(AssResult* ass_result) {
+	return &ass_result->extra_sections;
+}
+
+FileProps* get_file_props_from_ass_result(AssResult* ass_result) {
+	return &ass_result->file_props;
+}

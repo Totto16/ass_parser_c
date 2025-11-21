@@ -6,7 +6,8 @@
 
 extern void __wasm_call_ctors(void);
 
-__attribute__((export_name("_initialize"))) void _initialize(void) {
+__attribute__((export_name("_initialize"))) __attribute__((annotate("category:VOID"))) void
+_initialize(void) {
 
 	static volatile int initialized = 0;
 	if(initialized != 0) {
