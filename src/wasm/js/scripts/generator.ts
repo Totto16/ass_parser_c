@@ -461,15 +461,13 @@ function wasmTypeToTSTypeString(
 			wrapper = 'PtrWrapper'
 			break
 		}
-		case 'struct': {
-			wrapper = 'StructWrapper'
-			break
-		}
 		case 'void': {
 			throw new Error('void categgory not expected here')
 		}
 		default: {
-			throw new Error(`Got unknown category type: ${category}`)
+			throw new Error(
+				`Got unknown category type: ${category as unknown as string}`
+			)
 		}
 	}
 
@@ -489,15 +487,12 @@ interface TSFunctionParam {
 
 type Result<V, E> = [value: V, err: null] | [value: null, err: E]
 
-type Category = 'literal' | 'struct' | 'pointer' | 'void' | 'enum'
+type Category = 'literal' | 'pointer' | 'void' | 'enum'
 
 function parseCategory(inp: string): Category | null {
 	switch (inp.toLowerCase()) {
 		case 'literal': {
 			return 'literal'
-		}
-		case 'struct': {
-			return 'struct'
 		}
 		case 'pointer': {
 			return 'pointer'
