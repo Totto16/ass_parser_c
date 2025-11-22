@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/Zuhaitz-dev/zvec.h
+revision = 7c9fd2dbd6f5ad75d57b76f37604e91b75a9d9a1
+depth = 1
+patch_directory = zvec
+
+[provide]
+zvec = zvec_dep

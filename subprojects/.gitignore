@@ -3,3 +3,5 @@
 !.gitignore
 !custom_wasm_libc
 !custom_wasm_libc/**
+!packagefiles
+!packagefiles/**
