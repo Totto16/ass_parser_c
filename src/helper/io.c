@@ -30,7 +30,10 @@
 		return false;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-octal-literals"
 	return S_ISDIR(stat_struct.st_mode);
+#pragma GCC diagnostic pop
 }
 
 [[nodiscard]] static SizedPtr read_entire_file_raw(FILE* file) {
