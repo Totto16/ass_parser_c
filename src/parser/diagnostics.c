@@ -27,12 +27,12 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 
 void free_diagnostics(Diagnostics diagnostics) {
 
-	for(size_t i = 0; i < stbds_arrlenu(diagnostics.entries); ++i) {
-		DiagnosticEntry entry = diagnostics.entries[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(diagnostics.entries); ++i) {
+		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, &diagnostics.entries, i);
 
 		free_diagnostic_entry(entry);
 	}
-	stbds_arrfree(diagnostics.entries);
+	ZVEC_FREE(DiagnosticEntry, &diagnostics.entries);
 }
 
 [[nodiscard]] static MessageStruct get_message_from_inner_entry(InnerDiagnostic inner) {

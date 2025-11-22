@@ -146,8 +146,10 @@ typedef struct {
 	EncodingType encoding;
 } AssStyleEntry;
 
+ZVEC_DEFINE_VEC_TYPE(AssStyleEntry)
+
 typedef struct {
-	STBDS_ARRAY(AssStyleEntry) entries;
+	ZVEC_TYPENAME(AssStyleEntry) entries;
 } AssStyles;
 
 typedef enum : uint8_t {
@@ -221,8 +223,10 @@ typedef struct {
 	} text_union;
 } AssEventEntry;
 
+ZVEC_DEFINE_VEC_TYPE(AssEventEntry)
+
 typedef struct {
-	STBDS_ARRAY(AssEventEntry) entries;
+	ZVEC_TYPENAME(AssEventEntry) entries;
 } AssEvents;
 
 typedef struct {
@@ -237,8 +241,10 @@ typedef struct {
 	SizedPtr data;
 } AssFontEntry;
 
+ZVEC_DEFINE_VEC_TYPE(AssFontEntry)
+
 typedef struct {
-	STBDS_ARRAY(AssFontEntry) entries;
+	ZVEC_TYPENAME(AssFontEntry) entries;
 } AssFonts;
 
 typedef struct {
@@ -246,8 +252,10 @@ typedef struct {
 	SizedPtr data;
 } AssGraphicEntry;
 
+ZVEC_DEFINE_VEC_TYPE(AssGraphicEntry)
+
 typedef struct {
-	STBDS_ARRAY(AssGraphicEntry) entries;
+	ZVEC_TYPENAME(AssGraphicEntry) entries;
 } AssGraphics;
 
 STBDS_HASH_MAP_TYPE(char*, FinalStr, SectionFieldEntry);

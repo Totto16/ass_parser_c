@@ -8,6 +8,7 @@
 #define STBDS_ONLY_MACROS
 #include <stb/ds.h>
 #undef STBDS_ONLY_MACROS
+#include <zvec/zvec.h>
 
 #include <stdint.h>
 
@@ -51,8 +52,10 @@ typedef struct {
 	FilePos position;
 } DiagnosticEntry;
 
+ZVEC_DEFINE_VEC_TYPE(DiagnosticEntry)
+
 typedef struct {
-	STBDS_ARRAY(DiagnosticEntry) entries;
+	ZVEC_TYPENAME(DiagnosticEntry) entries;
 } Diagnostics;
 
 #ifdef ASS_PARSER_C_INTERNAL_USAGE
@@ -66,7 +69,7 @@ typedef struct {
 			                                                  .data = { .simple = (message) } }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
-		stbds_arrput(entries, diagnostic); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
+		ZVEC_PUSH(DiagnosticEntry, &entries, diagnostic); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
 	} while(false)
 
 #define INSERT_SIMPLE_WARNING(entries, message, pos) \

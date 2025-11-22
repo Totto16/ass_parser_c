@@ -4,11 +4,16 @@
 
 #include <stb/ds.h>
 
+#define ZVEC_IMPLEMENTATION
+#include <zvec/zvec.h>
+
 typedef unsigned char Byte;
 
 #define MIN_MACRO(a, b) ((a) > (b) ? (b) : (a))
 
 #define VALUE_OFFSET 33
+
+ZVEC_DEFINE_VEC_TYPE(char)
 
 [[nodiscard]] SizedPtr uu_encode(SizedPtr input) {
 
@@ -26,11 +31,9 @@ typedef unsigned char Byte;
 	// aegisubs implementation. see:
 	// https://github.com/TypesettingTools/Aegisub/blob/master/libaegisub/ass/uuencode.cpp#L30
 
-	STBDS_ARRAY(char) final_chars = STBDS_ARRAY_EMPTY;
-
 	size_t max_size = ((input_size * 4) + 2) / 3;
 
-	stbds_arrsetcap(final_chars, max_size);
+	ZVEC_TYPENAME(char) final_chars = ZVEC_INIT_WITH_CAP(char, max_size);
 
 	Byte* input_data = (Byte*)input.data;
 
@@ -47,24 +50,27 @@ typedef unsigned char Byte;
 
 		for(size_t j = 0; j < MIN_MACRO(4U, input_size - i + 1); ++j) {
 			char val = (char)(result[j] + VALUE_OFFSET);
-			stbds_arrput(final_chars, val);
+			ZVEC_PUSH(char, &final_chars, val);
 		}
 	}
 
 	// make stbds_array into sizedptr
 	// here we can use strdup, as no \0 characters can be in the result
-	char* result = strdup(final_chars);
+	char* result = strdup(ZVEC_DATA(char, &final_chars));
 
 	if(!result) {
-		stbds_arrfree(final_chars);
+		ZVEC_FREE(char, &final_chars);
 		return ptr_error("allocation error");
 	}
 
-	size_t final_length = stbds_arrlenu(final_chars);
-	stbds_arrfree(final_chars);
+	size_t final_length = ZVEC_LENGTH(final_chars);
+	ZVEC_FREE(char, &final_chars);
 
 	return (SizedPtr){ .data = result, .len = final_length };
 }
+
+ZVEC_DEFINE_VEC_TYPE(Byte)
+ZVEC_IMPLEMENT_VEC_TYPE(Byte)
 
 [[nodiscard]] SizedPtr uu_decode(SizedPtr input) {
 
@@ -82,11 +88,9 @@ typedef unsigned char Byte;
 	// aegisubs implementation. see:
 	// https://github.com/TypesettingTools/Aegisub/blob/master/libaegisub/ass/uuencode.cpp#L60
 
-	STBDS_ARRAY(Byte) final_bytes = STBDS_ARRAY_EMPTY;
-
 	size_t max_size = (input_size * 3) / 4;
 
-	stbds_arrsetcap(final_bytes, max_size);
+	ZVEC_TYPENAME(Byte) final_bytes = ZVEC_INIT_WITH_CAP(Byte, max_size);
 
 	char* input_data = (char*)input.data;
 
@@ -104,23 +108,23 @@ typedef unsigned char Byte;
 
 		for(size_t j = 0; j < MIN_MACRO(3U, input_size - i - 1); ++j) {
 			Byte val = result[j];
-			stbds_arrput(final_bytes, val);
+			ZVEC_PUSH(Byte, &final_bytes, val);
 		}
 	}
 
 	// make stbds_array into sizedptr
-	size_t final_length = stbds_arrlenu(final_bytes);
+	size_t final_length = ZVEC_LENGTH(final_bytes);
 
 	Byte* result = malloc(final_length);
 
 	if(!result) {
-		stbds_arrfree(final_bytes);
+		ZVEC_FREE(Byte, &final_bytes);
 		return ptr_error("allocation error");
 	}
 
-	memcpy(result, final_bytes, final_length);
+	memcpy(result, ZVEC_DATA(Byte, &final_bytes), final_length);
 
-	stbds_arrfree(final_bytes);
+	ZVEC_FREE(Byte, &final_bytes);
 
 	return (SizedPtr){ .data = result, .len = final_length };
 }

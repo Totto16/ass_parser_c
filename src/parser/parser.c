@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define ZVEC_IMPLEMENTATION
+#include <zvec/zvec.h>
+
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
 		case ScriptTypeUnknown: return "Unknown";
@@ -214,8 +217,11 @@ typedef enum ENUM_EXTENSIBILITY_CLOSED : bool {
 	ErrorTypeNone = true,
 } ErrorType;
 
+ZVEC_DEFINE_VEC_TYPE(AssStyleFormat)
+ZVEC_IMPLEMENT_VEC_TYPE(AssStyleFormat)
+
 [[nodiscard]] static ErrorType
-parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat) * format_result,
+parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleFormat) * format_result,
                              Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
@@ -320,7 +326,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 			format = AssStyleFormatUnknownField;
 		}
 
-		stbds_arrput(*format_result, format);
+		ZVEC_PUSH(AssStyleFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
@@ -335,12 +341,12 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
     errors */
 
 [[nodiscard]] static ErrorType parse_style_line_for_styles(
-    const ConstStrView line, const STBDS_ARRAY(AssStyleFormat) const format_spec,
+    const ConstStrView line, const ZVEC_TYPENAME(AssStyleFormat) format_spec,
     AssStyles* styles_result, ParseSettings settings, Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
 
-	size_t field_size = stbds_arrlenu(format_spec);
+	size_t field_size = ZVEC_LENGTH(format_spec);
 
 	AssStyleEntry entry = {};
 
@@ -385,7 +391,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 		MessageStruct error = EMPTY_MESSAGE_STRUCT();
 
-		AssStyleFormat format = format_spec[i];
+		AssStyleFormat format = ZVEC_AT(AssStyleFormat, &format_spec, i);
 
 		switch(format) {
 			case AssStyleFormatName: {
@@ -551,7 +557,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 		return ErrorTypeFatal;
 	}
 
-	stbds_arrput(styles_result->entries, entry);
+	ZVEC_PUSH(AssStyleEntry, &(styles_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -562,14 +568,14 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
                                             ParseSettings settings, LineType line_type,
                                             Diagnostics* diagnostics) {
 
-	AssStyles styles = { .entries = STBDS_ARRAY_EMPTY };
+	AssStyles styles = { .entries = ZVEC_EMPTY(AssStyleEntry) };
 
-	STBDS_ARRAY(AssStyleFormat) style_format = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(AssStyleFormat) style_format = ZVEC_EMPTY(AssStyleFormat);
 
 #define FREE_AT_END() \
 	do { \
-		stbds_arrfree(styles.entries); \
-		stbds_arrfree(style_format); \
+		ZVEC_FREE(AssStyleEntry, &styles.entries); \
+		ZVEC_FREE(AssStyleFormat, &style_format); \
 	} while(false)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
@@ -605,7 +611,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(stbds_arrlenu(style_format) != 0) {
+				if(ZVEC_LENGTH(style_format) != 0) {
 					INSERT_SIMPLE_ERROR(
 					    diagnostics->entries,
 					    STATIC_MESSAGE_STRUCT(
@@ -627,7 +633,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 
 			} else if(str_view_eq_ascii(field, "Style")) {
 
-				if(stbds_arrlenu(style_format) == 0) {
+				if(ZVEC_LENGTH(style_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(
@@ -663,7 +669,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 					.position = field.file_pos
 				};
 
-				stbds_arrput(diagnostics->entries, diagnostic);
+				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -677,7 +683,7 @@ parse_format_line_for_styles(const ConstStrView line, STBDS_ARRAY(AssStyleFormat
 		}
 	}
 
-	stbds_arrfree(style_format);
+	ZVEC_FREE(AssStyleFormat, &style_format);
 
 	*ass_styles = styles;
 
@@ -703,9 +709,12 @@ static FinalStr
 	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
+ZVEC_DEFINE_VEC_TYPE(FinalStr)
+ZVEC_IMPLEMENT_VEC_TYPE(FinalStr)
+
 #define FREE_AT_END() \
 	do { \
-		stbds_arrfree(field_names); \
+		ZVEC_FREE(FinalStr, &field_names); \
 	} while(false)
 
 [[nodiscard]] static ErrorType parse_script_info(AssScriptInfo* script_info_result,
@@ -720,7 +729,7 @@ static FinalStr
 	FilePos script_info_section_pos = { .line = data_view->position.file_pos.line - 1,
 		                                data_view->position.file_pos.column };
 
-	STBDS_ARRAY(FinalStr) field_names = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(FinalStr) field_names = ZVEC_EMPTY(FinalStr);
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -761,8 +770,8 @@ static FinalStr
 
 			// check for duplicate fields
 			bool found_field = false;
-			for(size_t i = 0; i < stbds_arrlenu(field_names); ++i) {
-				FinalStr field_str = field_names[i];
+			for(size_t i = 0; i < ZVEC_LENGTH(field_names); ++i) {
+				FinalStr field_str = ZVEC_AT(FinalStr, &field_names, i);
 
 				if(str_view_eq_str_view(field_str, field)) {
 					found_field = true;
@@ -783,7 +792,7 @@ static FinalStr
 						.position = field.file_pos
 					};
 
-					stbds_arrput(diagnostics->entries, diagnostic);
+					ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 					/*** @see keep-going */
 					break;
@@ -793,7 +802,7 @@ static FinalStr
 			if(!found_field) {
 				// note: as this is not intended, we can choose if the last or the first value is
 				// the final value
-				stbds_arrput(field_names, field);
+				ZVEC_PUSH(FinalStr, &field_names, field);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
@@ -868,7 +877,7 @@ static FinalStr
 					.position = field.file_pos
 				};
 
-				stbds_arrput(diagnostics->entries, diagnostic);
+				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -933,7 +942,7 @@ static FinalStr
 		}
 	}
 
-	stbds_arrfree(field_names);
+	ZVEC_FREE(FinalStr, &field_names);
 #undef FREE_AT_END
 
 	// check script info
@@ -987,7 +996,7 @@ static FinalStr
 }
 
 typedef struct {
-	STBDS_ARRAY(FinalStr) entries;
+	ZVEC_TYPENAME(FinalStr) entries;
 } TempDataArray;
 
 typedef struct {
@@ -998,9 +1007,9 @@ typedef struct {
 #define EMPTY_TEMP_ENCODE_ENTRY() \
 	((TempEncodingEntry){ .name_raw = \
 	                          (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
-	                      .data_raw = (TempDataArray){ .entries = STBDS_ARRAY_EMPTY } })
+	                      .data_raw = (TempDataArray){ .entries = ZVEC_EMPTY(FinalStr) } })
 
-#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (stbds_arrlenu((entry).data_raw.entries) == 0)
+#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (ZVEC_LENGTH((entry).data_raw.entries) == 0)
 
 #define IS_EMPTY_ENCODE_NAME(entry) ((entry).name_raw.length == 0)
 
@@ -1010,8 +1019,9 @@ typedef struct {
 #define POS_FROM_ENCODE_ENTRY(entry) \
 	((!IS_EMPTY_ENCODE_NAME(entry)) \
 	     ? ((entry).name_raw.file_pos) \
-	     : ((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) ? (EMPTY_POS()) \
-	                                            : (((entry).data_raw.entries[0]).file_pos)))
+	     : ((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) \
+	            ? (EMPTY_POS()) \
+	            : ((ZVEC_AT(FinalStr, &((entry).data_raw.entries), 0)).file_pos)))
 
 [[nodiscard]] static MessageStruct parse_font_name_attributes(FinalStr attributes,
                                                               AssFontName* name_result,
@@ -1140,39 +1150,41 @@ typedef struct {
 	return EMPTY_MESSAGE_STRUCT();
 }
 
+ZVEC_DEFINE_VEC_TYPE(char)
+
 [[nodiscard]] static MessageStruct parse_uu_encoded_data(TempDataArray data_raw,
                                                          SizedPtr* result_data) {
 
-	STBDS_ARRAY(char) final_data = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(char) final_data = ZVEC_EMPTY(char);
 
-	for(size_t i = 0; i < stbds_arrlenu(data_raw.entries); ++i) {
-		FinalStr entry = data_raw.entries[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(data_raw.entries); ++i) {
+		FinalStr entry = ZVEC_AT(FinalStr, &(data_raw.entries), i);
 
 		char* entry_normalized = get_normalized_string(entry);
 
 		if(!entry_normalized) {
-			stbds_arrfree(final_data);
+			ZVEC_FREE(char, &final_data);
 			return STATIC_MESSAGE_STRUCT("allocation error");
 		}
 
 		size_t normalized_length = strlen(entry_normalized);
 
-		size_t current_arr_size = stbds_arrlenu(final_data);
+		size_t current_arr_size = ZVEC_LENGTH(final_data);
 
-		stbds_arrsetcap(final_data, current_arr_size + normalized_length);
+		ZVEC_RESERVE(char, &final_data, current_arr_size + normalized_length);
 
 		for(size_t j = 0; j < normalized_length; ++j) {
-			stbds_arrput(final_data, entry_normalized[j]);
+			ZVEC_PUSH(char, &final_data, entry_normalized[j]);
 		}
 
 		free(entry_normalized);
 	}
 
-	SizedPtr input = { .data = final_data, .len = stbds_arrlenu(final_data) };
+	SizedPtr input = { .data = ZVEC_DATA(char, &final_data), .len = ZVEC_LENGTH(final_data) };
 
 	SizedPtr decode_result = uu_decode(input);
 
-	stbds_arrfree(final_data);
+	ZVEC_FREE(char, &final_data);
 
 	if(is_ptr_error(decode_result)) {
 #define PROPAGATE_ERROR_IMPL(message) \
@@ -1245,7 +1257,7 @@ typedef struct {
 [[nodiscard]] static ErrorType parse_fonts(AssFonts* ass_fonts, StrView* data_view,
                                            LineType line_type, Diagnostics* diagnostics) {
 
-	AssFonts fonts = { .entries = STBDS_ARRAY_EMPTY };
+	AssFonts fonts = { .entries = ZVEC_EMPTY(AssFontEntry) };
 
 	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 
@@ -1256,19 +1268,19 @@ typedef struct {
 		if(!is_empty_message_struct(font_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
 		} else { \
-			stbds_arrput(fonts.entries, result_font); \
+			ZVEC_PUSH(AssFontEntry, &(fonts.entries), result_font); \
 		} \
 	} while(false)
 
 #define FREE_FONT_ENTRY(entry) \
 	do { \
-		stbds_arrfree((entry).data_raw.entries); \
+		ZVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
 	} while(false)
 
 #define FREE_AT_END() \
 	do { \
 		FREE_FONT_ENTRY(temp_entry); \
-		stbds_arrfree(fonts.entries); \
+		ZVEC_FREE(AssFontEntry, &fonts.entries); \
 	} while(false)
 
 	// Note: we collect data, as the font data is over multiple
@@ -1364,7 +1376,7 @@ typedef struct {
 
 				// add to the raw data!
 
-				stbds_arrput(temp_entry.data_raw.entries, line);
+				ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1417,7 +1429,7 @@ got_new_section_font:
 [[nodiscard]] static ErrorType parse_graphics(AssGraphics* ass_graphics, StrView* data_view,
                                               LineType line_type, Diagnostics* diagnostics) {
 
-	AssGraphics graphics = { .entries = STBDS_ARRAY_EMPTY };
+	AssGraphics graphics = { .entries = ZVEC_EMPTY(AssGraphicEntry) };
 
 	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 
@@ -1428,19 +1440,19 @@ got_new_section_font:
 		if(!is_empty_message_struct(graphic_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, graphic_process_result, (pos)); \
 		} else { \
-			stbds_arrput(graphics.entries, result_graphic); \
+			ZVEC_PUSH(AssGraphicEntry, &(graphics.entries), result_graphic); \
 		} \
 	} while(false)
 
 #define FREE_GRAPHIC_ENTRY(entry) \
 	do { \
-		stbds_arrfree((entry).data_raw.entries); \
+		ZVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
 	} while(false)
 
 #define FREE_AT_END() \
 	do { \
 		FREE_GRAPHIC_ENTRY(temp_entry); \
-		stbds_arrfree(graphics.entries); \
+		ZVEC_FREE(AssGraphicEntry, &(graphics.entries)); \
 	} while(false)
 
 	// Note: we collect data, as the graphics data is over multiple
@@ -1536,7 +1548,7 @@ got_new_section_font:
 
 				// add to the raw data!
 
-				stbds_arrput(temp_entry.data_raw.entries, line);
+				ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1640,8 +1652,11 @@ got_new_section_graphic:
 	return ErrorTypeNone;
 }
 
+ZVEC_DEFINE_VEC_TYPE(AssEventFormat)
+ZVEC_IMPLEMENT_VEC_TYPE(AssEventFormat)
+
 [[nodiscard]] static ErrorType
-parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat) * format_result,
+parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventFormat) * format_result,
                              Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
@@ -1724,19 +1739,19 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			format = AssEventFormatUnknownField;
 		}
 
-		stbds_arrput(*format_result, format);
+		ZVEC_PUSH(AssEventFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
 }
 
 [[nodiscard]] static ErrorType parse_event_line_for_events(EventType type, const ConstStrView line,
-                                                           const STBDS_ARRAY(AssEventFormat)
-                                                               const format_spec,
+                                                           const ZVEC_TYPENAME(AssEventFormat)
+                                                               format_spec,
                                                            AssEvents* events_result,
                                                            Diagnostics* diagnostics) {
 
-	size_t field_size = stbds_arrlenu(format_spec);
+	size_t field_size = ZVEC_LENGTH(format_spec);
 
 	AssEventEntry entry = { .type = type };
 
@@ -1775,7 +1790,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 			return ErrorTypeFatal;
 		}
 
-		AssEventFormat format = format_spec[i];
+		AssEventFormat format = ZVEC_AT(AssEventFormat, &format_spec, i);
 
 		// special handling fot the text field, as it may contain
 		// ","
@@ -1966,7 +1981,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 		return ErrorTypeFatal;
 	}
 
-	stbds_arrput(events_result->entries, entry);
+	ZVEC_PUSH(AssEventEntry, &(events_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -1975,14 +1990,14 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
                                             ParseSettings settings, LineType line_type,
                                             Diagnostics* diagnostics) {
 
-	AssEvents events = { .entries = STBDS_ARRAY_EMPTY };
+	AssEvents events = { .entries = ZVEC_EMPTY(AssEventEntry) };
 
-	STBDS_ARRAY(AssEventFormat) event_format = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(AssEventFormat) event_format = ZVEC_EMPTY(AssEventFormat);
 
 #define FREE_AT_END() \
 	do { \
-		stbds_arrfree(events.entries); \
-		stbds_arrfree(event_format); \
+		ZVEC_FREE(AssEventEntry, &(events.entries)); \
+		ZVEC_FREE(AssEventFormat, &event_format); \
 	} while(false)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
@@ -2018,7 +2033,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(stbds_arrlenu(event_format) != 0) {
+				if(ZVEC_LENGTH(event_format) != 0) {
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
 					                    STATIC_MESSAGE_STRUCT("multiple format fields detected in "
 					                                          "the events section, this is not "
@@ -2039,7 +2054,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Dialogue")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2061,7 +2076,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Comment")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2083,7 +2098,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Picture")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2105,7 +2120,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Sound")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2127,7 +2142,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Movie")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2149,7 +2164,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 
 			} else if(str_view_eq_ascii(field, "Command")) {
 
-				if(stbds_arrlenu(event_format) == 0) {
+				if(ZVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2185,7 +2200,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 					.position = field.file_pos
 				};
 
-				stbds_arrput(diagnostics->entries, diagnostic);
+				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -2199,7 +2214,7 @@ parse_format_line_for_events(const ConstStrView line, STBDS_ARRAY(AssEventFormat
 		}
 	}
 
-	stbds_arrfree(event_format);
+	ZVEC_FREE(AssEventFormat, &(event_format));
 
 	*ass_events = events;
 
@@ -2270,24 +2285,24 @@ static void free_extra_sections(ExtraSections sections) {
 }
 
 static void free_fonts(AssFonts fonts) {
-	for(size_t i = 0; i < stbds_arrlenu(fonts.entries); ++i) {
-		AssFontEntry entry = fonts.entries[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(fonts.entries); ++i) {
+		AssFontEntry entry = ZVEC_AT(AssFontEntry, &(fonts.entries), i);
 		free_sized_ptr(entry.data);
 	}
-	stbds_arrfree(fonts.entries);
+	ZVEC_FREE(AssFontEntry, &(fonts.entries));
 }
 
 static void free_graphics(AssGraphics graphics) {
-	for(size_t i = 0; i < stbds_arrlenu(graphics.entries); ++i) {
-		AssGraphicEntry entry = graphics.entries[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(graphics.entries); ++i) {
+		AssGraphicEntry entry = ZVEC_AT(AssGraphicEntry, &(graphics.entries), i);
 		free_sized_ptr(entry.data);
 	}
-	stbds_arrfree(graphics.entries);
+	ZVEC_FREE(AssGraphicEntry, &(graphics.entries));
 }
 
 static void free_ass_result(AssResult data) {
-	stbds_arrfree(data.styles.entries);
-	stbds_arrfree(data.events.entries);
+	ZVEC_FREE(AssStyleEntry, &(data.styles.entries));
+	ZVEC_FREE(AssEventEntry, &(data.events.entries));
 
 	free_extra_sections(data.extra_sections);
 	free_fonts(data.fonts);
@@ -2323,7 +2338,7 @@ static void free_ass_result(AssResult data) {
 		return NULL;
 	}
 
-	result->diagnostics = (Diagnostics){ .entries = STBDS_ARRAY_EMPTY };
+	result->diagnostics = (Diagnostics){ .entries = ZVEC_EMPTY(DiagnosticEntry) };
 	result->allocated_codepoints =
 	    (Codepoints){ .data = (CodePointsData){ .data_const = NULL, .data_readable = NULL },
 		              .size = 0 };
@@ -2460,10 +2475,10 @@ static void free_ass_result(AssResult data) {
 	AssResult ass_result = { .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY },
 		                     .file_props =
 		                         (FileProps){ .file_type = file_type, .line_type = line_type },
-		                     .events = (AssEvents){ .entries = STBDS_ARRAY_EMPTY },
-		                     .fonts = (AssFonts){ .entries = STBDS_ARRAY_EMPTY },
-		                     .styles = (AssStyles){ .entries = STBDS_ARRAY_EMPTY },
-		                     .graphics = (AssGraphics){ .entries = STBDS_ARRAY_EMPTY } };
+		                     .events = (AssEvents){ .entries = ZVEC_EMPTY(AssEventEntry) },
+		                     .fonts = (AssFonts){ .entries = ZVEC_EMPTY(AssFontEntry) },
+		                     .styles = (AssStyles){ .entries = ZVEC_EMPTY(AssStyleEntry) },
+		                     .graphics = (AssGraphics){ .entries = ZVEC_EMPTY(AssGraphicEntry) } };
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
@@ -2512,8 +2527,8 @@ static void free_ass_result(AssResult data) {
 	// if we have one error diagnostic, we consider this an error,
 	// so we can collect errors until now, and only now report a
 	// fatal error
-	for(size_t i = 0; i < stbds_arrlenu(result->diagnostics.entries); ++i) {
-		DiagnosticEntry entry = result->diagnostics.entries[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(result->diagnostics.entries); ++i) {
+		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, &(result->diagnostics.entries), i);
 
 		if(entry.severity == DiagnosticSeverityError) {
 			RETURN_ERROR_NO_MESSAGE();

@@ -121,11 +121,11 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 }
 
 size_t diagnostics_get_length(Diagnostics* diagnostics) {
-	return stbds_arrlenu(diagnostics->entries);
+	return ZVEC_LENGTH(diagnostics->entries);
 }
 
 DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index) {
-	if(index >= stbds_arrlenu(diagnostics->entries)) {
+	if(index >= ZVEC_LENGTH(diagnostics->entries)) {
 		return NULL;
 	}
 
@@ -166,11 +166,11 @@ size_t file_pos_get_column(FilePos* pos) {
 }
 
 size_t events_get_length(AssEvents* events) {
-	return stbds_arrlenu(events->entries);
+	return ZVEC_LENGTH(events->entries);
 }
 
 AssEventEntry* events_get_at(AssEvents* events, size_t index) {
-	if(index >= stbds_arrlenu(events->entries)) {
+	if(index >= ZVEC_LENGTH(events->entries)) {
 		return NULL;
 	}
 
@@ -178,11 +178,11 @@ AssEventEntry* events_get_at(AssEvents* events, size_t index) {
 }
 
 size_t styles_get_length(AssStyles* styles) {
-	return stbds_arrlenu(styles->entries);
+	return ZVEC_LENGTH(styles->entries);
 }
 
 AssStyleEntry* styles_get_at(AssStyles* styles, size_t index) {
-	if(index >= stbds_arrlenu(styles->entries)) {
+	if(index >= ZVEC_LENGTH(styles->entries)) {
 		return NULL;
 	}
 

@@ -35,14 +35,6 @@ deps += dependency(
     },
 )
 
-deps += dependency(
-    'zvec',
-    allow_fallback: true,
-    default_options: {
-        'examples': false,
-    },
-)
-
 cc = meson.get_compiler('c')
 
 deps += cc.find_library(
