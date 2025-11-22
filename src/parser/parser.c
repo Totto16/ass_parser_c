@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ZVEC_IMPLEMENTATION
 #include <zvec/zvec.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
@@ -217,8 +216,7 @@ typedef enum ENUM_EXTENSIBILITY_CLOSED : bool {
 	ErrorTypeNone = true,
 } ErrorType;
 
-ZVEC_DEFINE_VEC_TYPE(AssStyleFormat)
-ZVEC_IMPLEMENT_VEC_TYPE(AssStyleFormat)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssStyleFormat)
 
 [[nodiscard]] static ErrorType
 parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleFormat) * format_result,
@@ -709,8 +707,7 @@ static FinalStr
 	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
-ZVEC_DEFINE_VEC_TYPE(FinalStr)
-ZVEC_IMPLEMENT_VEC_TYPE(FinalStr)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 
 #define FREE_AT_END() \
 	do { \
@@ -1652,8 +1649,7 @@ got_new_section_graphic:
 	return ErrorTypeNone;
 }
 
-ZVEC_DEFINE_VEC_TYPE(AssEventFormat)
-ZVEC_IMPLEMENT_VEC_TYPE(AssEventFormat)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssEventFormat)
 
 [[nodiscard]] static ErrorType
 parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventFormat) * format_result,

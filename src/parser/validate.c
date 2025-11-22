@@ -10,7 +10,6 @@
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
-#define ZVEC_IMPLEMENTATION
 #include <zvec/zvec.h>
 
 #include <stb/ds.h>
@@ -187,8 +186,7 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 
 #endif
 
-ZVEC_DEFINE_VEC_TYPE(AssFontName)
-ZVEC_IMPLEMENT_VEC_TYPE(AssFontName)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssFontName)
 
 typedef ZVEC_TYPENAME(AssFontName) AssFontNames;
 
@@ -254,8 +252,7 @@ typedef struct {
 	AssFontNames embedded;
 } FontConfigRefs;
 
-ZVEC_DEFINE_VEC_TYPE(FontHandle)
-ZVEC_IMPLEMENT_VEC_TYPE(FontHandle)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FontHandle)
 
 typedef ZVEC_TYPENAME(FontHandle) FontHandles;
 

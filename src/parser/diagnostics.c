@@ -6,6 +6,8 @@
 #include <stb/ds.h>
 #include <stdio.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)
+
 static void free_inner_diagnostic(InnerDiagnostic inner) {
 	switch(inner.type) {
 		case DiagnosticTypeSimple: {

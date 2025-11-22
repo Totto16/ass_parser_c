@@ -8,10 +8,12 @@ By: Zuhaitz-dev
 Modifications by: Totto16
 */
 
-#ifndef _HAVE_ZVEC_MACROS
-#define _HAVE_ZVEC_MACROS
+#pragma once
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
 
 #define VEC_OK 0
 #define VEC_ERR -1
@@ -141,14 +143,7 @@ ZVEC_FUN_ATTRIBUTES T* zvec_bsearch_##T(ZVEC_TYPENAME(T) *v, const void *key,   
          ++ZVEC_NAME(_i_, __LINE__))
 
 
-#endif
 
-#ifdef ZVEC_IMPLEMENTATION
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
 
 //TODO: add nodiscard to some error return values (and also values)
 
@@ -283,4 +278,6 @@ ZVEC_FUN_ATTRIBUTES T* zvec_bsearch_##T(ZVEC_TYPENAME(T) *v, const void *key,   
     return (T*) bsearch(key, v->data, v->length, sizeof(T), bsearch_cmp);                   \
 }
 
-#endif
+#define ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(T) \
+    ZVEC_DEFINE_VEC_TYPE(T)                   \
+    ZVEC_IMPLEMENT_VEC_TYPE(T)

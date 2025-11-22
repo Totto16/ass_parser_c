@@ -4,7 +4,6 @@
 
 #include <stb/ds.h>
 
-#define ZVEC_IMPLEMENTATION
 #include <zvec/zvec.h>
 
 typedef unsigned char Byte;
@@ -69,8 +68,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 	return (SizedPtr){ .data = result, .len = final_length };
 }
 
-ZVEC_DEFINE_VEC_TYPE(Byte)
-ZVEC_IMPLEMENT_VEC_TYPE(Byte)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 
 [[nodiscard]] SizedPtr uu_decode(SizedPtr input) {
 
