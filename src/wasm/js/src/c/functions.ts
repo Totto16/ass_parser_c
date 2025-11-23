@@ -265,10 +265,24 @@ export function allocate_js_utf8_string(
 	if (allocate_bom) {
 		const bom: number[] = [0xef, 0xbb, 0xbf]
 
-		final_encoded = new Uint8Array(encoded.byteLength + 1)
+		final_encoded = new Uint8Array(encoded.byteLength + bom.length)
 
 		final_encoded.set(bom, 0)
 		final_encoded.set(encoded, bom.length)
+
+		if (
+			final_encoded.byteLength !== encoded.byteLength + bom.length ||
+			final_encoded.at(final_encoded.byteLength) != 0
+		) {
+			throw new Error(`Implementation error in allocate_js_utf8_string`)
+		}
+	} else {
+		if (
+			final_encoded.byteLength !== encoded.byteLength ||
+			final_encoded.at(final_encoded.byteLength) != 0
+		) {
+			throw new Error(`Implementation error in allocate_js_utf8_string`)
+		}
 	}
 
 	return sized_ptr_to_cstr(
@@ -285,6 +299,13 @@ export function make_string_from_array_buffer(
 
 	encoded.set(new Uint8Array(content), 0)
 	encoded.set([0], content.byteLength)
+
+	if (
+		encoded.byteLength !== content.byteLength + 1 ||
+		encoded.at(content.byteLength) != 0
+	) {
+		throw new Error(`Implementation error in make_string_from_array_buffer`)
+	}
 
 	return sized_ptr_to_cstr(
 		copy_js_array_to_wasm_memory(buffer, allocator, encoded)

@@ -61,5 +61,13 @@ export interface GeneratedExportedFunctions {
 	get_events_from_ass_result: (p_0: I32) => PtrWrapper<I32>
 	get_extra_sections_from_ass_result: (p_0: I32) => PtrWrapper<I32>
 	get_file_props_from_ass_result: (p_0: I32) => PtrWrapper<I32>
+	get_scaled_border_and_shadow_from_script_info: (p_0: I32) => I32
+	get_script_type_from_script_info: (p_0: I32) => EnumWrapper<"ScriptType", UInt8T>
+	get_wrap_style_from_script_info: (p_0: I32) => EnumWrapper<"WrapStyle", UInt8T>
+	get_video_aspect_ratio_from_script_info: (p_0: I32) => I32
+	get_video_zoom_from_script_info: (p_0: I32) => I32
+	get_play_res_x_from_script_info: (p_0: I32) => I32
+	get_play_res_y_from_script_info: (p_0: I32) => I32
+	get_string_by_name_from_script_info: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<Malloced<"free">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
 	_initialize: () => void
 }

@@ -62,11 +62,15 @@ typedef enum : uint8_t {
 	WrapStyleSmartLow,
 } WrapStyle;
 
+#define ENUM_ANNOT_WrapStyle ENUM_ANNOT_C(WrapStyle, uint8_t)
+
 typedef enum : uint8_t {
 	ScriptTypeUnknown,
 	ScriptTypeV4,
 	ScriptTypeV4Plus,
 } ScriptType;
+
+#define ENUM_ANNOT_ScriptType ENUM_ANNOT_C(ScriptType, uint8_t)
 
 typedef struct {
 	FinalStr title;

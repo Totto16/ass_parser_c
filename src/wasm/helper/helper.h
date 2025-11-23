@@ -100,3 +100,31 @@ CATEGORY_POINTER ExtraSections* get_extra_sections_from_ass_result(AssResult* as
 
 PUBLIC("get_file_props_from_ass_result")
 CATEGORY_POINTER FileProps* get_file_props_from_ass_result(AssResult* ass_result);
+
+PUBLIC("get_scaled_border_and_shadow_from_script_info")
+CATEGORY_LITERAL bool get_scaled_border_and_shadow_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_script_type_from_script_info")
+CATEGORY_ENUM(ENUM_ANNOT_ScriptType)
+ScriptType get_script_type_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_wrap_style_from_script_info")
+CATEGORY_ENUM(ENUM_ANNOT_WrapStyle)
+WrapStyle get_wrap_style_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_video_aspect_ratio_from_script_info")
+CATEGORY_LITERAL size_t get_video_aspect_ratio_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_video_zoom_from_script_info")
+CATEGORY_LITERAL size_t get_video_zoom_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_play_res_x_from_script_info")
+CATEGORY_LITERAL size_t get_play_res_x_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_play_res_y_from_script_info")
+CATEGORY_LITERAL size_t get_play_res_y_from_script_info(AssScriptInfo* script_info);
+
+PUBLIC("get_string_by_name_from_script_info")
+ANNOTATION_MALLOCED_RESULT("free")
+ANNOTATION_NULLABLE
+    char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char* name);

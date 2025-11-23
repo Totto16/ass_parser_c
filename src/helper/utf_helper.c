@@ -188,6 +188,9 @@ void free_codepoints(Codepoints codepoints) {
 #define CHUNK_SIZE_NORMALIZE 256
 
 char* get_normalized_string_from_codepoints(RawCodepoints codepoints) {
+	if(codepoints.data == NULL) {
+		return NULL;
+	}
 
 	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);

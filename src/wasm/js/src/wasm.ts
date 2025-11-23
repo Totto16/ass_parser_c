@@ -184,7 +184,7 @@ interface WASMExportsFnWithoutLibC {
 	>
 	//
 	source_from_string: (
-		source: Ptr<Char>,
+		source: Ptr<Char>, // not a cstr, as this may contain 0 bytes
 		len: SizeT
 	) => Annotated<
 		Ptr<AssSource>,
@@ -292,7 +292,7 @@ interface WASMExportsFnWithoutLibC {
 	get_message: (
 		message: Ptr<MessageStructC>
 	) => Annotated<
-		Ptr<Char>,
+		CStr,
 		Annotations<
 			NoAnnot<'malloced'>,
 			IsCString,
@@ -354,6 +354,28 @@ interface WASMExportsFnWithoutLibC {
 	get_styles_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssStylesC>
 	get_events_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssEventsC>
 	//
+	get_scaled_border_and_shadow_from_script_info: (
+		script_info: Ptr<ScriptInfoC>
+	) => Bool
+	get_script_type_from_script_info: (
+		script_info: Ptr<ScriptInfoC>
+	) => ScriptTypeC
+	get_wrap_style_from_script_info: (
+		script_info: Ptr<ScriptInfoC>
+	) => WrapStyleC
+	get_video_aspect_ratio_from_script_info: (
+		script_info: Ptr<ScriptInfoC>
+	) => SizeT
+	get_video_zoom_from_script_info: (script_info: Ptr<ScriptInfoC>) => SizeT
+	get_play_res_x_from_script_info: (script_info: Ptr<ScriptInfoC>) => SizeT
+	get_play_res_y_from_script_info: (script_info: Ptr<ScriptInfoC>) => SizeT
+	get_string_by_name_from_script_info: (
+		script_info: Ptr<ScriptInfoC>,
+		name: CStr
+	) => Annotated<
+		CStr,
+		Annotations<Malloced<'free'>, IsCString, NoAnnot<'free_fn'>, IsNullable>
+	>
 }
 
 type _NotCFuncsExportedCFunctions = AreAllFunctionCFns<ExportedCFunctions>
@@ -1922,15 +1944,15 @@ export interface AssScriptInfo {
 	update_details: string
 	script_type: ScriptType
 	collisions: string
-	play_res_y: SizeT
-	play_res_x: SizeT
+	play_res_y: number
+	play_res_x: number
 	play_depth: string
 	timer: string
 	wrap_style: WrapStyle
 	// not documented, but present
 	scaled_border_and_shadow: boolean
-	video_aspect_ratio: SizeT
-	video_zoom: SizeT
+	video_aspect_ratio: number
+	video_zoom: number
 	ycbcr_matrix: string
 }
 
@@ -1959,13 +1981,13 @@ export class AssResultRef extends Unref<AssResult> {
 		this.#ass_result = ass_result
 	}
 
-	public script_info(): ScriptInfo {
+	public script_info_ref(): ScriptInfoRef {
 		const c_script_info =
 			this.#wasm.functions.get_script_info_from_ass_result(
 				this.#ass_result
 			)
 
-		const script_info = new ScriptInfo(this.#wasm, c_script_info)
+		const script_info = new ScriptInfoRef(this.#wasm, c_script_info)
 
 		return script_info
 	}
@@ -1990,28 +2012,297 @@ export class AssResultRef extends Unref<AssResult> {
 		return events
 	}
 
+	public extra_sections_ref(): ExtraSectionsRef {
+		const c_extra_sections =
+			this.#wasm.functions.get_extra_sections_from_ass_result(
+				this.#ass_result
+			)
+
+		const extra_sections = new ExtraSectionsRef(
+			this.#wasm,
+			c_extra_sections
+		)
+
+		return extra_sections
+	}
+
+	public file_props_ref(): FilePropsRef {
+		const c_file_props =
+			this.#wasm.functions.get_file_props_from_ass_result(
+				this.#ass_result
+			)
+
+		const file_props = new FilePropsRef(this.#wasm, c_file_props)
+
+		return file_props
+	}
+
 	public override unref(): AssResult {
 		return {
-			script_info: 'TODO',
+			script_info: this.script_info_ref().unref(),
 			styles: this.styles_ref().unref(),
 			events: this.events_ref().unref(),
-			extra_sections: 'TODO',
-			file_props: 'TODO',
+			extra_sections: this.extra_sections_ref().unref(),
+			file_props: this.file_props_ref().unref(),
 		}
 	}
 }
 
-export class ScriptInfo {
+type GetStringKeys<T> = {
+	[K in keyof T as T[K] extends string
+		? string extends T[K]
+			? K
+			: never
+		: never]: T[K]
+}
+
+type _expect_string_keys_0 = Expect<
+	Equal<GetStringKeys<{ hello: string }>, { hello: string }>
+>
+
+type _expect_string_keys_1 = Expect<
+	Equal<GetStringKeys<{ hello: string; not: number }>, { hello: string }>
+>
+
+type _expect_string_keys_2 = Expect<
+	Equal<
+		GetStringKeys<{
+			hello: string
+			not: number
+			second: string
+			third: bigint
+		}>,
+		{ hello: string; second: string }
+	>
+>
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type _expect_string_keys_3 = Expect<Equal<GetStringKeys<{ hello: symbol }>, {}>>
+
+type _expect_string_keys_4 = Expect<
+	Equal<
+		GetStringKeys<{
+			hello: 'hello' | 'or' | 'not'
+			second: string
+		}>,
+		{ second: string }
+	>
+>
+
+type ScriptInfoStrings = GetStringKeys<AssScriptInfo>
+
+export class ScriptInfoRef extends Unref<AssScriptInfo> {
 	#wasm: WASMWrapper
 	#script_info: Ptr<ScriptInfoC>
 
 	constructor(wasm: WASMWrapper, script_info: Ptr<ScriptInfoC>) {
+		super()
+
 		this.#wasm = wasm
 		this.#script_info = script_info
 	}
 
-	public todo(): void {
-		console.log(this.#wasm, this.#script_info)
+	private get_scaled_border_and_shadow(): boolean {
+		const scaled_border_and_shadow = get_bool(
+			this.#wasm.functions.get_scaled_border_and_shadow_from_script_info(
+				this.#script_info
+			)
+		)
+
+		return scaled_border_and_shadow
+	}
+
+	private get_video_aspect_ratio(): number {
+		const video_aspect_ratio = get_value<SizeT>(
+			this.#wasm.functions.get_video_aspect_ratio_from_script_info(
+				this.#script_info
+			)
+		)
+
+		return video_aspect_ratio
+	}
+
+	private get_video_zoom(): number {
+		const video_zoom = get_value<SizeT>(
+			this.#wasm.functions.get_video_zoom_from_script_info(
+				this.#script_info
+			)
+		)
+
+		return video_zoom
+	}
+
+	private get_play_res_y(): number {
+		const play_res_y = get_value<SizeT>(
+			this.#wasm.functions.get_play_res_y_from_script_info(
+				this.#script_info
+			)
+		)
+
+		return play_res_y
+	}
+
+	private get_play_res_x(): number {
+		const play_res_x = get_value<SizeT>(
+			this.#wasm.functions.get_play_res_x_from_script_info(
+				this.#script_info
+			)
+		)
+
+		return play_res_x
+	}
+
+	private get_strings(): ScriptInfoStrings {
+		const result: Partial<ScriptInfoStrings> = {}
+
+		const string_names: (keyof ScriptInfoStrings)[] = [
+			'title',
+			'original_script',
+			'original_translation',
+			'original_editing',
+			'original_timing',
+			'synch_point',
+			'script_updated_by',
+			'update_details',
+			'collisions',
+			'play_depth',
+			'timer',
+			'ycbcr_matrix',
+		]
+		for (const string_name of string_names) {
+			const c_name_sized = allocate_js_utf8_string(
+				this.#wasm.buffer,
+				this.#wasm.allocator,
+				string_name,
+				false
+			)
+			const c_value_raw =
+				this.#wasm.functions.get_string_by_name_from_script_info(
+					this.#script_info,
+					c_name_sized.data_ptr as unknown as CStr
+				)
+
+			const c_value_not_null = assert_not_null(c_value_raw)
+
+			using c_value = get_malloced_disposable<
+				'free',
+				typeof c_value_not_null
+			>(c_value_not_null, this.#wasm, 'free')
+
+			const result_value = cstr_by_ptr(this.#wasm.buffer, c_value.value)
+
+			result[string_name] = result_value
+		}
+
+		return result as ScriptInfoStrings
+	}
+
+	private get_script_type_from_c(script_type: ScriptTypeC): ScriptType {
+		const script_type_js: ScriptTypeCEnum = get_enum_value<
+			ScriptTypeC,
+			ScriptTypeCEnum
+		>(script_type)
+
+		switch (script_type_js) {
+			case ScriptTypeCEnum.Unknown:
+				return 'Unknown'
+			case ScriptTypeCEnum.V4:
+				return 'V4'
+			case ScriptTypeCEnum.V4Plus:
+				return 'V4Plus'
+			default:
+				throw new Error('Implementation error')
+		}
+	}
+
+	private get_script_type(): ScriptType {
+		const script_type_c =
+			this.#wasm.functions.get_script_type_from_script_info(
+				this.#script_info
+			)
+
+		return this.get_script_type_from_c(script_type_c)
+	}
+
+	private get_wrap_style_from_c(wrap_style: WrapStyleC): WrapStyle {
+		const wrap_style_js: WrapStyleCEnum = get_enum_value<
+			WrapStyleC,
+			WrapStyleCEnum
+		>(wrap_style)
+
+		switch (wrap_style_js) {
+			case WrapStyleCEnum.EOL:
+				return 'EOL'
+			case WrapStyleCEnum.NoWrap:
+				return 'NoWrap'
+			case WrapStyleCEnum.Smart:
+				return 'Smart'
+			case WrapStyleCEnum.SmartLow:
+				return 'SmartLow'
+			default:
+				throw new Error('Implementation error')
+		}
+	}
+
+	private get_wrap_style(): WrapStyle {
+		const wrap_style_c =
+			this.#wasm.functions.get_wrap_style_from_script_info(
+				this.#script_info
+			)
+
+		return this.get_wrap_style_from_c(wrap_style_c)
+	}
+
+	public override unref(): AssScriptInfo {
+		const script_type: ScriptType = this.get_script_type()
+
+		const wrap_style: WrapStyle = this.get_wrap_style()
+
+		const scaled_border_and_shadow: boolean =
+			this.get_scaled_border_and_shadow()
+
+		const video_aspect_ratio: number = this.get_video_aspect_ratio()
+		const video_zoom: number = this.get_video_zoom()
+
+		const play_res_y: number = this.get_play_res_y()
+		const play_res_x: number = this.get_play_res_x()
+
+		const {
+			title,
+			original_script,
+			original_translation,
+			original_editing,
+			original_timing,
+			synch_point,
+			script_updated_by,
+			update_details,
+			collisions,
+			play_depth,
+			timer,
+			ycbcr_matrix,
+		} = this.get_strings()
+
+		return {
+			title,
+			original_script,
+			original_translation,
+			original_editing,
+			original_timing,
+			synch_point,
+			script_updated_by,
+			update_details,
+			script_type,
+			collisions,
+			play_res_y,
+			play_res_x,
+			play_depth,
+			timer,
+			wrap_style,
+			scaled_border_and_shadow,
+			video_aspect_ratio,
+			video_zoom,
+			ycbcr_matrix,
+		}
 	}
 }
 

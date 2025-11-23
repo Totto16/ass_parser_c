@@ -208,3 +208,94 @@ ExtraSections* get_extra_sections_from_ass_result(AssResult* ass_result) {
 FileProps* get_file_props_from_ass_result(AssResult* ass_result) {
 	return &ass_result->file_props;
 }
+
+bool get_scaled_border_and_shadow_from_script_info(AssScriptInfo* script_info) {
+	return script_info->scaled_border_and_shadow;
+}
+
+ScriptType get_script_type_from_script_info(AssScriptInfo* script_info) {
+	return script_info->script_type;
+}
+
+WrapStyle get_wrap_style_from_script_info(AssScriptInfo* script_info) {
+	return script_info->wrap_style;
+}
+
+size_t get_video_aspect_ratio_from_script_info(AssScriptInfo* script_info) {
+	return script_info->video_aspect_ratio;
+}
+
+size_t get_video_zoom_from_script_info(AssScriptInfo* script_info) {
+	return script_info->video_zoom;
+}
+
+size_t get_play_res_x_from_script_info(AssScriptInfo* script_info) {
+	return script_info->play_res_x;
+}
+
+size_t get_play_res_y_from_script_info(AssScriptInfo* script_info) {
+	return script_info->play_res_y;
+}
+
+#define RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(a) \
+	do { \
+		if((a).start == NULL) { \
+			char* res = (char*)malloc(1); \
+			res[0] = '\0'; \
+			return res; \
+		} \
+		return get_normalized_string(a); \
+	} while(false)
+
+char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char* name) {
+
+	if(strcmp(name, "title") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->title);
+	}
+
+	if(strcmp(name, "original_script") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->original_script);
+	}
+
+	if(strcmp(name, "original_translation") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->original_translation);
+	}
+
+	if(strcmp(name, "original_editing") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->original_editing);
+	}
+
+	if(strcmp(name, "original_timing") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->original_timing);
+	}
+
+	if(strcmp(name, "synch_point") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->synch_point);
+	}
+
+	if(strcmp(name, "script_updated_by") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->script_updated_by);
+	}
+
+	if(strcmp(name, "update_details") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->update_details);
+	}
+
+	if(strcmp(name, "collisions") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->collisions);
+	}
+
+	if(strcmp(name, "play_depth") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->play_depth);
+	}
+
+	if(strcmp(name, "timer") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->timer);
+	}
+
+	if(strcmp(name, "ycbcr_matrix") == 0) {
+		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->ycbcr_matrix);
+	}
+
+	return NULL;
+}

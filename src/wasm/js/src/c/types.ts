@@ -72,7 +72,9 @@ type CTypeNested<
 	JSType extends ValidJSTypes,
 > = CTypeNestedImpl<Desc, RawType<NestedType>, JSType> & DefaultAnnotations
 
-interface NotASimpleType  { __error: 'not a simple c type' }
+interface NotASimpleType {
+	__error: 'not a simple c type'
+}
 
 export type OnlySimpleTypes<C extends CType> =
 	C extends CTypeNested<infer _A, infer _B, infer _C> ? NotASimpleType : C
@@ -482,10 +484,85 @@ type RemoveAnnotations<C> = C extends CType
 	? RawType<C> & DefaultAnnotations
 	: never
 
+type AnnotationIndexes = 0 | 1 | 2 | 3
+
+type RemoveAnnotationImpl<
+	CRaw,
+	I extends AnnotationIndexes,
+	A extends Annotations<
+		AnnotationBase<'malloced'>,
+		AnnotationBase<'cstr'>,
+		AnnotationBase<'free_fn'>,
+		AnnotationBase<'nullable'>
+	>,
+> =
+	A extends Annotations<infer AA, infer BA, infer CA, infer DA>
+		? I extends 0
+			? CRaw & Annotations<NoAnnot<'malloced'>, BA, CA, DA>
+			: I extends 1
+				? CRaw & Annotations<AA, NoAnnot<'cstr'>, CA, DA>
+				: I extends 2
+					? CRaw & Annotations<AA, BA, NoAnnot<'free_fn'>, DA>
+					: I extends 3
+						? CRaw & Annotations<AA, BA, CA, NoAnnot<'nullable'>>
+						: never
+		: never
+
+type RemoveAnnotation<C, I extends AnnotationIndexes> = C extends CType
+	? C extends Annotations<infer AA, infer BA, infer CA, infer DA>
+		? RemoveAnnotationImpl<RawType<C>, I, Annotations<AA, BA, CA, DA>>
+		: never
+	: never
+
+type _expected_remove_annot_0 = Expect<
+	Equal<
+		RemoveAnnotation<SizeT & DefaultAnnotations, 0>,
+		SizeT & DefaultAnnotations
+	>
+>
+
+type _expected_remove_annot_1 = Expect<
+	Equal<
+		RemoveAnnotation<
+			SizeT &
+				Annotations<
+					Malloced<'free'>,
+					NoAnnot<'cstr'>,
+					NoAnnot<'free_fn'>,
+					NoAnnot<'nullable'>
+				>,
+			0
+		>,
+		SizeT & DefaultAnnotations
+	>
+>
+
+type _expected_remove_annot_2 = Expect<
+	Equal<
+		RemoveAnnotation<
+			SizeT &
+				Annotations<
+					NoAnnot<'malloced'>,
+					IsCString,
+					NoAnnot<'free_fn'>,
+					NoAnnot<'nullable'>
+				>,
+			1
+		>,
+		SizeT & DefaultAnnotations
+	>
+>
+
 export function remove_annotations<A extends CType>(
 	a: A
 ): RemoveAnnotations<A> {
 	return a as unknown as RemoveAnnotations<A>
+}
+
+export function remove_annotation<A extends CType, I extends AnnotationIndexes>(
+	a: A
+): RemoveAnnotation<A, I> {
+	return a as unknown as RemoveAnnotation<A, I>
 }
 
 type GetFreeFns<T> = {
@@ -534,11 +611,11 @@ export class MallocedAnnotationWrapper<
 
 	private is_free = false
 
-	public get value(): RemoveAnnotations<C> {
-		return remove_annotations(this.val)
+	public get value(): RemoveAnnotation<C, 0> {
+		return remove_annotation<C, 0>(this.val)
 	}
 
-	public set value(val: RemoveAnnotations<C>) {
+	public set value(val: RemoveAnnotation<C, 0>) {
 		this.val = val as unknown as C
 	}
 
