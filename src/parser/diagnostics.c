@@ -30,7 +30,7 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 void free_diagnostics(Diagnostics diagnostics) {
 
 	for(size_t i = 0; i < ZVEC_LENGTH(diagnostics.entries); ++i) {
-		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, &diagnostics.entries, i);
+		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, diagnostics.entries, i);
 
 		free_diagnostic_entry(entry);
 	}

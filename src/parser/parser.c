@@ -389,7 +389,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 
 		MessageStruct error = EMPTY_MESSAGE_STRUCT();
 
-		AssStyleFormat format = ZVEC_AT(AssStyleFormat, &format_spec, i);
+		AssStyleFormat format = ZVEC_AT(AssStyleFormat, format_spec, i);
 
 		switch(format) {
 			case AssStyleFormatName: {
@@ -769,7 +769,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 			// check for duplicate fields
 			bool found_field = false;
 			for(size_t i = 0; i < ZVEC_LENGTH(field_names); ++i) {
-				FinalStr field_str = ZVEC_AT(FinalStr, &field_names, i);
+				FinalStr field_str = ZVEC_AT(FinalStr, field_names, i);
 
 				if(str_view_eq_str_view(field_str, field)) {
 					found_field = true;
@@ -1021,7 +1021,7 @@ typedef struct {
 	     ? ((entry).name_raw.file_pos) \
 	     : ((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) \
 	            ? (EMPTY_POS()) \
-	            : ((ZVEC_AT(FinalStr, &((entry).data_raw.entries), 0)).file_pos)))
+	            : ((ZVEC_AT(FinalStr, ((entry).data_raw.entries), 0)).file_pos)))
 
 [[nodiscard]] static MessageStruct parse_font_name_attributes(FinalStr attributes,
                                                               AssFontName* name_result,
@@ -1158,7 +1158,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 	ZVEC_TYPENAME(char) final_data = ZVEC_EMPTY(char);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(data_raw.entries); ++i) {
-		FinalStr entry = ZVEC_AT(FinalStr, &(data_raw.entries), i);
+		FinalStr entry = ZVEC_AT(FinalStr, (data_raw.entries), i);
 
 		char* entry_normalized = get_normalized_string(entry);
 
@@ -1791,7 +1791,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 			return ErrorTypeFatal;
 		}
 
-		AssEventFormat format = ZVEC_AT(AssEventFormat, &format_spec, i);
+		AssEventFormat format = ZVEC_AT(AssEventFormat, format_spec, i);
 
 		// special handling fot the text field, as it may contain
 		// ","
@@ -2288,7 +2288,7 @@ static void free_extra_sections(ExtraSections sections) {
 
 static void free_fonts(AssFonts fonts) {
 	for(size_t i = 0; i < ZVEC_LENGTH(fonts.entries); ++i) {
-		AssFontEntry entry = ZVEC_AT(AssFontEntry, &(fonts.entries), i);
+		AssFontEntry entry = ZVEC_AT(AssFontEntry, (fonts.entries), i);
 		free_sized_ptr(entry.data);
 	}
 	ZVEC_FREE(AssFontEntry, &(fonts.entries));
@@ -2296,7 +2296,7 @@ static void free_fonts(AssFonts fonts) {
 
 static void free_graphics(AssGraphics graphics) {
 	for(size_t i = 0; i < ZVEC_LENGTH(graphics.entries); ++i) {
-		AssGraphicEntry entry = ZVEC_AT(AssGraphicEntry, &(graphics.entries), i);
+		AssGraphicEntry entry = ZVEC_AT(AssGraphicEntry, (graphics.entries), i);
 		free_sized_ptr(entry.data);
 	}
 	ZVEC_FREE(AssGraphicEntry, &(graphics.entries));
@@ -2530,7 +2530,7 @@ static void free_ass_result(AssResult data) {
 	// so we can collect errors until now, and only now report a
 	// fatal error
 	for(size_t i = 0; i < ZVEC_LENGTH(result->diagnostics.entries); ++i) {
-		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, &(result->diagnostics.entries), i);
+		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, (result->diagnostics.entries), i);
 
 		if(entry.severity == DiagnosticSeverityError) {
 			RETURN_ERROR_NO_MESSAGE();

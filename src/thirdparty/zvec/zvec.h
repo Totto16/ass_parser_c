@@ -37,7 +37,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(T) zvec_init_capacity_##T(size_t
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##T(ZVEC_TYPENAME(T) *v, size_t new_cap);                 \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##T(ZVEC_TYPENAME(T) *v);                                \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##T(ZVEC_TYPENAME(T) v);                                \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_push_##T(ZVEC_TYPENAME(T) *v, T value);                           \
                                                                                             \
@@ -49,9 +49,11 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T zvec_pop_get_##T(ZVEC_TYPENAME(T) *v);      
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_shrink_to_fit_##T(ZVEC_TYPENAME(T) *v);                          \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]]T zvec_at_##T(const ZVEC_TYPENAME(T) *v, size_t index);                          \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]]T zvec_at_##T(ZVEC_TYPENAME(T) v, size_t index);                          \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_ptr_at_##T(ZVEC_TYPENAME(T) *v, size_t index);                 \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_at_mut_##T( ZVEC_TYPENAME(T) *v, size_t index);                 \
+                                                                                            \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##T(const ZVEC_TYPENAME(T) *v, size_t index);                 \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_data_##T(ZVEC_TYPENAME(T) *v);                                     \
                                                                                             \
@@ -82,7 +84,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##T(ZVEC_TYPENAME(T) *v, const
 #define ZVEC_RESERVE_ENTRY(T)    ZVEC_TYPENAME(T)*: zvec_reserve_##T,
 #define ZVEC_IS_EMPTY_ENTRY(T)   ZVEC_TYPENAME(T)*: zvec_is_empty_##T,
 #define ZVEC_AT_ENTRY(T)         ZVEC_TYPENAME(T)*: zvec_at_##T,
-#define ZVEC_GET_PTR_AT_ENTRY(T) ZVEC_TYPENAME(T)*: zvec_get_ptr_at_##T,
+#define ZVEC_GET_AT_ENTRY(T)     ZVEC_TYPENAME(T)*: zvec_get_at_##T,
+#define ZVEC_GET_AT_MUT_ENTRY(T) ZVEC_TYPENAME(T)*: zvec_get_at_mut_##T,
 #define ZVEC_DATA_ENTRY(T)       ZVEC_TYPENAME(T)*: zvec_data_##T,
 #define ZVEC_LAST_ENTRY(T)       ZVEC_TYPENAME(T)*: zvec_last_##T,
 #define ZVEC_FREE_ENTRY(T)       ZVEC_TYPENAME(T)*: zvec_free_##T,
@@ -101,7 +104,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##T(ZVEC_TYPENAME(T) *v, const
 #define ZVEC_RESERVE(T, v, cap)        zvec_reserve_##T(v, cap)
 #define ZVEC_IS_EMPTY(T, v)            zvec_is_empty_##T(v)
 #define ZVEC_AT(T, v, idx)             zvec_at_##T(v, idx)
-#define ZVEC_GET_PTR_AT(T, v, idx)     zvec_get_ptr_at_##T(v, idx)
+#define ZVEC_GET_AT(T, v, idx)         zvec_get_at_##T(v, idx)
+#define ZVEC_GET_AT_MUT(T, v, idx)     zvec_get_at_mut_##T(v, idx)
 #define ZVEC_DATA(T, v)                zvec_data_##T(v)
 #define ZVEC_LAST(T, v)                zvec_last_##T(v)
 #define ZVEC_FREE(T, v)                zvec_free_##T(v)
@@ -120,7 +124,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##T(ZVEC_TYPENAME(T) *v, const
 #define zvec_reserve(v, cap)       _Generic((v), REGISTER_TYPES(ZVEC_RESERVE_ENTRY)   default: 0)      (v, cap)
 #define zvec_is_empty(v)           _Generic((v), REGISTER_TYPES(ZVEC_IS_EMPTY_ENTRY)  default: 0)      (v)
 #define zvec_at(v, idx)            _Generic((v), REGISTER_TYPES(ZVEC_AT_ENTRY)        default: (void)0)(v, idx)
-#define zvec_get_ptr_at(v, idx)    _Generic((v), REGISTER_TYPES(ZVEC_GET_PTR_AT_ENTRY)default: (void)0)(v, idx)
+#define zvec_get_at(v, idx)        _Generic((v), REGISTER_TYPES(ZVEC_GET_AT_ENTRY)    default: (void)0)(v, idx)
+#define zvec_get_at_mut(v, idx)    _Generic((v), REGISTER_TYPES(ZVEC_GET_AT_MUT_ENTRY)default: (void)0)(v, idx)
 #define zvec_data(v)               _Generic((v), REGISTER_TYPES(ZVEC_DATA_ENTRY)      default: (void)0)(v)
 #define zvec_last(v)               _Generic((v), REGISTER_TYPES(ZVEC_LAST_ENTRY)      default: (void)0)(v)
 #define zvec_free(v)               _Generic((v), REGISTER_TYPES(ZVEC_FREE_ENTRY)      default: (void)0)(v)
@@ -165,8 +170,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##T(ZVEC_TYPENAME(T) *
     return ZvecResultOk;                                                                          \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##T(ZVEC_TYPENAME(T) *v) {                               \
-    return v->length == 0;                                                                  \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##T(ZVEC_TYPENAME(T) v) {                               \
+    return v.length == 0;                                                                  \
 }                                                                                           \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_push_##T(ZVEC_TYPENAME(T) *v, T value) {                          \
@@ -211,14 +216,18 @@ ZVEC_FUN_ATTRIBUTES void zvec_shrink_to_fit_##T(ZVEC_TYPENAME(T) *v) {          
     v->capacity = v->length;                                                                \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T zvec_at_##T(const ZVEC_TYPENAME(T) *v, size_t index) {                         \
-    assert(index < v->length && "Vector index out of bounds!");                             \
-    return v->data[index];                                                                  \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T zvec_at_##T(ZVEC_TYPENAME(T) v, size_t index) {                         \
+    assert(index < v.length && "Vector index out of bounds!");                             \
+    return v.data[index];                                                                  \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_ptr_at_##T(ZVEC_TYPENAME(T) *v, size_t index) {                \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_at_mut_##T( ZVEC_TYPENAME(T) *v, size_t index){ \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
-}                                                                                           \
+}                                                                                            \
+                                                                                            \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##T(const ZVEC_TYPENAME(T) *v, size_t index){ \
+    return (index < v->length) ? &v->data[index] : NULL;                                    \
+}                                                                                            \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_data_##T(ZVEC_TYPENAME(T) *v) {                                    \
     return v->data;                                                                         \

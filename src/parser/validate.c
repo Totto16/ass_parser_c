@@ -203,7 +203,7 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 	} while(false)
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_fonts.entries); ++i) {
-		AssFontEntry entry = ZVEC_AT(AssFontEntry, &(ass_fonts.entries), i);
+		AssFontEntry entry = ZVEC_AT(AssFontEntry, (ass_fonts.entries), i);
 
 		char* received_name = get_normalized_string(entry.name.name);
 
@@ -332,7 +332,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 	for(size_t i = 0; i < ZVEC_LENGTH(embedded_result); ++i) {
 		FontHandle handle = {
 			.type = FontHandleTypeEmbedded,
-			.data = { .embedded = { .font_name = ZVEC_AT(AssFontName, &embedded_result, i) } }
+			.data = { .embedded = { .font_name = ZVEC_AT(AssFontName, embedded_result, i) } }
 		};
 
 		assert(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk);
@@ -570,7 +570,7 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
                                                    bool strict_errors) {
 	for(size_t i = 0; i < ZVEC_LENGTH(fonts_result.handles); ++i) {
 
-		FontHandle handle = ZVEC_AT(FontHandle, &(fonts_result.handles), i);
+		FontHandle handle = ZVEC_AT(FontHandle, (fonts_result.handles), i);
 
 		FontSearchResult res = { .type = FontSearchResultTypeNotFound };
 
@@ -780,7 +780,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	StyleToFontHM hm_style_to_font = STBDS_HASH_MAP_EMPTY;
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, &(ass_result.styles.entries), i);
+		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* style_name = get_normalized_string(entry.name);
 
@@ -836,7 +836,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	UsedFontsHM used_fonts = STBDS_HASH_MAP_EMPTY;
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.events.entries); ++i) {
-		AssEventEntry entry = ZVEC_AT(AssEventEntry, &(ass_result.events.entries), i);
+		AssEventEntry entry = ZVEC_AT(AssEventEntry, (ass_result.events.entries), i);
 
 		if(entry.type != EventTypeComment && entry.type != EventTypeDialogue) {
 			continue;
@@ -959,7 +959,7 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 	}
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, &(ass_result.styles.entries), i);
+		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* font_name = get_normalized_string(entry.fontname);
 
@@ -1037,7 +1037,7 @@ static void validate_styles(AssResult ass_result, bool allow_validation_errors,
                             Diagnostics* diagnostics) {
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, &(ass_result.styles.entries), i);
+		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		// TODO: validate windows encoding
 		// validate_style_encoding(entry, diagnostics);
