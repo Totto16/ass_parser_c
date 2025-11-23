@@ -213,7 +213,7 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 		}
 
 		if(matches_font(font_name, received_name, settings.font_match_res)) {
-			assert(ZVEC_PUSH(AssFontName, names, entry.name) == ZvecResultOk);
+			ASSERT(ZVEC_PUSH(AssFontName, names, entry.name) == ZvecResultOk, "OOM");
 		}
 
 		free(received_name);
@@ -324,7 +324,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 		FontHandle handle = { .type = FontHandleTypeFontConfig,
 			                  .data = { .font_config = { .index_in_list = i } } };
 
-		assert(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk);
+		ASSERT(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk, "OOM");
 	}
 
 #endif
@@ -335,7 +335,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 			.data = { .embedded = { .font_name = ZVEC_AT(AssFontName, embedded_result, i) } }
 		};
 
-		assert(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk);
+		ASSERT(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk, "OOM");
 	}
 
 	FontResultOk ok_result = { .handles = handles,

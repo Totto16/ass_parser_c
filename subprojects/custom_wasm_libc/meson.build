@@ -39,6 +39,7 @@ wasm_inc_dirs = []
 wasm_inc_dirs += include_directories('.')
 
 subdir('thirdparty')
+subdir('stdlib')
 
 wasm_libc_version = meson.project_version()
 

@@ -124,12 +124,12 @@ size_t diagnostics_get_length(Diagnostics* diagnostics) {
 	return ZVEC_LENGTH(diagnostics->entries);
 }
 
-DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index) {
+const DiagnosticEntry* diagnostics_get_at(const Diagnostics* const diagnostics, size_t index) {
 	if(index >= ZVEC_LENGTH(diagnostics->entries)) {
 		return NULL;
 	}
 
-	return &(diagnostics->entries[index]);
+	return ZVEC_GET_AT(DiagnosticEntry, &(diagnostics->entries), index);
 }
 
 MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry) {
@@ -169,24 +169,24 @@ size_t events_get_length(AssEvents* events) {
 	return ZVEC_LENGTH(events->entries);
 }
 
-AssEventEntry* events_get_at(AssEvents* events, size_t index) {
+const AssEventEntry* events_get_at(const AssEvents* const events, size_t index) {
 	if(index >= ZVEC_LENGTH(events->entries)) {
 		return NULL;
 	}
 
-	return &(events->entries[index]);
+	return ZVEC_GET_AT(AssEventEntry, &(events->entries), index);
 }
 
 size_t styles_get_length(AssStyles* styles) {
 	return ZVEC_LENGTH(styles->entries);
 }
 
-AssStyleEntry* styles_get_at(AssStyles* styles, size_t index) {
+const AssStyleEntry* styles_get_at(const AssStyles* const styles, size_t index) {
 	if(index >= ZVEC_LENGTH(styles->entries)) {
 		return NULL;
 	}
 
-	return &(styles->entries[index]);
+	return ZVEC_GET_AT(AssStyleEntry, &(styles->entries), index);
 }
 
 AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result) {

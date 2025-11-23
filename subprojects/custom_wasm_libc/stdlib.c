@@ -20,3 +20,38 @@ void* realloc(void* ptr, size_t size) {
 __attribute__((constructor)) void stdlib_constructor(void) {
 	my_allocator_init();
 }
+
+#include "./assert.h"
+
+// from musl: https://github.com/esmil/musl/blob/master/src/malloc/calloc.c
+void* calloc(size_t nmemb, size_t size) {
+	void* p;
+	size_t* z;
+
+	if(size && nmemb > (size_t)-1 / size) {
+		// NOTE: errno is not supported!
+		// errno = ENOMEM;
+		PANIC("ENOMEM in calloc");
+		return NULL;
+	}
+
+	size *= nmemb;
+
+	p = malloc(size);
+
+	if(!p) {
+		return NULL;
+	}
+
+	/* Only do this for non-mmapped chunks */
+	if(((size_t*)p)[-1] & 7) {
+		/* Only write words that are not already zero */
+		nmemb = (size + sizeof *z - 1) / sizeof *z;
+		for(z = p; nmemb; nmemb--, z++) {
+			if(*z) {
+				*z = 0;
+			}
+		}
+	}
+	return p;
+}

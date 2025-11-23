@@ -55,7 +55,8 @@ PUBLIC("diagnostics_get_length")
 CATEGORY_LITERAL size_t diagnostics_get_length(Diagnostics* diagnostics);
 
 PUBLIC("diagnostics_get_at")
-ANNOTATION_NULLABLE DiagnosticEntry* diagnostics_get_at(Diagnostics* diagnostics, size_t index);
+ANNOTATION_NULLABLE const DiagnosticEntry* diagnostics_get_at(const Diagnostics* diagnostics,
+                                                              size_t index);
 
 PUBLIC("get_message_from_entry")
 ANNOTATION_MALLOCED_RESULT("free_message_struct")
@@ -78,12 +79,12 @@ PUBLIC("file_pos_get_column") CATEGORY_LITERAL size_t file_pos_get_column(FilePo
 PUBLIC("events_get_length") CATEGORY_LITERAL size_t events_get_length(AssEvents* events);
 
 PUBLIC("events_get_at")
-ANNOTATION_NULLABLE AssEventEntry* events_get_at(AssEvents* events, size_t index);
+ANNOTATION_NULLABLE const AssEventEntry* events_get_at(const AssEvents* events, size_t index);
 
 PUBLIC("styles_get_length") CATEGORY_LITERAL size_t styles_get_length(AssStyles* styles);
 
 PUBLIC("styles_get_at")
-ANNOTATION_NULLABLE AssStyleEntry* styles_get_at(AssStyles* styles, size_t index);
+ANNOTATION_NULLABLE const AssStyleEntry* styles_get_at(const AssStyles* styles, size_t index);
 
 PUBLIC("get_script_info_from_ass_result")
 CATEGORY_POINTER AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result);

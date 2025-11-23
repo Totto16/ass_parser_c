@@ -69,7 +69,7 @@ typedef struct {
 			                                                  .data = { .simple = (message) } }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
-		assert(ZVEC_PUSH(DiagnosticEntry, &entries, diagnostic) == ZvecResultOk); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
+		ASSERT(ZVEC_PUSH(DiagnosticEntry, &entries, diagnostic) == ZvecResultOk, "OOM"); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
 	} while(false)
 
 #define INSERT_SIMPLE_WARNING(entries, message, pos) \

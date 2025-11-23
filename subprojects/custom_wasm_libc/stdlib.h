@@ -13,3 +13,10 @@ __attribute__((annotate("is_free_fn"))) void
 free(void* ptr);
 __attribute__((export_name("realloc"))) __attribute__((annotate("category:POINTER"))) void*
 realloc(void* ptr, size_t size);
+
+__attribute__((export_name("calloc"))) __attribute__((annotate("category:POINTER"))) void*
+calloc(size_t nmemb, size_t size);
+
+
+__attribute__((export_name("bsearch"))) __attribute__((annotate("category:POINTER")))  void *bsearch (const void *, const void *, size_t, size_t, int (*)(const void *, const void *));
+__attribute__((export_name("qsort")))  __attribute__((annotate("category:VOID"))) void qsort (void *, size_t, size_t, int (*)(const void *, const void *));

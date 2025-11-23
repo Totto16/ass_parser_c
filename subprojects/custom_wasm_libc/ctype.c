@@ -10,6 +10,9 @@ static int isupper(int c) {
 // from musl: https://github.com/esmil/musl/blob/master/src/ctype/tolower.c
 
 int tolower(int c) {
-	if(isupper(c)) return c | 32;
+	if(isupper(c)) {
+		return c | 32;
+	}
+
 	return c;
 }
