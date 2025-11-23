@@ -49,7 +49,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 		for(size_t j = 0; j < MIN_MACRO(4U, input_size - i + 1); ++j) {
 			char val = (char)(result[j] + VALUE_OFFSET);
-			ZVEC_PUSH(char, &final_chars, val);
+			assert(ZVEC_PUSH(char, &final_chars, val) == ZvecResultOk);
 		}
 	}
 
@@ -106,7 +106,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 
 		for(size_t j = 0; j < MIN_MACRO(3U, input_size - i - 1); ++j) {
 			Byte val = result[j];
-			ZVEC_PUSH(Byte, &final_bytes, val);
+			assert(ZVEC_PUSH(Byte, &final_bytes, val) == ZvecResultOk);
 		}
 	}
 

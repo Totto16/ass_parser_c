@@ -324,7 +324,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 			format = AssStyleFormatUnknownField;
 		}
 
-		ZVEC_PUSH(AssStyleFormat, format_result, format);
+		assert(ZVEC_PUSH(AssStyleFormat, format_result, format) == ZvecResultOk);
 	}
 
 	return ErrorTypeNone;
@@ -555,7 +555,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 		return ErrorTypeFatal;
 	}
 
-	ZVEC_PUSH(AssStyleEntry, &(styles_result->entries), entry);
+	assert(ZVEC_PUSH(AssStyleEntry, &(styles_result->entries), entry) == ZvecResultOk);
 
 	return ErrorTypeNone;
 }
@@ -667,7 +667,8 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				assert(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
+				       ZvecResultOk);
 
 				/*** @see keep-going */
 				continue;
@@ -789,7 +790,8 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 						.position = field.file_pos
 					};
 
-					ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+					assert(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
+					       ZvecResultOk);
 
 					/*** @see keep-going */
 					break;
@@ -799,7 +801,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 			if(!found_field) {
 				// note: as this is not intended, we can choose if the last or the first value is
 				// the final value
-				ZVEC_PUSH(FinalStr, &field_names, field);
+				assert(ZVEC_PUSH(FinalStr, &field_names, field) == ZvecResultOk);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
@@ -874,7 +876,8 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				assert(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
+				       ZvecResultOk);
 
 				/*** @see keep-going */
 				continue;
@@ -1168,10 +1171,11 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 		size_t current_arr_size = ZVEC_LENGTH(final_data);
 
-		ZVEC_RESERVE(char, &final_data, current_arr_size + normalized_length);
+		assert(ZVEC_RESERVE(char, &final_data, current_arr_size + normalized_length) ==
+		       ZvecResultOk);
 
 		for(size_t j = 0; j < normalized_length; ++j) {
-			ZVEC_PUSH(char, &final_data, entry_normalized[j]);
+			assert(ZVEC_PUSH(char, &final_data, entry_normalized[j]) == ZvecResultOk);
 		}
 
 		free(entry_normalized);
@@ -1265,7 +1269,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 		if(!is_empty_message_struct(font_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
 		} else { \
-			ZVEC_PUSH(AssFontEntry, &(fonts.entries), result_font); \
+			assert(ZVEC_PUSH(AssFontEntry, &(fonts.entries), result_font) == ZvecResultOk); \
 		} \
 	} while(false)
 
@@ -1373,7 +1377,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 				// add to the raw data!
 
-				ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line);
+				assert(ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line) == ZvecResultOk);
 			}
 		}
 
@@ -1437,7 +1441,8 @@ got_new_section_font:
 		if(!is_empty_message_struct(graphic_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, graphic_process_result, (pos)); \
 		} else { \
-			ZVEC_PUSH(AssGraphicEntry, &(graphics.entries), result_graphic); \
+			assert(ZVEC_PUSH(AssGraphicEntry, &(graphics.entries), result_graphic) == \
+			       ZvecResultOk); \
 		} \
 	} while(false)
 
@@ -1545,7 +1550,7 @@ got_new_section_font:
 
 				// add to the raw data!
 
-				ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line);
+				assert(ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line) == ZvecResultOk);
 			}
 		}
 
@@ -1735,7 +1740,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 			format = AssEventFormatUnknownField;
 		}
 
-		ZVEC_PUSH(AssEventFormat, format_result, format);
+		assert(ZVEC_PUSH(AssEventFormat, format_result, format) == ZvecResultOk);
 	}
 
 	return ErrorTypeNone;
@@ -1977,7 +1982,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 		return ErrorTypeFatal;
 	}
 
-	ZVEC_PUSH(AssEventEntry, &(events_result->entries), entry);
+	assert(ZVEC_PUSH(AssEventEntry, &(events_result->entries), entry) == ZvecResultOk);
 
 	return ErrorTypeNone;
 }
@@ -2196,7 +2201,8 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				assert(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
+				       ZvecResultOk);
 
 				/*** @see keep-going */
 				continue;
