@@ -59,6 +59,10 @@ import {
 	type MallocedAnnotationWrapper,
 	type IsNullable,
 	type NullChecked,
+	type GetWrapper,
+	type NoWrapper,
+	type WrapperWith,
+	type NullWrapper,
 } from './c/types'
 import type { GeneratedExportedFunctions } from './generated/wasm_exports'
 
@@ -370,11 +374,12 @@ type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
 			]
 		: never
 
-interface ExportEntryImpl<Key, Args, Ret, AN> {
+interface ExportEntryImpl<Key, Args, Ret, AN, Wrapper> {
 	readonly key: Key
 	readonly args: Args
 	readonly ret: Ret
 	readonly annotation: AN
+	readonly wrapper: Wrapper
 }
 
 type GetExportFnsInUniformFormatManual<T> = {
@@ -389,7 +394,8 @@ type GetExportFnsInUniformFormatManual<T> = {
 							? GetJSTypeFromCTypeEnumSpecialCase<Ret>
 							: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 								void,
-						GetAnnotations<Ret>
+						GetAnnotations<Ret>,
+						GetWrapper<Ret>
 					>
 				: [K, 'error', 'ret non ctype']
 			: [K, 'error', 'args not all ctypes']
@@ -417,7 +423,8 @@ type GetExportFnsInUniformFormatGenerated<T> = {
 							? GetJSTypeFromCTypeEnumSpecialCase<Ret>
 							: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 								void,
-						GetAnnotations<Ret>
+						GetAnnotations<Ret>,
+						GetWrapper<Ret>
 					>
 				: [K, 'error', 'ret non generated ctype']
 			: [K, 'error', 'args not all generated ctypes']
@@ -432,10 +439,11 @@ type _GeneratedExportFns =
 interface FindSuccess {
 	success: true
 }
-interface FindSuccessVal<Args, Ret, AN> {
+interface FindSuccessVal<Args, Ret, AN, Wrapper> {
 	readonly args: Args
 	readonly ret: Ret
 	readonly annotation: AN
+	readonly wrapper: Wrapper
 }
 
 type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
@@ -445,10 +453,11 @@ type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
 				infer Type2,
 				infer Args,
 				infer Ret,
-				infer ANOT
+				infer ANOT,
+				infer Wrapper
 			>
 			? Equal<Type, Type2> extends true
-				? FindSuccessVal<Args, Ret, ANOT>
+				? FindSuccessVal<Args, Ret, ANOT, Wrapper>
 				: FindByType<Rest, Type>
 			: [
 					never,
@@ -459,12 +468,15 @@ type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
 		: [never, 'error', 'error 1']
 
 type _TestFindFn1 = [
-	ExportEntryImpl<'test1', 0, 0, []>,
-	ExportEntryImpl<'test3', 2, 2, []>,
+	ExportEntryImpl<'test1', 0, 0, [], { e: '' }>,
+	ExportEntryImpl<'test3', 2, 2, [], { e: '' }>,
 ]
 
 type _Expected_test_fn_1_0 = Expect<
-	Equal<FindByType<_TestFindFn1, 'test1'>, FindSuccessVal<0, 0, []>>
+	Equal<
+		FindByType<_TestFindFn1, 'test1'>,
+		FindSuccessVal<0, 0, [], { e: '' }>
+	>
 >
 
 type _Expected_test_fn_1_1 = Expect<
@@ -475,22 +487,140 @@ type _Expected_test_fn_1_1 = Expect<
 >
 
 type _Expected_test_fn_1_2 = Expect<
-	Equal<FindByType<_TestFindFn1, 'test3'>, FindSuccessVal<2, 2, []>>
+	Equal<
+		FindByType<_TestFindFn1, 'test3'>,
+		FindSuccessVal<2, 2, [], { e: '' }>
+	>
 >
+
+type AreSameJsType<C1 extends CType, C2 extends CType> =
+	Equal<GetJSTypeFromCType<C1>, GetJSTypeFromCType<C2>> extends true
+		? true
+		: [
+				never,
+				'error in js type',
+				GetJSTypeFromCType<C1>,
+				GetJSTypeFromCType<C2>,
+			]
+
+// ptr<void> to ptr<i32> is the same for the size, but even if ptr<ptr<void>> == ptr<void> in size, we don't allow this, only allow the same nesting
+type AreBothPointerRec<C1 extends CType, C2 extends CType> =
+	AreBothPointer<C1, C2> extends true ? true : true
+
+type AreBothPointer<C1 extends CType, C2 extends CType> =
+	C1 extends Ptr<infer A1>
+		? C2 extends Ptr<infer A2>
+			? AreBothPointerRec<A1, A2>
+			: [never, 'error 1']
+		: [never, 'error 2']
+
+interface EnumType<A, B> {
+	readonly name: A
+	readonly underlying_type: B
+}
+
+type AreSameEnumType<A, B> =
+	A extends EnumType<infer Name1, infer UType1>
+		? B extends EnumType<infer Name2, infer UType2>
+			? Equal<Name1, Name2> extends true
+				? Equal<UType1, UType2> extends true
+					? true
+					: [never, 'error 1']
+				: [never, 'error 2']
+			: [never, 'error 3']
+		: [never, 'error 4']
+
+type AreBothEnums<C1 extends CType, C2 extends CType> =
+	C1 extends CEnum<infer _1, infer Name1, infer UType1>
+		? C2 extends CEnum<infer _2, infer Name2, infer UType2>
+			? AreSameEnumType<EnumType<Name1, UType1>, EnumType<Name2, UType2>>
+			: [never, 'error 1']
+		: [never, 'error 2']
+
+type IsEqualWrapperType<C1, C2> = C1 extends CType
+	? C2 extends CType
+		? AreBothPointer<C1, C2> extends true
+			? true
+			: AreBothEnums<C1, C2> extends true
+				? true
+				: Equal<C1, C2> extends true
+					? true
+					: [never, 'first argument is not equal to second argument']
+		: [never, 'second type is nota ctype', C2]
+	: [never, 'first type is nota ctype', C1]
+
+type WrapEqual<W1, W2> =
+	W1 extends NoWrapper<infer NoArg1>
+		? W2 extends NoWrapper<infer NoArg2>
+			? AreSameJsType<NoArg1, NoArg2> extends true
+				? true
+				: [
+						never,
+						'not same js type',
+						AreSameJsType<NoArg1, NoArg2>,
+						NoArg1,
+						NoArg2,
+					]
+			: W2 extends WrapperWith<infer Desc, infer Type>
+				? Desc extends 'ptr'
+					? AreBothPointer<NoArg1, Type>
+					: Desc extends 'enum'
+						? AreBothEnums<NoArg1, Type>
+						: [never, 'invalid Desc', Desc]
+				: [
+						never,
+						'second argument is nota a wrapper and not not a wrapper ?!?!?, impl error',
+					]
+		: W1 extends WrapperWith<infer Desc1, infer Type1>
+			? W2 extends WrapperWith<infer Desc2, infer Type2>
+				? Equal<Desc1, Desc2> extends true
+					? IsEqualWrapperType<Type1, Type2>
+					: [never, 'Desc do not match', Desc1, Desc2]
+				: [
+						never,
+						'first argument is a wrapper, but second is not one',
+						W1,
+						W2,
+					]
+			: W1 extends NullWrapper
+				? W2 extends NullWrapper
+					? true
+					: [
+							never,
+							'first argument is null wrapper, but second is not one',
+							W1,
+							W2,
+						]
+				: [never, 'complete mismatch', W1, W2]
 
 type FindMatchingFns<MyFn, ExportedFns extends unknown[]> =
 	MyFn extends ExportEntryImpl<
 		infer Type1,
 		infer Args1,
 		infer Ret1,
-		infer AN1
+		infer AN1,
+		infer Wrap1
 	>
 		? FindByType<ExportedFns, Type1> extends infer TypeRes
-			? TypeRes extends FindSuccessVal<infer Args2, infer Ret2, infer AN2>
+			? TypeRes extends FindSuccessVal<
+					infer Args2,
+					infer Ret2,
+					infer AN2,
+					infer Wrap2
+				>
 				? Equal<Args1, Args2> extends true
 					? Equal<Ret1, Ret2> extends true
 						? Equal<AN1, AN2> extends true
-							? FindSuccess
+							? WrapEqual<Wrap1, Wrap2> extends true
+								? FindSuccess
+								: [
+										'error',
+										'wrapper mismatch',
+										Type1,
+										Wrap1,
+										Wrap2,
+										WrapEqual<Wrap1, Wrap2>,
+									]
 							: ['error', 'annotation mismatch', Type1, AN1, AN2]
 						: ['error', 'ret mismatch', Type1, Ret1, Ret2]
 					: ['error', 'args mismatch', Type1, Args1, Args2]
@@ -1823,6 +1953,8 @@ export class AssResultRef extends Unref<AssResult> {
 	#ass_result: Ptr<AssResultC>
 
 	constructor(wasm: WASMWrapper, ass_result: Ptr<AssResultC>) {
+		super()
+
 		this.#wasm = wasm
 		this.#ass_result = ass_result
 	}

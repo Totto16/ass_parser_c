@@ -947,7 +947,7 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	const generatedStructName = 'CTypeSimple'
 
 	if (Object.entries(neededTypes).length > 0) {
-		const dataToAdd = `import type { Annotated, Annotations, CEnum, CType, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot, Ptr, UInt8T } from '../c/types'
+		const dataToAdd = `import type { Annotated, Annotations, CategoryWrapper, CEnum, CType, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot, Ptr, UInt8T } from '../c/types'
 
 `
 
@@ -961,11 +961,6 @@ function generateTypes(exports: FunctionExport[]): string[] {
 	}
 
 	result.push(`
-
-export type CategoryWrapper<T extends CType, Desc extends string> = {
-	readonly __wrapper: '__generated_from_category'
-	readonly __wrapper_type: Desc
-} & T
 
 export type PtrWrapper<T extends CType> = CategoryWrapper<Ptr<T>, 'ptr'>
 type JSEnumWrapper = number 

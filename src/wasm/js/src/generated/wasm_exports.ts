@@ -1,14 +1,9 @@
-import type { Annotated, Annotations, CEnum, CType, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot, Ptr, UInt8T } from '../c/types'
+import type { Annotated, Annotations, CategoryWrapper, CEnum, CType, CTypeSimple, IsCString, IsFreeFn, IsNullable, Malloced, NoAnnot, Ptr, UInt8T } from '../c/types'
 
 
 export type I32 = CTypeSimple<"int32_t", number>
 export type I64 = CTypeSimple<"int64_t", bigint>
 
-
-export type CategoryWrapper<T extends CType, Desc extends string> = {
-	readonly __wrapper: '__generated_from_category'
-	readonly __wrapper_type: Desc
-} & T
 
 export type PtrWrapper<T extends CType> = CategoryWrapper<Ptr<T>, 'ptr'>
 type JSEnumWrapper = number 
@@ -20,7 +15,11 @@ export type EnumWrapper<
 
 
 export interface GeneratedExportedFunctions {
+	calloc: (p_0: I32, p_1: I32) => PtrWrapper<I32>
+	realloc: (p_0: I32, p_1: I32) => PtrWrapper<I32>
 	free: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn, NoAnnot<"nullable">>>
+	qsort: (p_0: I32, p_1: I32, p_2: I32, p_3: I32) => void
+	bsearch: (p_0: I32, p_1: I32, p_2: I32, p_3: I32, p_4: I32) => PtrWrapper<I32>
 	get_message: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
 	malloc: (p_0: I32) => PtrWrapper<I32>
 	is_empty_pos: (p_0: I32) => I32
@@ -35,7 +34,6 @@ export interface GeneratedExportedFunctions {
 	free_parse_result: (p_0: I32) => Annotated<void, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, IsFreeFn, NoAnnot<"nullable">>>
 	validate_fonts_of_result: (p_0: I32, p_1: I32, p_2: I32, p_3: I32) => void
 	parse_font_preset: (p_0: I32) => I32
-	realloc: (p_0: I32, p_1: I32) => PtrWrapper<I32>
 	ass_parser_lib_version: () => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
 	ass_parser_lib_commit_hash: () => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
 	allocator_get_statistics: () => PtrWrapper<I32>

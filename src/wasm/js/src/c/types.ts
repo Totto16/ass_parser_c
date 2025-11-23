@@ -72,10 +72,10 @@ type CTypeNested<
 	JSType extends ValidJSTypes,
 > = CTypeNestedImpl<Desc, RawType<NestedType>, JSType> & DefaultAnnotations
 
+interface NotASimpleType  { __error: 'not a simple c type' }
+
 export type OnlySimpleTypes<C extends CType> =
-	C extends CTypeNested<infer _A, infer _B, infer _C>
-		? { __error: 'not a simple c type' }
-		: C
+	C extends CTypeNested<infer _A, infer _B, infer _C> ? NotASimpleType : C
 
 type _expect_only_simple_types1 = Expect<Equal<OnlySimpleTypes<Void>, Void>>
 type _expect_only_simple_types2 = Expect<Equal<OnlySimpleTypes<SizeT>, SizeT>>
@@ -411,6 +411,33 @@ type _expect_annot_get_0 = Expect<
 type _expect_annot_get_1 = Expect<
 	Equal<GetAnnotations<void>, GetAnnotations<Int>>
 >
+
+export type CategoryWrapper<T extends CType, Desc extends string> = {
+	readonly __wrapper: '__generated_from_category'
+	readonly __wrapper_type: Desc
+} & T
+
+export interface NoWrapper<Type extends CType> {
+	type: 'no wrapper'
+	c_type: Type
+}
+
+export interface NullWrapper {
+	type: 'null wrapper'
+}
+
+export interface WrapperWith<Desc, Type extends CType> {
+	desc: Desc
+	type: 'wrapper'
+	c_type: Type
+}
+
+export type GetWrapper<W> =
+	W extends CategoryWrapper<infer Type, infer Desc>
+		? WrapperWith<Desc, Type>
+		: W extends CType
+			? NoWrapper<W>
+			: NullWrapper
 
 export type NullChecked<A> =
 	A extends Annotated<

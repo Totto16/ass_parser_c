@@ -32,8 +32,8 @@ async function process_file(instance: WasmBinding, file: File): Promise<void> {
 	if (result.is_error()) {
 		console.error('The result is an error')
 	} else {
-		const assResult = result.result()
-		console.log(assResult)
+		const assResultRef = result.result_ref()
+		console.log(assResultRef)
 	}
 }
 
