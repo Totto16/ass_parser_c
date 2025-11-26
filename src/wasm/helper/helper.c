@@ -120,7 +120,7 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 	}
 }
 
-size_t diagnostics_get_length(Diagnostics* diagnostics) {
+size_t diagnostics_get_length(const Diagnostics* diagnostics) {
 	return ZVEC_LENGTH(diagnostics->entries);
 }
 
@@ -132,7 +132,7 @@ const DiagnosticEntry* diagnostics_get_at(const Diagnostics* const diagnostics, 
 	return ZVEC_GET_AT(DiagnosticEntry, &(diagnostics->entries), index);
 }
 
-MessageStruct* get_message_from_entry_js(DiagnosticEntry* entry) {
+MessageStruct* get_message_from_entry_js(const DiagnosticEntry* entry) {
 	MessageStruct* result = malloc(sizeof(MessageStruct));
 
 	if(result == NULL) {
@@ -149,23 +149,23 @@ void free_message_struct_ptr_js(MessageStruct* msg) {
 	free(msg);
 }
 
-FilePos* diagnostic_get_file_pos(DiagnosticEntry* entry) {
+const FilePos* diagnostic_get_file_pos(const DiagnosticEntry* entry) {
 	return &(entry->position);
 }
 
-DiagnosticSeverity diagnostic_get_severity(DiagnosticEntry* entry) {
+DiagnosticSeverity diagnostic_get_severity(const DiagnosticEntry* entry) {
 	return entry->severity;
 }
 
-size_t file_pos_get_line(FilePos* pos) {
+size_t file_pos_get_line(const FilePos* pos) {
 	return pos->line;
 }
 
-size_t file_pos_get_column(FilePos* pos) {
+size_t file_pos_get_column(const FilePos* pos) {
 	return pos->column;
 }
 
-size_t events_get_length(AssEvents* events) {
+size_t events_get_length(const AssEvents* events) {
 	return ZVEC_LENGTH(events->entries);
 }
 
@@ -177,7 +177,7 @@ const AssEventEntry* events_get_at(const AssEvents* const events, size_t index) 
 	return ZVEC_GET_AT(AssEventEntry, &(events->entries), index);
 }
 
-size_t styles_get_length(AssStyles* styles) {
+size_t styles_get_length(const AssStyles* styles) {
 	return ZVEC_LENGTH(styles->entries);
 }
 
@@ -189,51 +189,51 @@ const AssStyleEntry* styles_get_at(const AssStyles* const styles, size_t index) 
 	return ZVEC_GET_AT(AssStyleEntry, &(styles->entries), index);
 }
 
-AssScriptInfo* get_script_info_from_ass_result(AssResult* ass_result) {
+const AssScriptInfo* get_script_info_from_ass_result(const AssResult* ass_result) {
 	return &ass_result->script_info;
 }
 
-AssStyles* get_styles_from_ass_result(AssResult* ass_result) {
+const AssStyles* get_styles_from_ass_result(const AssResult* ass_result) {
 	return &ass_result->styles;
 }
 
-AssEvents* get_events_from_ass_result(AssResult* ass_result) {
+const AssEvents* get_events_from_ass_result(const AssResult* ass_result) {
 	return &ass_result->events;
 }
 
-ExtraSections* get_extra_sections_from_ass_result(AssResult* ass_result) {
+const ExtraSections* get_extra_sections_from_ass_result(const AssResult* ass_result) {
 	return &ass_result->extra_sections;
 }
 
-FileProps* get_file_props_from_ass_result(AssResult* ass_result) {
+const FileProps* get_file_props_from_ass_result(const AssResult* ass_result) {
 	return &ass_result->file_props;
 }
 
-bool get_scaled_border_and_shadow_from_script_info(AssScriptInfo* script_info) {
+bool get_scaled_border_and_shadow_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->scaled_border_and_shadow;
 }
 
-ScriptType get_script_type_from_script_info(AssScriptInfo* script_info) {
+ScriptType get_script_type_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->script_type;
 }
 
-WrapStyle get_wrap_style_from_script_info(AssScriptInfo* script_info) {
+WrapStyle get_wrap_style_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->wrap_style;
 }
 
-size_t get_video_aspect_ratio_from_script_info(AssScriptInfo* script_info) {
+size_t get_video_aspect_ratio_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->video_aspect_ratio;
 }
 
-size_t get_video_zoom_from_script_info(AssScriptInfo* script_info) {
+size_t get_video_zoom_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->video_zoom;
 }
 
-size_t get_play_res_x_from_script_info(AssScriptInfo* script_info) {
+size_t get_play_res_x_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->play_res_x;
 }
 
-size_t get_play_res_y_from_script_info(AssScriptInfo* script_info) {
+size_t get_play_res_y_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->play_res_y;
 }
 
@@ -247,7 +247,7 @@ size_t get_play_res_y_from_script_info(AssScriptInfo* script_info) {
 		return get_normalized_string(a); \
 	} while(false)
 
-char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char* name) {
+char* get_string_by_name_from_script_info(const AssScriptInfo* script_info, const char* name) {
 
 	if(strcmp(name, "title") == 0) {
 		RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(script_info->title);
@@ -300,8 +300,8 @@ char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char
 	return NULL;
 }
 
-ANNOTATION_NULLABLE AssColor* get_ass_color_from_ass_style(AssStyleEntry* ass_style,
-                                                           uint8_t index) {
+ANNOTATION_NULLABLE const AssColor* get_ass_color_from_ass_style(const AssStyleEntry* ass_style,
+                                                                 uint8_t index) {
 	switch(index) {
 		case 0: return &(ass_style->primary_colour);
 		case 1: return &(ass_style->secondary_colour);
@@ -313,7 +313,7 @@ ANNOTATION_NULLABLE AssColor* get_ass_color_from_ass_style(AssStyleEntry* ass_st
 	}
 }
 
-uint8_t get_color_component_from_ass_color(AssColor* ass_color, uint8_t index) {
+uint8_t get_color_component_from_ass_color(const AssColor* ass_color, uint8_t index) {
 	switch(index) {
 		case 0: return ass_color->r;
 		case 1: return ass_color->g;
@@ -326,10 +326,94 @@ uint8_t get_color_component_from_ass_color(AssColor* ass_color, uint8_t index) {
 	}
 }
 
-FileType get_file_type_from_file_props(FileProps* file_props) {
+FileType get_file_type_from_file_props(const FileProps* file_props) {
 	return file_props->file_type;
 }
 
-LineType get_line_type_from_file_props(FileProps* file_props) {
+LineType get_line_type_from_file_props(const FileProps* file_props) {
 	return file_props->line_type;
+}
+
+// TODO: make extra_sections const, is not doable, as stbds_shgeti might allocate, which is dumb
+// imo, but it might do it, if extra_sections is NULL
+ExtraSectionEntry* get_entry_from_name_in_extra_sections(ExtraSections* extra_sections,
+                                                         char* name) {
+	if(extra_sections == NULL || extra_sections->entries == NULL) {
+		return NULL;
+	}
+
+	int index = stbds_shgeti(extra_sections->entries, name);
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	return &(extra_sections->entries[index].value);
+}
+
+char* get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_section_entry,
+                                                 char* name) {
+	if(extra_section_entry == NULL || extra_section_entry->fields == NULL) {
+		return NULL;
+	}
+
+	int index = stbds_shgeti(extra_section_entry->fields, name);
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	FinalStr value = extra_section_entry->fields[index].value;
+
+	RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(value);
+}
+
+const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* extra_sections_hm,
+                                                         size_t index) {
+	size_t hm_length = stbds_shlenu(extra_sections_hm->entries);
+	if(index >= hm_length) {
+		return NULL;
+	}
+
+	return &(extra_sections_hm->entries[index]);
+}
+
+size_t extra_sections_hm_get_length(ExtraSections* extra_sections_hm) {
+	size_t hm_length = stbds_shlenu(extra_sections_hm->entries);
+	return hm_length;
+}
+
+const SectionFieldEntry*
+extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, size_t index) {
+	size_t hm_length = stbds_shlenu(extra_section_entry_hm->fields);
+	if(index >= hm_length) {
+		return NULL;
+	}
+
+	return &(extra_section_entry_hm->fields[index]);
+}
+
+size_t extra_section_entry_hm_get_length(ExtraSectionEntry* extra_section_entry_hm) {
+	size_t hm_length = stbds_shlenu(extra_section_entry_hm->fields);
+	return hm_length;
+}
+
+char* extra_sections_hm_entry_get_key(const ExtraSectionHashMapEntry* extra_sections_hm_entry) {
+	return extra_sections_hm_entry->key;
+}
+
+const ExtraSectionEntry*
+extra_sections_hm_entry_get_value(const ExtraSectionHashMapEntry* extra_sections_hm_entry) {
+	return &(extra_sections_hm_entry->value);
+}
+
+char* extra_section_entry_hm_entry_get_key(const SectionFieldEntry* extra_section_entry_hm_entry) {
+	return extra_section_entry_hm_entry->key;
+}
+
+char* extra_section_entry_hm_entry_get_value(
+    const SectionFieldEntry* extra_section_entry_hm_entry) {
+	FinalStr value = extra_section_entry_hm_entry->value;
+
+	RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(value);
 }

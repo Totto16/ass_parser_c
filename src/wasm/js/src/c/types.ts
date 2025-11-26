@@ -139,25 +139,6 @@ export type GetJSTypeFromCTypeEnumSpecialCase<C extends CType> =
 		? GetJSTypeFromCType<D>
 		: GetJSTypeFromCType<C>
 
-type UnionToIntersection<U> = (
-	U extends unknown ? (k: U) => void : never
-) extends (k: infer I) => void
-	? I
-	: never
-
-type LastOf<T> =
-	UnionToIntersection<
-		T extends unknown ? () => T : never
-	> extends () => infer R
-		? R
-		: never
-
-type Push<T extends unknown[], V> = [...T, V]
-
-export type UnionToTuple<T, L = LastOf<T>> = [T] extends [never]
-	? []
-	: Push<UnionToTuple<Exclude<T, L>>, L>
-
 type IsCTypeArr<T> = IsCType<T> extends true ? [true] : [false, T]
 
 type AreAllCTypes<A extends readonly unknown[]> = A extends [
@@ -181,17 +162,76 @@ type IsCFunc<Args extends unknown[], Ret> =
 			: [false, Res]
 		: [false, 'impl error 1', 'IsCFunc']
 
-type AreAllFunctionCFnImpl<T> = {
-	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
-		? IsCFunc<Args, Ret> extends infer Res
-			? Res extends [true]
-				? never
-				: [K, Res]
-			: never
-		: never
-}[keyof T]
+export interface ExportFnTypeImpl<Key, Value> {
+	readonly __key: Key
+	readonly __value: Value
+}
 
-export type AreAllFunctionCFns<T> = UnionToTuple<AreAllFunctionCFnImpl<T>>
+type AreAllFunctionCFnImplRecImpl<Key, Type> = Type extends (
+	...args: infer Args
+) => infer Ret
+	? IsCFunc<Args, Ret> extends infer Res
+		? Res extends [true]
+			? true
+			: [Key, Res]
+		: [never, 'error 1', Key, Type]
+	: [Type, 'not a function type!']
+
+type AreAllFunctionCFnImplNonNested<T extends unknown[]> = T extends []
+	? []
+	: T extends [infer Last]
+		? Last extends ExportFnTypeImpl<infer Key, infer Value>
+			? [AreAllFunctionCFnImplRecImpl<Key, Value>]
+			: [never, 'impl error 1']
+		: T extends [infer First, ...infer Rest extends unknown[]]
+			? First extends ExportFnTypeImpl<infer Key, infer Value>
+				? [
+						AreAllFunctionCFnImplRecImpl<Key, Value>,
+						...AreAllFunctionCFnImplNonNested<Rest>,
+					]
+				: [never, 'impl error 2', First]
+			: []
+
+type FlatElement<E> = E extends unknown[] ? FlatTuple<E> : [E]
+
+type FlatTuple<T extends unknown[]> = T extends []
+	? []
+	: T extends [infer Last]
+		? FlatElement<Last>
+		: T extends [infer First, ...infer Rest]
+			? [...FlatElement<First>, ...FlatTuple<Rest>]
+			: []
+
+type AreAllFunctionCFnImpl<T extends unknown[][]> = T extends []
+	? []
+	: T extends [infer Last extends unknown[]]
+		? [AreAllFunctionCFnImplNonNested<Last>]
+		: T extends [
+					infer First extends unknown[],
+					...infer Rest extends unknown[][],
+			  ]
+			? [
+					AreAllFunctionCFnImplNonNested<First>,
+					...AreAllFunctionCFnImpl<Rest>,
+				]
+			: []
+
+type ExpectAllTrue<U extends unknown[][]> = FlatTuple<U>[number] extends true
+	? true
+	: false
+
+type _expect_all_true_0 = Expect<Equal<ExpectAllTrue<[[true]]>, true>>
+
+type _expect_all_true_1 = Expect<
+	Equal<ExpectAllTrue<[[true, true, true], [true]]>, true>
+>
+type _expect_all_true_2 = Expect<
+	Equal<ExpectAllTrue<[[true, true, true], [true, false]]>, false>
+>
+
+export type AreAllFunctionCFns<T extends unknown[][]> = ExpectAllTrue<
+	AreAllFunctionCFnImpl<T>
+>
 
 type _32BitNum = number
 
@@ -563,6 +603,18 @@ export function remove_annotation<A extends CType, I extends AnnotationIndexes>(
 	a: A
 ): RemoveAnnotation<A, I> {
 	return a as unknown as RemoveAnnotation<A, I>
+}
+
+export function release_into_unmalloced_ptr<A extends CType>(
+	a: A
+): RemoveAnnotation<A, 0> {
+	return a as unknown as RemoveAnnotation<A, 0>
+}
+
+export function cstr_to_normal_ptr<A extends CType>(
+	a: A
+): RemoveAnnotation<A, 1> {
+	return a as unknown as RemoveAnnotation<A, 1>
 }
 
 type GetFreeFns<T> = {

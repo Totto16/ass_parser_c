@@ -1,5 +1,4 @@
 import {
-	allocate_js_utf8_string,
 	construct_ptr_error,
 	cstr_by_ptr,
 	FreeList,
@@ -27,6 +26,9 @@ import {
 	get_enum_value,
 	Unref,
 	get_c_value,
+	allocate_js_utf8_string_manual,
+	type AllocatedCStr,
+	type CStrSized,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -53,7 +55,6 @@ import {
 	type UInt8T,
 	type IsFreeFn,
 	MallocedDisposable,
-	type UnionToTuple,
 	type Void,
 	type FreeFns,
 	type AnnotationBase,
@@ -64,8 +65,14 @@ import {
 	type NoWrapper,
 	type WrapperWith,
 	type NullWrapper,
+	release_into_unmalloced_ptr,
+	cstr_to_normal_ptr,
+	type ExportFnTypeImpl,
 } from './c/types'
-import type { GeneratedExportedFunctions } from './generated/wasm_exports'
+import type {
+	GeneratedExportedFunctionKeys,
+	GeneratedExportedFunctions,
+} from './generated/wasm_exports'
 
 type AssParseResultC = CStruct<'AssParseResult'>
 
@@ -110,6 +117,29 @@ type AssColorC = CStruct<'AssColor'>
 type FilePropsC = CStruct<'FileProps'>
 
 type ExtraSectionsC = CStruct<'ExtraSections'>
+
+type ExtraSectionEntryC = CStruct<'ExtraSectionEntry'>
+
+// treat hashmap / objects as arrays over the entries (not ExtraSectionEntry), so they can be used easier
+type ExtraSectionHashMapEntryC = CStruct<'ExtraSectionHashMapEntry'>
+
+type SectionFieldEntryC = CStruct<'SectionFieldEntry'>
+
+type _expect_3 = Expect<
+	CheckIsCArrayType<
+		ExtraSectionsC,
+		ExtraSectionHashMapEntryC,
+		'extra_sections_hm'
+	>
+>
+
+type _expect_4 = Expect<
+	CheckIsCArrayType<
+		ExtraSectionEntryC,
+		SectionFieldEntryC,
+		'extra_section_entry_hm'
+	>
+>
 
 export interface ScriptInfoStrictSettings {
 	allow_duplicate_fields: boolean
@@ -399,16 +429,103 @@ interface WASMExportsFnWithoutLibC {
 	) => Ptr<AssColorC>
 	get_file_type_from_file_props: (file_props: Ptr<FilePropsC>) => FileTypeC
 	get_line_type_from_file_props: (file_props: Ptr<FilePropsC>) => LineTypeC
+	//
+	get_entry_from_name_in_extra_sections: (
+		extra_sections: Ptr<ExtraSectionsC>,
+		name: CStr
+	) => Annotated<
+		Ptr<ExtraSectionEntryC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+	get_entry_from_name_in_extra_section_entry: (
+		extra_section_entry: Ptr<ExtraSectionEntryC>,
+		name: CStr
+	) => Annotated<
+		CStr,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+	//
+	extra_sections_hm_get_length: (
+		extra_sections_hm: Ptr<ExtraSectionsC>
+	) => SizeT
+	extra_sections_hm_get_at: (
+		extra_sections_hm: Ptr<ExtraSectionsC>,
+		index: SizeT
+	) => Annotated<
+		Ptr<ExtraSectionHashMapEntryC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+	//
+	extra_section_entry_hm_get_length: (
+		extra_section_entry_hm: Ptr<ExtraSectionEntryC>
+	) => SizeT
+	extra_section_entry_hm_get_at: (
+		extra_section_entry_hm: Ptr<ExtraSectionEntryC>,
+		index: SizeT
+	) => Annotated<
+		Ptr<SectionFieldEntryC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+	//
+	extra_sections_hm_entry_get_key: (
+		extra_sections_hm_entry: Ptr<ExtraSectionHashMapEntryC>
+	) => CStr
+	extra_sections_hm_entry_get_value: (
+		extra_sections_hm_entry: Ptr<ExtraSectionHashMapEntryC>
+	) => Annotated<
+		Ptr<ExtraSectionEntryC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
+	//
+	extra_section_entry_hm_entry_get_key: (
+		extra_section_entry_hm_entry: Ptr<ExtraSectionEntryC>
+	) => CStr
+	extra_section_entry_hm_entry_get_value: (
+		extra_section_entry_hm_entry: Ptr<ExtraSectionEntryC>
+	) => Annotated<
+		CStr,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 }
 
-type _NotCFuncsExportedCFunctions = AreAllFunctionCFns<ExportedCFunctions>
+type _NotCFuncsExportedCFunctions = AreAllFunctionCFns<ExportedCFunctionsMapped>
 
-type _expect0 = Expect<Equal<_NotCFuncsExportedCFunctions, []>>
+type _expect0 = Expect<Equal<_NotCFuncsExportedCFunctions, true>>
 
 type _NotCFuncsGeneratedExportedFunctions =
-	AreAllFunctionCFns<GeneratedExportedFunctions>
+	AreAllFunctionCFns<GeneratedExportedFunctionsMapped>
 
-type _expect1_1 = Expect<Equal<_NotCFuncsGeneratedExportedFunctions, []>>
+type _expect1_1 = Expect<Equal<_NotCFuncsGeneratedExportedFunctions, true>>
 
 type GetJSTypeFromCTypeArr<A extends CType[]> = A extends []
 	? []
@@ -427,25 +544,55 @@ interface ExportEntryImpl<Key, Args, Ret, AN, Wrapper> {
 	readonly wrapper: Wrapper
 }
 
-type GetExportFnsInUniformFormatManual<T> = {
-	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
-		? Args extends CType[]
-			? // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-				Ret extends CType | void
-				? ExportEntryImpl<
-						K,
-						GetJSTypeFromCTypeArr<Args>,
-						Ret extends CType
-							? GetJSTypeFromCTypeEnumSpecialCase<Ret>
-							: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-								void,
-						GetAnnotations<Ret>,
-						GetWrapper<Ret>
-					>
-				: [K, 'error', 'ret non ctype']
-			: [K, 'error', 'args not all ctypes']
-		: never
-}[keyof T]
+type GetExportFnsInUniformFormatManualImpl<Key, Type> = Type extends (
+	...args: infer Args
+) => infer Ret
+	? Args extends CType[]
+		? // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+			Ret extends CType | void
+			? ExportEntryImpl<
+					Key,
+					GetJSTypeFromCTypeArr<Args>,
+					Ret extends CType
+						? GetJSTypeFromCTypeEnumSpecialCase<Ret>
+						: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+							void,
+					GetAnnotations<Ret>,
+					GetWrapper<Ret>
+				>
+			: [Key, 'error', 'ret non ctype']
+		: [Key, 'error', 'args not all ctypes']
+	: [Type, 'not a function type!']
+
+type GetExportFnsInUniformFormatManualNonNested<T extends unknown[]> =
+	T extends []
+		? []
+		: T extends [infer Last]
+			? Last extends ExportFnTypeImpl<infer Key, infer Value>
+				? [GetExportFnsInUniformFormatManualImpl<Key, Value>]
+				: [never, 'impl error 1']
+			: T extends [infer First, ...infer Rest extends unknown[]]
+				? First extends ExportFnTypeImpl<infer Key, infer Value>
+					? [
+							GetExportFnsInUniformFormatManualImpl<Key, Value>,
+							...GetExportFnsInUniformFormatManualNonNested<Rest>,
+						]
+					: [never, 'impl error 2', First]
+				: []
+
+type GetExportFnsInUniformFormatManual<T extends unknown[][]> = T extends []
+	? []
+	: T extends [infer Last extends unknown[]]
+		? [GetExportFnsInUniformFormatManualNonNested<Last>]
+		: T extends [
+					infer First extends unknown[],
+					...infer Rest extends unknown[][],
+			  ]
+			? [
+					GetExportFnsInUniformFormatManualNonNested<First>,
+					...GetExportFnsInUniformFormatManual<Rest>,
+				]
+			: []
 
 type GetJSTypeFromGeneratedCTypeArr<A extends CType[]> = A extends []
 	? []
@@ -456,30 +603,125 @@ type GetJSTypeFromGeneratedCTypeArr<A extends CType[]> = A extends []
 			]
 		: never
 
-type GetExportFnsInUniformFormatGenerated<T> = {
-	[K in keyof T]: T[K] extends (...args: infer Args) => infer Ret
-		? Args extends CType[]
-			? // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-				Ret extends CType | void
-				? ExportEntryImpl<
-						K,
-						GetJSTypeFromGeneratedCTypeArr<Args>,
-						Ret extends CType
-							? GetJSTypeFromCTypeEnumSpecialCase<Ret>
-							: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-								void,
-						GetAnnotations<Ret>,
-						GetWrapper<Ret>
-					>
-				: [K, 'error', 'ret non generated ctype']
-			: [K, 'error', 'args not all generated ctypes']
-		: never
-}[keyof T]
+type GetExportFnsInUniformFormatGeneratedImpl<Key, Type> = Type extends (
+	...args: infer Args
+) => infer Ret
+	? Args extends CType[]
+		? // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+			Ret extends CType | void
+			? ExportEntryImpl<
+					Key,
+					GetJSTypeFromGeneratedCTypeArr<Args>,
+					Ret extends CType
+						? GetJSTypeFromCTypeEnumSpecialCase<Ret>
+						: // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+							void,
+					GetAnnotations<Ret>,
+					GetWrapper<Ret>
+				>
+			: [Key, 'error', 'ret non generated ctype']
+		: [Key, 'error', 'args not all generated ctypes']
+	: [Type, 'not a function type!']
 
-type _DeclaredExportFns = GetExportFnsInUniformFormatManual<ExportedCFunctions>
+type GetExportFnsInUniformFormatGeneratedNonNested<T extends unknown[]> =
+	T extends []
+		? []
+		: T extends [infer Last]
+			? Last extends ExportFnTypeImpl<infer Key, infer Value>
+				? [GetExportFnsInUniformFormatGeneratedImpl<Key, Value>]
+				: [never, 'impl error 1']
+			: T extends [infer First, ...infer Rest extends unknown[]]
+				? First extends ExportFnTypeImpl<infer Key, infer Value>
+					? [
+							GetExportFnsInUniformFormatGeneratedImpl<
+								Key,
+								Value
+							>,
+							...GetExportFnsInUniformFormatGeneratedNonNested<Rest>,
+						]
+					: [never, 'impl error 2', First]
+				: []
+
+type GetExportFnsInUniformFormatGenerated<T extends unknown[][]> = T extends []
+	? []
+	: T extends [infer Last extends unknown[]]
+		? [GetExportFnsInUniformFormatGeneratedNonNested<Last>]
+		: T extends [
+					infer First extends unknown[],
+					...infer Rest extends unknown[][],
+			  ]
+			? [
+					GetExportFnsInUniformFormatGeneratedNonNested<First>,
+					...GetExportFnsInUniformFormatGenerated<Rest>,
+				]
+			: []
+
+type SplitArray<
+	Arr extends unknown[],
+	N extends number,
+	Acc extends unknown[] = [],
+> = Acc['length'] extends N
+	? [Acc, ...SplitArray<Arr, N>]
+	: Arr extends [infer First, ...infer Rest]
+		? SplitArray<Rest, N, [...Acc, First]>
+		: [Acc, []]
+
+type _IMPL_HugeArraySize = 25
+
+type ExportedFunctionNamesHugeArray<Arr extends string[]> = SplitArray<
+	Arr,
+	_IMPL_HugeArraySize
+>
+
+type MapOverExportedKeysNonNested<Obj, Arr extends string[]> = Arr extends []
+	? []
+	: Arr extends [infer Last]
+		? Last extends keyof Obj
+			? [ExportFnTypeImpl<Last, Obj[Last]>]
+			: []
+		: Arr extends [infer First, ...infer Rest extends string[]]
+			? First extends keyof Obj
+				? [
+						ExportFnTypeImpl<First, Obj[First]>,
+						...MapOverExportedKeysNonNested<Obj, Rest>,
+					]
+				: MapOverExportedKeysNonNested<Obj, Rest>
+			: []
+
+type MapOverExportedKeysNested<Obj, Arr extends string[][]> = Arr extends []
+	? []
+	: Arr extends [infer Last extends string[]]
+		? MapOverExportedKeysNonNested<Obj, Last>
+		: Arr extends [
+					infer First extends string[],
+					...infer Rest extends string[][],
+			  ]
+			? [
+					MapOverExportedKeysNonNested<Obj, First>,
+					...MapOverExportedKeysNested<Obj, Rest>,
+				]
+			: []
+
+type ExportedFunctionTypesImplHugeArray<
+	Obj,
+	Arr extends string[],
+> = MapOverExportedKeysNested<Obj, ExportedFunctionNamesHugeArray<Arr>>
+
+type ExportedFunctionTypesNested<Obj> = ExportedFunctionTypesImplHugeArray<
+	Obj,
+	GeneratedExportedFunctionKeys
+>
+
+type ExportedCFunctionsMapped = ExportedFunctionTypesNested<ExportedCFunctions>
+
+type _DeclaredExportFns =
+	GetExportFnsInUniformFormatManual<ExportedCFunctionsMapped>
+
+type GeneratedExportedFunctionsMapped =
+	ExportedFunctionTypesNested<GeneratedExportedFunctions>
 
 type _GeneratedExportFns =
-	GetExportFnsInUniformFormatGenerated<GeneratedExportedFunctions>
+	GetExportFnsInUniformFormatGenerated<GeneratedExportedFunctionsMapped>
 
 interface FindSuccess {
 	success: true
@@ -491,9 +733,20 @@ interface FindSuccessVal<Args, Ret, AN, Wrapper> {
 	readonly wrapper: Wrapper
 }
 
-type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
-	? [never, 'error', 'end of list reached']
-	: ExportedFns extends [infer First, ...infer Rest]
+type EndOfListReached = [
+	never,
+	{
+		readonly __type: 'error'
+		readonly __message: 'end of list reached'
+	},
+]
+
+type FindByTypeNonNested<
+	ExportedFns extends unknown[],
+	Type,
+> = ExportedFns extends []
+	? EndOfListReached
+	: ExportedFns extends [infer First, ...infer Rest extends unknown[]]
 		? First extends ExportEntryImpl<
 				infer Type2,
 				infer Args,
@@ -503,7 +756,7 @@ type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
 			>
 			? Equal<Type, Type2> extends true
 				? FindSuccessVal<Args, Ret, ANOT, Wrapper>
-				: FindByType<Rest, Type>
+				: FindByTypeNonNested<Rest, Type>
 			: [
 					never,
 					'error',
@@ -512,29 +765,61 @@ type FindByType<ExportedFns extends unknown[], Type> = ExportedFns extends []
 				]
 		: [never, 'error', 'error 1']
 
+type FindByType<ExportedFns extends unknown[][], Type> = ExportedFns extends []
+	? EndOfListReached
+	: ExportedFns extends [infer First extends unknown[]]
+		? FindByTypeNonNested<First, Type>
+		: ExportedFns extends [
+					infer Last extends unknown[],
+					...infer Rest extends unknown[][],
+			  ]
+			? FindByTypeNonNested<Last, Type> extends FindSuccessVal<
+					infer AR,
+					infer RE,
+					infer AN,
+					infer WR
+				>
+				? FindSuccessVal<AR, RE, AN, WR>
+				: FindByType<Rest, Type>
+			: EndOfListReached
+
 type _TestFindFn1 = [
-	ExportEntryImpl<'test1', 0, 0, [], { e: '' }>,
-	ExportEntryImpl<'test3', 2, 2, [], { e: '' }>,
+	[
+		ExportEntryImpl<'test1', 0, 0, [], { nr: 1 }>,
+		ExportEntryImpl<'test3', 2, 2, [], { nr: 3 }>,
+	],
 ]
 
 type _Expected_test_fn_1_0 = Expect<
 	Equal<
 		FindByType<_TestFindFn1, 'test1'>,
-		FindSuccessVal<0, 0, [], { e: '' }>
+		FindSuccessVal<0, 0, [], { nr: 1 }>
 	>
 >
 
 type _Expected_test_fn_1_1 = Expect<
-	Equal<
-		FindByType<_TestFindFn1, 'test2'>,
-		[never, 'error', 'end of list reached']
-	>
+	Equal<FindByType<_TestFindFn1, 'test2'>, EndOfListReached>
 >
 
 type _Expected_test_fn_1_2 = Expect<
 	Equal<
 		FindByType<_TestFindFn1, 'test3'>,
-		FindSuccessVal<2, 2, [], { e: '' }>
+		FindSuccessVal<2, 2, [], { nr: 3 }>
+	>
+>
+
+type _TestFindFn2 = [
+	[
+		ExportEntryImpl<'test1', 0, 0, [], { nr: 1 }>,
+		ExportEntryImpl<'test3', 2, 2, [], { nr: 3 }>,
+	],
+	[ExportEntryImpl<'test4', 2, 2, [], { nr: 4 }>],
+]
+
+type _Expected_test_fn_2_0 = Expect<
+	Equal<
+		FindByType<_TestFindFn2, 'test4'>,
+		FindSuccessVal<2, 2, [], { nr: 4 }>
 	>
 >
 
@@ -638,7 +923,7 @@ type WrapEqual<W1, W2> =
 						]
 				: [never, 'complete mismatch', W1, W2]
 
-type FindMatchingFns<MyFn, ExportedFns extends unknown[]> =
+type FindMatchingFns<MyFn, ExportedFns extends unknown[][]> =
 	MyFn extends ExportEntryImpl<
 		infer Type1,
 		infer Args1,
@@ -673,25 +958,54 @@ type FindMatchingFns<MyFn, ExportedFns extends unknown[]> =
 			: ['error', 'impl error 2']
 		: ['error', 'impl error 1', 'FindMatchingFns', MyFn]
 
-type ExportedFunctionMismatchImpl<
+type ExportedFunctionMismatchImplNonNested<
 	MyFns extends unknown[],
-	ExportedFns extends unknown[],
+	ExportedFns extends unknown[][],
 > = MyFns extends []
 	? []
 	: MyFns extends [infer First, ...infer Rest extends unknown[]]
 		? FindMatchingFns<First, ExportedFns> extends infer Val
 			? Val extends FindSuccess
-				? ExportedFunctionMismatchImpl<Rest, ExportedFns>
-				: [Val, ...ExportedFunctionMismatchImpl<Rest, ExportedFns>]
+				? ExportedFunctionMismatchImplNonNested<Rest, ExportedFns>
+				: [
+						Val,
+						...ExportedFunctionMismatchImplNonNested<
+							Rest,
+							ExportedFns
+						>,
+					]
 			: [never, 'error 1']
 		: [never, 'error 2']
 
-type _DeclaredExportFnsA = UnionToTuple<_DeclaredExportFns>
-type _GeneratedExportFnsA = UnionToTuple<_GeneratedExportFns>
+type ExportedFunctionMismatchImpl<
+	MyFns extends unknown[][],
+	ExportedFns extends unknown[][],
+> = MyFns extends []
+	? []
+	: MyFns extends []
+		? []
+		: MyFns extends [infer First]
+			? First extends unknown[]
+				? [ExportedFunctionMismatchImplNonNested<First, ExportedFns>]
+				: [ExportedFunctionMismatchImplNonNested<[First], ExportedFns>]
+			: MyFns extends [infer Last, ...infer Rest extends unknown[][]]
+				? [
+						...(Last extends unknown[]
+							? ExportedFunctionMismatchImplNonNested<
+									Last,
+									ExportedFns
+								>
+							: ExportedFunctionMismatchImplNonNested<
+									[Last],
+									ExportedFns
+								>),
+						...ExportedFunctionMismatchImpl<Rest, ExportedFns>,
+					]
+				: []
 
 type _ExportedFunctionMismatch = ExportedFunctionMismatchImpl<
-	_DeclaredExportFnsA,
-	_GeneratedExportFnsA
+	_DeclaredExportFns,
+	_GeneratedExportFns
 >
 
 type _ExportedFunctionMismatchL = _ExportedFunctionMismatch['length']
@@ -721,9 +1035,11 @@ interface TypedWasmFn {
 	) => void
 }
 
-type _NotCFuncsTypesWasmFn = AreAllFunctionCFns<TypedWasmFn>
+type _NotCFuncsTypesWasmFn = AreAllFunctionCFns<
+	ExportedFunctionTypesNested<TypedWasmFn>
+>
 
-type _expect1 = Expect<Equal<_NotCFuncsTypesWasmFn, []>>
+type _expect1 = Expect<Equal<_NotCFuncsTypesWasmFn, true>>
 
 interface TypedWasmEnv extends WebAssembly.ModuleImports, TypedWasmFn {
 	memory: WebAssembly.Memory
@@ -826,6 +1142,26 @@ function get_malloced_disposable<
 			to_free as unknown as Param<Fn>
 		)
 	})
+}
+
+export function allocate_js_utf8_string_disposable(
+	wasm: WASMWrapper,
+	string: string,
+	allocate_bom = false
+): MallocedDisposable<'free', AllocatedCStr> {
+	const value = allocate_js_utf8_string_manual(
+		wasm.buffer,
+		wasm.allocator,
+		string,
+		allocate_bom
+	) as unknown as CStrSized<true>
+
+	const value_disposable = get_malloced_disposable<'free', AllocatedCStr>(
+		value.data_ptr,
+		wasm,
+		'free'
+	)
+	return value_disposable
 }
 
 export class WasmBinding {
@@ -941,7 +1277,7 @@ export class WasmBinding {
 
 			const string = decoder.decode(data)
 
-			const allocated_string = allocate_js_utf8_string(
+			const allocated_string = allocate_js_utf8_string_manual(
 				this.wasm.buffer,
 				this.wasm.allocator,
 				string
@@ -950,7 +1286,9 @@ export class WasmBinding {
 			write_ptr_to_memory(
 				this.wasm.buffer,
 				out_data_ptr,
-				ptr_cast<Char, Void>(allocated_string.data_ptr)
+				ptr_cast<Char, Void>(
+					cstr_to_normal_ptr(allocated_string.data_ptr)
+				)
 			)
 
 			write_size_t_to_memory(
@@ -1276,7 +1614,7 @@ export class WasmBinding {
 		>
 
 		if (typeof source === 'string') {
-			const source_string = allocate_js_utf8_string(
+			const source_string = allocate_js_utf8_string_manual(
 				this.wasm.buffer,
 				this.wasm.allocator,
 				source,
@@ -1284,7 +1622,7 @@ export class WasmBinding {
 			)
 
 			ass_source_raw = this.wasm.functions.source_from_string(
-				source_string.data_ptr,
+				cstr_to_normal_ptr(source_string.data_ptr),
 				source_string.len
 			)
 		} else {
@@ -1297,7 +1635,9 @@ export class WasmBinding {
 			)
 
 			ass_source_raw = this.wasm.functions.source_from_string(
-				source_string.data_ptr,
+				release_into_unmalloced_ptr(
+					cstr_to_normal_ptr(source_string.data_ptr)
+				),
 				source_string.len
 			)
 		}
@@ -2228,16 +2568,15 @@ export class ScriptInfoRef extends Unref<AssScriptInfo> {
 			'ycbcr_matrix',
 		]
 		for (const string_name of string_names) {
-			const c_name_sized = allocate_js_utf8_string(
-				this.#wasm.buffer,
-				this.#wasm.allocator,
+			using c_name_sized = allocate_js_utf8_string_disposable(
+				this.#wasm,
 				string_name,
 				false
 			)
 			const c_value_raw =
 				this.#wasm.functions.get_string_by_name_from_script_info(
 					this.#script_info,
-					c_name_sized.data_ptr as unknown as CStr
+					c_name_sized.value
 				)
 
 			const c_value_not_null = assert_not_null(c_value_raw)
@@ -2364,6 +2703,81 @@ export class ScriptInfoRef extends Unref<AssScriptInfo> {
 	}
 }
 
+interface ExtraSectionHashMapEntry {
+	key: string
+	value: ExtraSectionEntryRef
+}
+
+export class ExtraSectionHashMapEntryRef extends CArray<
+	ExtraSectionHashMapEntry,
+	'extra_sections_hm'
+> {
+	constructor(wasm: WASMWrapper, extra_sections: Ptr<ExtraSectionsC>) {
+		super(wasm, extra_sections, 'extra_sections_hm')
+	}
+
+	public get_js_string_from_c(key_raw: CStr): string {
+		const result = cstr_by_ptr(this.wasm.buffer, key_raw)
+		return result
+	}
+
+	protected override convert_element_from_c_to_js(
+		element: Ptr<ExtraSectionHashMapEntryC>
+	): ExtraSectionHashMapEntry {
+		const key_raw =
+			this.wasm.functions.extra_sections_hm_entry_get_key(element)
+
+		const key = this.get_js_string_from_c(key_raw)
+
+		const value_raw =
+			this.wasm.functions.extra_sections_hm_entry_get_value(element)
+
+		const value_c = assert_not_null(value_raw)
+
+		const value = new ExtraSectionEntryRef(this.wasm, value_c)
+
+		return { key, value }
+	}
+}
+
+export class ExtraSectionEntryRef extends Unref<ExtraSectionEntry> {
+	#wasm: WASMWrapper
+	#extra_section_entry: Ptr<ExtraSectionEntryC>
+
+	constructor(
+		wasm: WASMWrapper,
+		extra_section_entry: Ptr<ExtraSectionEntryC>
+	) {
+		super()
+
+		this.#wasm = wasm
+		this.#extra_section_entry = extra_section_entry
+	}
+
+	private __get_all_entries(): Ptr<ExtraSectionEntryC> | ARRAY {
+		return new Array()
+	}
+
+	public override unref(): ExtraSectionEntry {
+		const names = this.get_all_names()
+
+		const result: ExtraSections = {}
+
+		for (const name of names) {
+			const section_ref = this.get_section_by_name(name)
+			if (section_ref === undefined) {
+				throw new Error(
+					`Expected name '${name}' in extra sections to be present, but it is not!`
+				)
+			}
+
+			result[name] = section_ref.unref()
+		}
+
+		return result
+	}
+}
+
 export class ExtraSectionsRef extends Unref<ExtraSections> {
 	#wasm: WASMWrapper
 	#extra_sections: Ptr<ExtraSectionsC>
@@ -2375,16 +2789,31 @@ export class ExtraSectionsRef extends Unref<ExtraSections> {
 		this.#extra_sections = extra_sections
 	}
 
-	public get_section_by_name(name: string): ExtraSectionRef | undefined {
-		//TODO
+	public get_section_by_name(name: string): ExtraSectionEntryRef | undefined {
+		const name_c = allocate_js_utf8_string(
+			this.#wasm.buffer,
+			this.#wasm.allocator,
+			name,
+			false
+		)
+
+		const name_raw =
+			this.#wasm.functions.get_entry_from_name_in_extra_sections(
+				this.#extra_sections,
+				name_c.cstr()
+			)
+
+		if (!is_not_null(name_raw)) {
+			return undefined
+		}
 	}
 
-	public get_all_names(): string[] {
-		//
+	private __get_all_entries(): ExtraSectionHashMapEntryRef {
+		return new ExtraSectionHashMapEntryRef(this.#wasm, this.#extra_sections)
 	}
 
 	public override unref(): ExtraSections {
-		const names = this.get_all_names()
+		const names = this.__get_all_entries()
 
 		const result: ExtraSections = {}
 

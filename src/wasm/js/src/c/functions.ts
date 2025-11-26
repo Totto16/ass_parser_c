@@ -189,8 +189,28 @@ export interface SizedPtr {
 	len: SizeT
 }
 
-export interface CStrSized {
-	data_ptr: Ptr<Char>
+export type AllocatedCStr = Annotated<
+	Ptr<Char>,
+	Annotations<
+		Malloced<'free'>,
+		IsCString,
+		NoAnnot<'free_fn'>,
+		NoAnnot<'nullable'>
+	>
+>
+
+export type CStrConcrete = Annotated<
+	Ptr<Char>,
+	Annotations<
+		NoAnnot<'malloced'>,
+		IsCString,
+		NoAnnot<'free_fn'>,
+		NoAnnot<'nullable'>
+	>
+>
+
+export interface CStrSized<Alloc extends boolean> {
+	data_ptr: Alloc extends true ? AllocatedCStr : CStrConcrete
 	len: SizeT
 }
 
@@ -223,9 +243,11 @@ export function write_size_t_to_memory(
 	data.setUint32(get_ptr_value<SizeT>(ptr), get_value<SizeT>(value))
 }
 
-function sized_ptr_to_cstr(ptr: SizedPtr): CStrSized {
+function sized_ptr_to_cstr(ptr: SizedPtr): CStrSized<true> {
 	return {
-		data_ptr: ptr_cast<Void, Char>(ptr.data_ptr),
+		data_ptr: ptr_cast<Void, Char>(
+			ptr.data_ptr
+		) as unknown as AllocatedCStr,
 		len: get_c_value<number, SizeT>(get_value<SizeT>(ptr.len) - 1),
 	}
 }
@@ -252,12 +274,12 @@ function copy_js_array_to_wasm_memory(
 	return { data_ptr, len: str_length }
 }
 
-export function allocate_js_utf8_string(
+export function allocate_js_utf8_string_manual(
 	buffer: MemBuf,
 	allocator: Allocator,
 	string: string,
 	allocate_bom = false
-): CStrSized {
+): CStrSized<false> {
 	const encoded = new TextEncoder().encode(string + '\0')
 
 	let final_encoded = encoded
@@ -287,14 +309,14 @@ export function allocate_js_utf8_string(
 
 	return sized_ptr_to_cstr(
 		copy_js_array_to_wasm_memory(buffer, allocator, final_encoded)
-	)
+	) as unknown as CStrSized<false>
 }
 
 export function make_string_from_array_buffer(
 	buffer: MemBuf,
 	allocator: Allocator,
 	content: ArrayBuffer
-): CStrSized {
+): CStrSized<true> {
 	const encoded = new Uint8Array(content.byteLength + 1)
 
 	encoded.set(new Uint8Array(content), 0)
@@ -317,10 +339,12 @@ export function construct_ptr_error(
 	allocator: Allocator,
 	message: string
 ): SizedPtr {
-	const str_data = allocate_js_utf8_string(buffer, allocator, message)
+	const str_data = allocate_js_utf8_string_manual(buffer, allocator, message)
 
 	return {
-		data_ptr: ptr_cast<Char, Void>(str_data.data_ptr),
+		data_ptr: ptr_cast<Char, Void>(
+			str_data.data_ptr as unknown as Ptr<Char>
+		),
 		len: get_c_value<number, SizeT>(0),
 	}
 }

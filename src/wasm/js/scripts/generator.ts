@@ -744,7 +744,12 @@ interface TypeError {
 	message: string
 }
 
-function toTsType(export_: FunctionExport): Result<string, TypeError> {
+interface TsType {
+	name: string
+	type: string
+}
+
+function toTsType(export_: FunctionExport): Result<TsType, TypeError> {
 	const params: TSFunctionParam[] = export_.type.arguments.map(
 		(arg, idx): TSFunctionParam => {
 			const value = wasmTypeToTSTypeString(arg, null)
@@ -831,7 +836,10 @@ function toTsType(export_: FunctionExport): Result<string, TypeError> {
 		returnType = `Annotated<${returnType}, Annotations<${annotValues.join(', ')}>>`
 	}
 
-	return makeOk(`${export_.name}: (${functionParams}) => ${returnType}`)
+	return makeOk({
+		name: export_.name,
+		type: `(${functionParams}) => ${returnType}`,
+	})
 }
 
 interface Annotations {
@@ -1027,11 +1035,19 @@ function generateFiles(options: GenerateOptions): void {
 
 	const jsTypes = generateTypes(exports)
 
-	const interface_ = `export interface GeneratedExportedFunctions {\n${exportedFunctionTypes.map((t) => `\t${t}`).join('\n')}\n}`
+	const interfaces: string[] = []
+
+	interfaces.push(
+		`export interface GeneratedExportedFunctions {\n${exportedFunctionTypes.map(({ name, type }) => `\t${name}: ${type}`).join('\n')}\n}`
+	)
+
+	interfaces.push(
+		`export type GeneratedExportedFunctionKeys = [${exportedFunctionTypes.map(({ name }) => `"${name}"`).join(',\n\t')}\n]`
+	)
 
 	const types = jsTypes.join('\n')
 
-	const wholeType = `${types}\n\n${interface_}\n`
+	const wholeType = `${types}\n\n${interfaces.join('\n')}\n`
 
 	const folder = path.dirname(options.outputFile)
 

@@ -73,5 +73,85 @@ export interface GeneratedExportedFunctions {
 	get_color_component_from_ass_color: (p_0: I32, p_1: I32) => I32
 	get_file_type_from_file_props: (p_0: I32) => I32
 	get_line_type_from_file_props: (p_0: I32) => I32
+	get_entry_from_name_in_extra_sections: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	get_entry_from_name_in_extra_section_entry: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	extra_sections_hm_get_at: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	extra_sections_hm_get_length: (p_0: I32) => I32
+	extra_section_entry_hm_get_at: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	extra_section_entry_hm_get_length: (p_0: I32) => I32
+	extra_sections_hm_entry_get_key: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
+	extra_sections_hm_entry_get_value: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	extra_section_entry_hm_entry_get_key: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
+	extra_section_entry_hm_entry_get_value: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
 	_initialize: () => void
 }
+export type GeneratedExportedFunctionKeys = ["calloc",
+	"realloc",
+	"free",
+	"qsort",
+	"bsearch",
+	"get_message",
+	"malloc",
+	"is_empty_pos",
+	"is_empty_message_struct",
+	"get_script_type_name",
+	"get_file_type_name",
+	"parse_ass",
+	"validate_ass_result",
+	"parse_result_is_error",
+	"get_diagnostics_from_result",
+	"parse_result_get_value",
+	"free_parse_result",
+	"validate_fonts_of_result",
+	"parse_font_preset",
+	"ass_parser_lib_version",
+	"ass_parser_lib_commit_hash",
+	"allocator_get_statistics",
+	"allocator_statistics_get_free",
+	"allocator_statistics_get_total",
+	"allocator_statistics_get_used",
+	"allocator_statistics_get_metadata",
+	"source_from_string",
+	"default_parse_settings",
+	"set_settings_option",
+	"diagnostics_get_length",
+	"diagnostics_get_at",
+	"get_message_from_entry",
+	"free_message_struct",
+	"diagnostic_get_file_pos",
+	"diagnostic_get_severity",
+	"file_pos_get_line",
+	"file_pos_get_column",
+	"events_get_length",
+	"events_get_at",
+	"styles_get_length",
+	"styles_get_at",
+	"get_script_info_from_ass_result",
+	"get_styles_from_ass_result",
+	"get_events_from_ass_result",
+	"get_extra_sections_from_ass_result",
+	"get_file_props_from_ass_result",
+	"get_scaled_border_and_shadow_from_script_info",
+	"get_script_type_from_script_info",
+	"get_wrap_style_from_script_info",
+	"get_video_aspect_ratio_from_script_info",
+	"get_video_zoom_from_script_info",
+	"get_play_res_x_from_script_info",
+	"get_play_res_y_from_script_info",
+	"get_string_by_name_from_script_info",
+	"get_ass_color_from_ass_style",
+	"get_color_component_from_ass_color",
+	"get_file_type_from_file_props",
+	"get_line_type_from_file_props",
+	"get_entry_from_name_in_extra_sections",
+	"get_entry_from_name_in_extra_section_entry",
+	"extra_sections_hm_get_at",
+	"extra_sections_hm_get_length",
+	"extra_section_entry_hm_get_at",
+	"extra_section_entry_hm_get_length",
+	"extra_sections_hm_entry_get_key",
+	"extra_sections_hm_entry_get_value",
+	"extra_section_entry_hm_entry_get_key",
+	"extra_section_entry_hm_entry_get_value",
+	"_initialize"
+]
