@@ -104,6 +104,12 @@ type MessageStructC = CStruct<'MessageStruct'>
 
 type FilePosC = CStruct<'FilePos'>
 
+type AssColorC = CStruct<'AssColor'>
+
+type FilePropsC = CStruct<'FileProps'>
+
+type ExtraSectionsC = CStruct<'ExtraSections'>
+
 export interface ScriptInfoStrictSettings {
 	allow_duplicate_fields: boolean
 	allow_missing_script_type: boolean
@@ -353,6 +359,12 @@ interface WASMExportsFnWithoutLibC {
 	) => Ptr<ScriptInfoC>
 	get_styles_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssStylesC>
 	get_events_from_ass_result: (ass_result: Ptr<AssResultC>) => Ptr<AssEventsC>
+	get_extra_sections_from_ass_result: (
+		ass_result: Ptr<AssResultC>
+	) => Ptr<ExtraSectionsC>
+	get_file_props_from_ass_result: (
+		ass_result: Ptr<AssResultC>
+	) => Ptr<FilePropsC>
 	//
 	get_scaled_border_and_shadow_from_script_info: (
 		script_info: Ptr<ScriptInfoC>
@@ -376,6 +388,16 @@ interface WASMExportsFnWithoutLibC {
 		CStr,
 		Annotations<Malloced<'free'>, IsCString, NoAnnot<'free_fn'>, IsNullable>
 	>
+	get_color_component_from_ass_color: (
+		ass_color: Ptr<AssColorC>,
+		index: UInt8T
+	) => UInt8T
+	get_ass_color_from_ass_style: (
+		ass_style: Ptr<AssStyleC>,
+		index: UInt8T
+	) => Ptr<AssColorC>
+	get_file_type_from_file_props: (file_props: Ptr<FilePropsC>) => FileTypeC
+	get_line_type_from_file_props: (file_props: Ptr<FilePropsC>) => LineTypeC
 }
 
 type _NotCFuncsExportedCFunctions = AreAllFunctionCFns<ExportedCFunctions>
@@ -1853,14 +1875,15 @@ export class DiagnosticsRef extends CArray<Diagnostic, 'diagnostics'> {
 	protected override convert_element_from_c_to_js(
 		element: Ptr<DiagnosticC>
 	): Diagnostic {
-		using message_ptr = new MallocedDisposable(
-			this.wasm.functions.get_message_from_entry(element),
-			(val) => {
-				if (is_not_null(val)) {
-					this.wasm.functions.free_message_struct(val)
-				}
+		const message_raw = this.wasm.functions.get_message_from_entry(element)
+
+		const message_not_null = assert_not_null(message_raw)
+
+		using message_ptr = new MallocedDisposable(message_not_null, (val) => {
+			if (is_not_null(val)) {
+				this.wasm.functions.free_message_struct(val)
 			}
-		)
+		})
 
 		const message = this.get_string_from_message_struct(message_ptr.value)
 
@@ -2306,8 +2329,164 @@ export class ScriptInfoRef extends Unref<AssScriptInfo> {
 	}
 }
 
+export class FilePropsRef extends Unref<FileProps> {
+	#wasm: WASMWrapper
+	#file_props: Ptr<FilePropsC>
+
+	constructor(wasm: WASMWrapper, file_props: Ptr<FilePropsC>) {
+		super()
+
+		this.#wasm = wasm
+		this.#file_props = file_props
+	}
+
+	private get_line_type_from_c(line_type: LineTypeC): LineType {
+		const line_type_js: LineTypeCEnum = get_enum_value<
+			LineTypeC,
+			LineTypeCEnum
+		>(line_type)
+
+		switch (line_type_js) {
+			case LineTypeCEnum.Cr:
+				return 'Cr'
+			case LineTypeCEnum.CrLf:
+				return 'CrLf'
+			case LineTypeCEnum.Lf:
+				return 'Lf'
+			default:
+				throw new Error('Implementation error')
+		}
+	}
+
+	private get_line_type(): LineType {
+		const line_type_c = this.#wasm.functions.get_line_type_from_file_props(
+			this.#script_info
+		)
+
+		return this.get_line_type_from_c(line_type_c)
+	}
+
+	private get_file_type_from_c(file_type: FileTypeC): FileType {
+		const file_type_js: FileTypeCEnum = get_enum_value<
+			FileTypeC,
+			FileTypeCEnum
+		>(file_type)
+
+		switch (file_type_js) {
+			case FileTypeCEnum.Unknown:
+				return 'Unknown'
+			case FileTypeCEnum['UTF-8']:
+				return 'UTF-8'
+			case FileTypeCEnum['UTF-16LE']:
+				return 'UTF-16LE'
+			case FileTypeCEnum['UTF-16BE']:
+				return 'UTF-16BE'
+			case FileTypeCEnum['UTF-32LE']:
+				return 'UTF-32LE'
+			case FileTypeCEnum['UTF-32BE']:
+				return 'UTF-32BE'
+			default:
+				throw new Error('Implementation error')
+		}
+	}
+
+	private get_file_type(): FileType {
+		const file_type_c = this.#wasm.functions.get_file_type_from_file_props(
+			this.#script_info
+		)
+
+		return this.get_file_type_from_c(file_type_c)
+	}
+
+	public override unref(): FileProps {
+		const line_type = this.get_line_type()
+
+		const file_type = this.get_file_type()
+
+		return { file_type, line_type }
+	}
+}
+
+export type EncodingType = number
+
+export class AssColorRef extends Unref<AssColor> {
+	#wasm: WASMWrapper
+	#ass_color: Ptr<AssColorC>
+
+	constructor(wasm: WASMWrapper, ass_color: Ptr<AssColorC>) {
+		super()
+
+		this.#wasm = wasm
+		this.#ass_color = ass_color
+	}
+
+	public override unref(): AssColor {
+		const values: [number, number, number, number] = [0, 1, 2, 3].map(
+			(index) => {
+				const c_value =
+					this.#wasm.functions.get_color_component_from_ass_color(
+						this.#ass_color,
+						index
+					)
+
+				return get_value<UInt8T>(c_value)
+			}
+		)
+
+		return new AssColor(...values)
+	}
+}
+
+export class AssColor {
+	public r: number
+	public g: number
+	public b: number
+	public a: number
+
+	constructor(r: number, g: number, b: number, a: number) {
+		this.r = r
+		this.g = g
+		this.b = b
+		this.a = a
+	}
+
+	public toWebColor(): string {
+		function display(n: number): string {
+			return n.toString(16).padStart(2, '0')
+		}
+
+		return `#${display(this.r)}${display(this.g)}${display(this.b)}${display(this.a)}`
+	}
+
+	public toString(): string {
+		return this.toWebColor()
+	}
+}
+
 export interface AssStyle {
-	todo: number
+	name: string
+	fontname: string
+	fontsize: number
+	primary_colour: AssColor
+	secondary_colour: AssColor
+	outline_colour: AssColor
+	back_colour: AssColor
+	bold: boolean
+	italic: boolean
+	underline: boolean
+	strike_out: boolean
+	scale_x: number
+	scale_y: number
+	spacing: number
+	angle: number
+	border_style: BorderStyle
+	outline: number
+	shadow: number
+	alignment: AssAlignment
+	margin_l: number
+	margin_r: number
+	margin_v: number
+	encoding: EncodingType
 }
 
 export class StylesRef extends CArray<AssStyle, 'styles'> {

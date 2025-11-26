@@ -127,4 +127,16 @@ CATEGORY_LITERAL size_t get_play_res_y_from_script_info(AssScriptInfo* script_in
 PUBLIC("get_string_by_name_from_script_info")
 ANNOTATION_MALLOCED_RESULT("free")
 ANNOTATION_NULLABLE
-    char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char* name);
+char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char* name);
+
+PUBLIC("get_ass_color_from_ass_style")
+ANNOTATION_NULLABLE AssColor* get_ass_color_from_ass_style(AssStyleEntry* ass_style, uint8_t index);
+
+PUBLIC("get_color_component_from_ass_color")
+CATEGORY_LITERAL uint8_t get_color_component_from_ass_color(AssColor* ass_color, uint8_t index);
+
+PUBLIC("get_file_type_from_file_props")
+CATEGORY_LITERAL FileType get_file_type_from_file_props(FileProps* file_props);
+
+PUBLIC("get_line_type_from_file_props")
+CATEGORY_LITERAL LineType get_line_type_from_file_props(FileProps* file_props);

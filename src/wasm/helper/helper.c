@@ -299,3 +299,37 @@ char* get_string_by_name_from_script_info(AssScriptInfo* script_info, const char
 
 	return NULL;
 }
+
+ANNOTATION_NULLABLE AssColor* get_ass_color_from_ass_style(AssStyleEntry* ass_style,
+                                                           uint8_t index) {
+	switch(index) {
+		case 0: return &(ass_style->primary_colour);
+		case 1: return &(ass_style->secondary_colour);
+		case 2: return &(ass_style->outline_colour);
+		case 3: return &(ass_style->back_colour);
+		default: {
+			return NULL;
+		}
+	}
+}
+
+uint8_t get_color_component_from_ass_color(AssColor* ass_color, uint8_t index) {
+	switch(index) {
+		case 0: return ass_color->r;
+		case 1: return ass_color->g;
+		case 2: return ass_color->b;
+		case 3: return ass_color->a;
+		default: {
+			PANIC("UNREACHABLE");
+			return 0;
+		}
+	}
+}
+
+FileType get_file_type_from_file_props(FileProps* file_props) {
+	return file_props->file_type;
+}
+
+LineType get_line_type_from_file_props(FileProps* file_props) {
+	return file_props->line_type;
+}

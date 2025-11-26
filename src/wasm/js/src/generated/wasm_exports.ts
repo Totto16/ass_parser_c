@@ -69,5 +69,9 @@ export interface GeneratedExportedFunctions {
 	get_play_res_x_from_script_info: (p_0: I32) => I32
 	get_play_res_y_from_script_info: (p_0: I32) => I32
 	get_string_by_name_from_script_info: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<Malloced<"free">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	get_ass_color_from_ass_style: (p_0: I32, p_1: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, NoAnnot<"cstr">, NoAnnot<"free_fn">, IsNullable>>
+	get_color_component_from_ass_color: (p_0: I32, p_1: I32) => I32
+	get_file_type_from_file_props: (p_0: I32) => I32
+	get_line_type_from_file_props: (p_0: I32) => I32
 	_initialize: () => void
 }
