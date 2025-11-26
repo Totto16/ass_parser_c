@@ -68,6 +68,7 @@ import {
 	release_into_unmalloced_ptr,
 	cstr_to_normal_ptr,
 	type ExportFnTypeImpl,
+	type FlatTuple,
 } from './c/types'
 import type {
 	GeneratedExportedFunctionKeys,
@@ -426,7 +427,15 @@ interface WASMExportsFnWithoutLibC {
 	get_ass_color_from_ass_style: (
 		ass_style: Ptr<AssStyleC>,
 		index: UInt8T
-	) => Ptr<AssColorC>
+	) => Annotated<
+		Ptr<AssColorC>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	>
 	get_file_type_from_file_props: (file_props: Ptr<FilePropsC>) => FileTypeC
 	get_line_type_from_file_props: (file_props: Ptr<FilePropsC>) => LineTypeC
 	//
@@ -446,10 +455,10 @@ interface WASMExportsFnWithoutLibC {
 		extra_section_entry: Ptr<ExtraSectionEntryC>,
 		name: CStr
 	) => Annotated<
-		CStr,
+		Ptr<Char>,
 		Annotations<
 			NoAnnot<'malloced'>,
-			NoAnnot<'cstr'>,
+			IsCString,
 			NoAnnot<'free_fn'>,
 			IsNullable
 		>
@@ -489,7 +498,15 @@ interface WASMExportsFnWithoutLibC {
 	//
 	extra_sections_hm_entry_get_key: (
 		extra_sections_hm_entry: Ptr<ExtraSectionHashMapEntryC>
-	) => CStr
+	) => Annotated<
+		Ptr<Char>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			IsCString,
+			NoAnnot<'free_fn'>,
+			NoAnnot<'nullable'>
+		>
+	>
 	extra_sections_hm_entry_get_value: (
 		extra_sections_hm_entry: Ptr<ExtraSectionHashMapEntryC>
 	) => Annotated<
@@ -504,7 +521,15 @@ interface WASMExportsFnWithoutLibC {
 	//
 	extra_section_entry_hm_entry_get_key: (
 		extra_section_entry_hm_entry: Ptr<ExtraSectionEntryC>
-	) => CStr
+	) => Annotated<
+		Ptr<Char>,
+		Annotations<
+			NoAnnot<'malloced'>,
+			IsCString,
+			NoAnnot<'free_fn'>,
+			NoAnnot<'nullable'>
+		>
+	>
 	extra_section_entry_hm_entry_get_value: (
 		extra_section_entry_hm_entry: Ptr<ExtraSectionEntryC>
 	) => Annotated<
@@ -1003,10 +1028,10 @@ type ExportedFunctionMismatchImpl<
 					]
 				: []
 
-type _ExportedFunctionMismatch = ExportedFunctionMismatchImpl<
+type _ExportedFunctionMismatch = FlatTuple<ExportedFunctionMismatchImpl<
 	_DeclaredExportFns,
 	_GeneratedExportFns
->
+>>
 
 type _ExportedFunctionMismatchL = _ExportedFunctionMismatch['length']
 

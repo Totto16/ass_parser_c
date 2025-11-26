@@ -33,6 +33,8 @@ typedef enum : uint8_t {
 	LineTypeCr,
 } LineType;
 
+#define ENUM_ANNOT_LineType ENUM_ANNOT_C(LineType, uint8_t)
+
 #define NO_LINE_TYPE ((LineType)LineTypeCr)
 
 #define EMPTY_POS_VAL ((size_t)-1)

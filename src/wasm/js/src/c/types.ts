@@ -194,7 +194,7 @@ type AreAllFunctionCFnImplNonNested<T extends unknown[]> = T extends []
 
 type FlatElement<E> = E extends unknown[] ? FlatTuple<E> : [E]
 
-type FlatTuple<T extends unknown[]> = T extends []
+export type FlatTuple<T extends unknown[]> = T extends []
 	? []
 	: T extends [infer Last]
 		? FlatElement<Last>

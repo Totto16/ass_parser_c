@@ -128,7 +128,7 @@ CATEGORY_LITERAL size_t get_play_res_y_from_script_info(const AssScriptInfo* scr
 
 PUBLIC("get_string_by_name_from_script_info")
 ANNOTATION_MALLOCED_RESULT("free")
-ANNOTATION_NULLABLE
+ANNOTATION_NULLABLE ANNOTATION_CSTRING
 char* get_string_by_name_from_script_info(const AssScriptInfo* script_info, const char* name);
 
 PUBLIC("get_ass_color_from_ass_style")
@@ -140,17 +140,17 @@ CATEGORY_LITERAL uint8_t get_color_component_from_ass_color(const AssColor* ass_
                                                             uint8_t index);
 
 PUBLIC("get_file_type_from_file_props")
-CATEGORY_LITERAL FileType get_file_type_from_file_props(const FileProps* file_props);
+CATEGORY_ENUM(ENUM_ANNOT_FileType) FileType get_file_type_from_file_props(const FileProps* file_props);
 
 PUBLIC("get_line_type_from_file_props")
-CATEGORY_LITERAL LineType get_line_type_from_file_props(const FileProps* file_props);
+CATEGORY_ENUM(ENUM_ANNOT_LineType) LineType get_line_type_from_file_props(const FileProps* file_props);
 
 PUBLIC("get_entry_from_name_in_extra_sections")
 ANNOTATION_NULLABLE ExtraSectionEntry*
 get_entry_from_name_in_extra_sections(ExtraSections* extra_sections, char* name);
 
 PUBLIC("get_entry_from_name_in_extra_section_entry")
-ANNOTATION_NULLABLE char*
+ANNOTATION_NULLABLE ANNOTATION_CSTRING char*
 get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_section_entry, char* name);
 
 PUBLIC("extra_sections_hm_get_at")

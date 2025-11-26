@@ -283,6 +283,8 @@ typedef enum : uint8_t {
 	FileTypeUtf32LE,
 } FileType;
 
+#define ENUM_ANNOT_FileType ENUM_ANNOT_C(FileType, uint8_t)
+
 typedef struct {
 	LineType line_type;
 	FileType file_type;
