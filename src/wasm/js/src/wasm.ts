@@ -26,6 +26,7 @@ import {
 	get_ptr_value,
 	get_enum_value,
 	Unref,
+	get_c_value,
 } from './c/functions'
 
 import type { Equal, Expect, NotEqual } from 'type-testing'
@@ -1956,6 +1957,40 @@ enum WrapStyleCEnum {
 
 type WrapStyleC = CEnum<WrapStyleCEnum, 'WrapStyle', UInt8T>
 
+export type BorderStyle = 'Outline' | 'OpaqueBox'
+
+enum BorderStyleCEnum {
+	'Outline' = 1,
+	'OpaqueBox' = 3,
+}
+
+type BorderStyleC = CEnum<BorderStyleCEnum, 'BorderStyle', UInt8T>
+
+export type AssAlignment =
+	| 'BL'
+	| 'BC'
+	| 'BR'
+	| 'ML'
+	| 'MC'
+	| 'MR'
+	| 'TL'
+	| 'TC'
+	| 'TR'
+
+enum AssAlignmentCEnum {
+	'BL' = 1,
+	'BC',
+	'BR',
+	'ML',
+	'MC',
+	'MR',
+	'TL',
+	'TC',
+	'TR',
+}
+
+type AssAlignmentC = CEnum<AssAlignmentCEnum, 'AssAlignment', UInt8T>
+
 export interface AssScriptInfo {
 	title: string
 	original_script: string
@@ -2329,6 +2364,45 @@ export class ScriptInfoRef extends Unref<AssScriptInfo> {
 	}
 }
 
+export class ExtraSectionsRef extends Unref<ExtraSections> {
+	#wasm: WASMWrapper
+	#extra_sections: Ptr<ExtraSectionsC>
+
+	constructor(wasm: WASMWrapper, extra_sections: Ptr<ExtraSectionsC>) {
+		super()
+
+		this.#wasm = wasm
+		this.#extra_sections = extra_sections
+	}
+
+	public get_section_by_name(name: string): ExtraSectionRef | undefined {
+		//TODO
+	}
+
+	public get_all_names(): string[] {
+		//
+	}
+
+	public override unref(): ExtraSections {
+		const names = this.get_all_names()
+
+		const result: ExtraSections = {}
+
+		for (const name of names) {
+			const section_ref = this.get_section_by_name(name)
+			if (section_ref === undefined) {
+				throw new Error(
+					`Expected name '${name}' in extra sections to be present, but it is not!`
+				)
+			}
+
+			result[name] = section_ref.unref()
+		}
+
+		return result
+	}
+}
+
 export class FilePropsRef extends Unref<FileProps> {
 	#wasm: WASMWrapper
 	#file_props: Ptr<FilePropsC>
@@ -2360,7 +2434,7 @@ export class FilePropsRef extends Unref<FileProps> {
 
 	private get_line_type(): LineType {
 		const line_type_c = this.#wasm.functions.get_line_type_from_file_props(
-			this.#script_info
+			this.#file_props
 		)
 
 		return this.get_line_type_from_c(line_type_c)
@@ -2392,7 +2466,7 @@ export class FilePropsRef extends Unref<FileProps> {
 
 	private get_file_type(): FileType {
 		const file_type_c = this.#wasm.functions.get_file_type_from_file_props(
-			this.#script_info
+			this.#file_props
 		)
 
 		return this.get_file_type_from_c(file_type_c)
@@ -2421,17 +2495,17 @@ export class AssColorRef extends Unref<AssColor> {
 	}
 
 	public override unref(): AssColor {
-		const values: [number, number, number, number] = [0, 1, 2, 3].map(
-			(index) => {
-				const c_value =
-					this.#wasm.functions.get_color_component_from_ass_color(
-						this.#ass_color,
-						index
-					)
+		const values: [number, number, number, number] = (
+			[0, 1, 2, 3] as [number, number, number, number]
+		).map((index) => {
+			const c_value =
+				this.#wasm.functions.get_color_component_from_ass_color(
+					this.#ass_color,
+					get_c_value<number, UInt8T>(index)
+				)
 
-				return get_value<UInt8T>(c_value)
-			}
-		)
+			return get_value<UInt8T>(c_value)
+		}) as [number, number, number, number]
 
 		return new AssColor(...values)
 	}
@@ -2501,9 +2575,96 @@ export class StylesRef extends CArray<AssStyle, 'styles'> {
 	}
 }
 
-export interface AssEvent {
-	todo: number
+export class AssTime {
+	public hour: number
+	public min: number
+	public sec: number
+	public hundred: number
+
+	constructor(hour: number, min: number, sec: number, hundred: number) {
+		this.hour = hour
+		this.min = min
+		this.sec = sec
+		this.hundred = hundred
+	}
+
+	//TODO: implement some helper methods
 }
+
+export interface MarginValueDefault {
+	default: true
+}
+
+export interface MarginValueWithValue {
+	default: false
+	value: number
+}
+
+export type MarginValue = MarginValueDefault | MarginValueWithValue
+
+export type EventType =
+	| 'Dialogue'
+	| 'Comment'
+	| 'Picture'
+	| 'Sound'
+	| 'Movie'
+	| 'Command'
+
+export interface AssEventBase {
+	layer: number
+	start: AssTime
+	end: AssTime
+	style: string
+	name: string
+	margin_l: MarginValue
+	margin_r: MarginValue
+	margin_v: MarginValue
+	effect: string
+}
+
+export interface AssEventGeneric<Type extends EventType, Text>
+	extends AssEventBase {
+	type: Type
+	text: Text
+}
+
+export interface AssText {
+	todo: string
+}
+
+export type AssEventDialogue = AssEventGeneric<'Dialogue', AssText>
+
+export type AssEventComment = AssEventGeneric<'Comment', AssText>
+
+export type AssEventPicture = AssEventGeneric<'Picture', string>
+
+export type AssEventSound = AssEventGeneric<'Sound', string>
+
+export type AssEventMovie = AssEventGeneric<'Movie', string>
+
+type SSACommand = 'TODO'
+
+export interface CommandEventSSA {
+	is_ssa: true
+	command: SSACommand
+}
+
+export interface CommandEventString {
+	is_ssa: false
+	string: string
+}
+
+export type CommandEvent = CommandEventSSA | CommandEventString
+
+export type AssEventCommand = AssEventGeneric<'Command', CommandEvent>
+
+export type AssEvent =
+	| AssEventDialogue
+	| AssEventComment
+	| AssEventPicture
+	| AssEventSound
+	| AssEventMovie
+	| AssEventCommand
 
 export class EventsRef extends CArray<AssEvent, 'events'> {
 	constructor(wasm: WASMWrapper, event: Ptr<AssEventsC>) {
