@@ -1,5 +1,5 @@
 /* zvec.h
-    based on https://github.com/Zuhaitz-dev/zvec.h/blob/684ef871399ee98096440532168a98bc66d9cd90/zvec.h
+    based on https://github.com/Zuhaitz-dev/zvec.h/blob/6c0baaf60b15ddfc0a351cda216a5baa897c05fb/zvec.h
 
     modified to suit my needs
 
