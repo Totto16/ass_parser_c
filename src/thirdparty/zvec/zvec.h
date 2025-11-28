@@ -8,6 +8,8 @@ By: Zuhaitz-dev
 Modifications by: Totto16
 */
 
+//TODO: update to https://github.com/z-libs/zvec.h instead of Zuhaitz-dev/zvec.h
+
 #pragma once
 
 #include <stdlib.h>
@@ -21,7 +23,7 @@ typedef enum  : bool{
 }ZvecResult;
 
 
-// maybe some visibility things later, but i just removed the static inline
+// maybe some visibility things later, but I just removed the static inline
 #define ZVEC_FUN_ATTRIBUTES 
 
 #define ZVEC_TYPENAME(TypeName) zvec_##TypeName

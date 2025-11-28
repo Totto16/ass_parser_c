@@ -11,7 +11,7 @@
 #define STBDS_NO_SHORT_NAMES
 #include "./stb_ds.h"
 
-// remove macros, as we don#t use stbds arrays (we use zvec instead), just hashmaps
+// remove macros, as we don't use stbds arrays (we use zvec instead), just hashmaps
 #undef stbds_arrlen
 #undef stbds_arrlenu
 #undef stbds_arrput
@@ -48,5 +48,7 @@
 
 #define STBDS_HASH_MAP_EMPTY NULL
 
+
+//TODO: use https://github.com/z-libs/zmap.h
 
 #endif
