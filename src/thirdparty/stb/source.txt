@@ -1,2 +1,0 @@
-Commit used: https://github.com/nothings/stb/commit/40adb995abeea13612ad73bda031c90e3c0cf821
-Master: https://github.com/nothings/stb/blob/master/stb_ds.h

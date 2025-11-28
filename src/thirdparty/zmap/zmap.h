@@ -62,6 +62,11 @@ typedef enum : bool {
 
 ZMAP_FUN_ATTRIBUTES uint32_t zmap_default_hash(const void *key, size_t len);
 
+ZMAP_FUN_ATTRIBUTES uint32_t zmap_stbds_hash_string(char* str);
+
+ZMAP_FUN_ATTRIBUTES uint32_t zmap_stbds_hash_bytes(const void *key, size_t len);
+
+
 typedef enum 
 {
     ZMAP_EMPTY = 0,
@@ -69,8 +74,9 @@ typedef enum
     ZMAP_DELETED
 } zmap_state;
 
-#define ZMAP_HASH_SCALAR(k) zmap_default_hash(&(k), sizeof(k))
-#define ZMAP_HASH_STR(k)    zmap_default_hash((k), strlen(k))
+#define ZMAP_HASH_SCALAR(k)          zmap_default_hash(&(k), sizeof(k))
+#define ZMAP_HASH_STR(k)             zmap_stbds_hash_string(k)
+#define ZMAP_HASH_BYTES(start, len)  zmap_stbds_hash_bytes((start), len)
 
 #define ZMAP_TYPENAME_BUCKET(TypeName) zmap_bucket_##Name
 
