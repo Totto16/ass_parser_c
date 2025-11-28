@@ -1,5 +1,5 @@
 /* zvec.h
-    based on https://github.com/Zuhaitz-dev/zvec.h/blob/6c0baaf60b15ddfc0a351cda216a5baa897c05fb/zvec.h
+    based on https://github.com/z-libs/zvec.h/blob/5ebd8ac1d1ee66e14210037f6938575901f9d17e/zvec.h
 
     modified to suit my needs
 
@@ -7,8 +7,6 @@ By: Zuhaitz-dev
 
 Modifications by: Totto16
 */
-
-//TODO: update to https://github.com/z-libs/zvec.h instead of Zuhaitz-dev/zvec.h
 
 #pragma once
 
@@ -21,6 +19,45 @@ typedef enum  : bool{
     ZvecResultErr = false,
     ZvecResultOk = true,
 }ZvecResult;
+
+// Memory Macros.
+// If the user hasn't defined their own allocator, use the standard one.
+#ifndef Z_MALLOC
+    #include <stdlib.h>
+    #define Z_MALLOC(sz)       malloc(sz)
+    #define Z_CALLOC(n, sz)    calloc(n, sz)
+    #define Z_REALLOC(p, sz)   realloc(p, sz)
+    #define Z_FREE(p)          free(p)
+#endif
+
+
+#ifndef Z_VEC_MALLOC
+    #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
+#endif
+
+#ifndef Z_VEC_CALLOC
+    #define Z_VEC_CALLOC(n, sz)   Z_CALLOC(n, sz)
+#endif
+
+#ifndef Z_VEC_REALLOC
+    #define Z_VEC_REALLOC(p, sz)  Z_REALLOC(p, sz)
+#endif
+
+#ifndef Z_VEC_FREE
+    #define Z_VEC_FREE(p)         Z_FREE(p)
+#endif
+
+
+// Compiler Extensions (Optional).
+// We check for GCC/Clang features to enable RAII-style cleanup.
+// Define Z_NO_EXTENSIONS to disable this manually.
+#if !defined(Z_NO_EXTENSIONS) && (defined(__GNUC__) || defined(__clang__))
+    #define Z_HAS_CLEANUP 1
+    #define Z_CLEANUP(func) __attribute__((cleanup(func)))
+#else
+    #define Z_HAS_CLEANUP 0
+    #define Z_CLEANUP(func) 
+#endif
 
 
 // maybe some visibility things later, but I just removed the static inline
@@ -137,6 +174,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
 #define ZVEC_SORT(T, v, cmp)           ZVEC_SORT_EXTENDED(T, T, v, cmp)         
 #define ZVEC_BSEARCH(T, v, key, cmp)   ZVEC_BSEARCH_EXTENDED(T, T, v, key, cmp) 
 #define ZVEC_LOWER_BOUND(T, v, key, cmp) ZVEC_LOWER_BOUND_EXTENDED(T, T, v, key, cmp) 
+#define ZVEC_FROM(T, arr, size)         ZVEC_FROM_EXTENDED(T, T, arr, size)
 
 #define ZVEC_PUSH_EXTENDED(T, Name, v, val)           zvec_push_##Name(v, val)
 #define ZVEC_PUSH_SLOT_EXTENDED(T, Name, v)           zvec_push_slot_##Name(v)
@@ -158,7 +196,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
 #define ZVEC_REVERSE_EXTENDED(T, Name, v)             zvec_reverse_##Name(v)
 #define ZVEC_SORT_EXTENDED(T, Name, v, cmp)           zvec_sort_##Name(v, cmp)
 #define ZVEC_BSEARCH_EXTENDED(T, Name, v, key, cmp)   zvec_bsearch_##Name(v, key, cmp)
-#define ZVEC_LOWER_BOUND_EXTENDED(T, Name, v, key, cmp)   zvec_lower_bound_##Name(v, key, cmp)
+#define ZVEC_LOWER_BOUND_EXTENDED(T, Name, v, key, cmp) zvec_lower_bound_##Name(v, key, cmp)
+#define ZVEC_FROM_EXTENDED(T, Name, arr, size)         zvec_from_array_##Name(arr, size)
 
 #define zvec_push(v, val)          _Generic((v), REGISTER_TYPES(ZVEC_PUSH_ENTRY)      default: 0)      (v, val)
 #define zvec_push_slot(v)          _Generic((v), REGISTER_TYPES(ZVEC_PUSH_SLOT_ENTRY) default: (void*)0)(v)
@@ -197,13 +236,17 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
          ZVEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[ZVEC_NAME(_i_, __LINE__)]); \
          ++ZVEC_NAME(_i_, __LINE__))
 
+#if Z_HAS_CLEANUP
+    #define zvec_autofree(Name)  Z_CLEANUP(zvec_free_##Name) vec_##Name
+#endif
+
 #define ZVEC_IMPLEMENT_VEC_TYPE(T) ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(T, T)
 
 #define ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(T, Name)                                                          \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_init_capacity_##Name(size_t cap) {                      \
     ZVEC_TYPENAME(Name) v = ZVEC_EMPTY(T);                                                                  \
     if (cap > 0) {                                                                          \
-        v.data = calloc(cap, sizeof(T));                                                    \
+        v.data = Z_VEC_CALLOC(cap, sizeof(T));                                                    \
         v.capacity = v.data ? cap : 0;                                                      \
     }                                                                                       \
     return v;                                                                               \
@@ -219,7 +262,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_from_array_##Name(con
 }                                                                                           \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##Name(ZVEC_TYPENAME(Name) *v, size_t new_cap) {                \
     if (new_cap <= v->capacity) return ZvecResultOk;                                              \
-    T *new_data = realloc(v->data, new_cap * sizeof(T));                                    \
+    T *new_data = Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                                    \
     if (!new_data) return ZvecResultErr;                                                          \
     v->data = new_data;                                                                     \
     v->capacity = new_cap;                                                                  \
@@ -267,12 +310,12 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T zvec_pop_get_##Name(ZVEC_TYPENAME(Name) *v) 
 }                                                                                           \
 ZVEC_FUN_ATTRIBUTES void zvec_shrink_to_fit_##Name(ZVEC_TYPENAME(Name) *v) {                         \
     if (v->length == 0) {                                                                   \
-        free(v->data);                                                                      \
+        Z_VEC_FREE(v->data);                                                                      \
         *v = ZVEC_EMPTY(T);                                                            \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
-    T *new_data = realloc(v->data, v->length * sizeof(T));                                  \
+    T *new_data = Z_VEC_REALLOC(v->data, v->length * sizeof(T));                                  \
     if (!new_data) return;                                                                  \
     v->data = new_data;                                                                     \
     v->capacity = v->length;                                                                \
@@ -316,7 +359,7 @@ ZVEC_FUN_ATTRIBUTES void zvec_clear_##Name(ZVEC_TYPENAME(Name) *v) {            
 }                                                                                           \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_free_##Name(ZVEC_TYPENAME(Name) *v) {                                  \
-    free(v->data);                                                                          \
+    Z_VEC_FREE(v->data);                                                                          \
     *v = ZVEC_EMPTY(T);                                                                \
 }                                                                                           \
                                                                                             \

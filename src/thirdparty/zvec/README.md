@@ -4,82 +4,92 @@
 
 ## Features
 
-* **Type Safety**: Compiler errors if you try to push a float into a vec_int.
-* **Native Performance**: Data is stored in contiguous arrays of the actual type (no boxing or pointer indirection overhead).
-* **Header Only**: No build scripts or linking required.
-* **C11 Generics**: One API (`vec_push`, `vec_at`, etc.) works for all registered types.
+* **Type Safety**: Compiler errors if you try to push a `float` into a `vec_int`.
+* **Native Performance**: Data is stored in contiguous arrays of the actual type (no boxing or pointer indirection).
+* **Zero Boilerplate**: Use the **Z-Scanner** tool to automatically generate type registrations.
+* **Header Only**: No linking required.
+* **Memory Agnostic**: Supports custom allocators (Arenas, Pools, Debuggers).
 * **Zero Dependencies**: Only standard C headers used.
 
-## Installation & Setup
+## Quick Start (Automated)
 
-Since `zvec.h` generates code for your specific types, you don't just include the library: you create a Registry Header.
+The easiest way to use `zvec.h` is with the **Z-Scanner** tool, which scans your code and handles the boilerplate for you.
 
-> You can include the logic inside the source file, but if you are going to use the library in more than one, this is implementation prevents code duplication.
+### 1. Setup
 
-### 1. Add the library
+Add `zvec.h` and the `z-core` tools to your project:
 
-Copy `zvec.h` into your project's include directory.
+```bash
+# Copy zvec.h to your root or include folder.
+git submodule add https://github.com/z-libs/z-core.git z-core
+```
 
-### 2. Create a Registry Header
+### 2. Write Code
 
-Create a file named `my_vectors.h` (or similar) to define which types need vectors.
+You don't need a separate registry file. Just define the types you need right where you use them (or in your own headers).
 
 ```c
-// my_vectors.h
+#include <stdio.h>
+#include "zvec.h"
+
+// Define your struct.
+typedef struct { float x, y; } Point;
+
+// Request the vector types you need.
+// (These are no-ops for the compiler, but markers for the scanner).
+DEFINE_VEC_TYPE(int, Int)
+DEFINE_VEC_TYPE(Point, Point)
+
+int main(void)
+{
+    vec_Int nums = vec_init(Int);
+    vec_push(&nums, 42);
+
+    vec_Point path = vec_init(Point);
+    vec_push(&path, ((Point){1.0f, 2.0f}));
+
+    printf("First number: %d\n", *vec_at(&nums, 0));
+    
+    vec_free(&nums);
+    vec_free(&path);
+    return 0;
+}
+```
+
+### 3. Build
+
+Run the scanner before compiling. It will create a header that `zvec.h` automatically detects.
+
+```bash
+# Scan your source folder (for example, src/ or .) and output to 'z_registry.h'.
+python3 z-core/zscanner.py . z_registry.h
+
+# Compile (Include the folder where z_registry.h lives, or just move it).
+gcc main.c -I. -o game
+```
+
+## Manual Setup
+
+If you cannot use Python or prefer manual control, you can use the **Registry Header** approach.
+
+* Create a file named `my_vectors.h` (or something else).
+* Register your types using X-Macros.
+
+```c
 #ifndef MY_VECTORS_H
 #define MY_VECTORS_H
 
+#define REGISTER_TYPES(X) \
+    X(int, Int)           \
+    X(float, Float)
+
+// **IT HAS TO BE INCLUDED AFTER, NOT BEFORE**.
 #include "zvec.h"
-
-// You can keep custom struct definitions, but it's optional.
-typedef struct {
-    float x, y;
-} Point;
-
-// Register Types (The X-Macro):
-// Syntax: X(ActualType, ShortName).
-// - ActualType: The C type (e.g., 'unsigned long', 'struct Point').
-// - ShortName:  Suffix for the generated functions (e.g., 'ulong', 'Point').
-#define REGISTER_TYPES(X)     \
-    X(int, int)               \
-    X(unsigned long, ulong)   \
-    X(Point, Point)
-
-// This generates the implementation for you.
-REGISTER_TYPES(DEFINE_VEC_TYPE)
 
 #endif
 ```
 
-### 3. Use in your code
-
-Include your **registry header** (`my_vectors.h`), not `zvec.h`.
-
-```c
-#include <stdio.h>
-#include "my_vectors.h"
-
-int main(void)
-{
-    // Initialize (allocated on stack, internal data on heap).
-    vec_int nums = vec_init(int);
-
-    // Push values.
-    vec_push(&nums, 10);
-    vec_push(&nums, 20);
-
-    // Iterate.
-    int *n;
-    vec_foreach(&nums, n)
-    {
-        printf("%d ", *n);
-    }
-
-    // Cleanup.
-    vec_free(&nums);
-    return 0;
-}
-```
+* Include `"my_vectors.h"` instead of `"zvec.h"` in your C files.
 
 ## API Reference
 
@@ -127,6 +137,79 @@ int main(void)
 | `vec_sort(v, cmp)` | Sorts the vector in-place using standard `qsort`. `cmp` is a function pointer: `int (*)(const T*, const T*)`. |
 | `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
+
+## Extensions (Experimental)
+
+If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free vectors when they go out of scope.
+
+| Macro | Description |
+| :--- | :--- |
+| `vec_autofree(Type)` | Declares a vector that automatically calls `vec_free` when the variable leaves scope (RAII style). |
+
+**Example:**
+```c
+void process_data()
+{
+    // 'nums' will be automatically freed when this function returns.
+    vec_autofree(int) nums = vec_init(int);
+    vec_push(&nums, 100);
+}
+```
+
+> **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
+
+## Memory Management
+
+By default, `zvec.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
+
+However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
+
+### First Option: Global Override (Recommended)
+
+To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zvec.h`.
+
+**Example: my_vectors.h**
+
+```c
+#ifndef MY_VECTORS_H
+#define MY_VECTORS_H
+
+// Define your custom memory macros **HERE**.
+#include "my_memory_system.h"
+
+// IMPORTANT: Override all four to prevent mixing allocators.
+//            This applies to all the z-libs.
+#define Z_MALLOC(sz)      my_custom_alloc(sz)
+#define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
+#define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
+#define Z_FREE(p)         my_custom_free(p)
+
+
+// Then include the library.
+#include "zvec.h"
+
+// ... Register types ...
+
+
+#endif
+```
+
+> **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
+
+### Second Option: Library-Specific Override (Advanced)
+
+If you need different allocators for different containers (e.g., an Arena for Lists but the Heap for Vectors), you can use the library-specific macros. These take priority over the global `Z_` macros.
+
+```c
+// Example: Vectors use a Frame Arena, everything else uses standard malloc.
+#define Z_VEC_CALLOC(n, sz)  arena_alloc_zero(frame_arena, (n) * (sz))
+#define Z_VEC_REALLOC(p, sz) arena_resize(frame_arena, p, sz)
+#define Z_VEC_FREE(p)        /* no-op for linear arena */
+// (Z_VEC_MALLOC is strictly unused by zvec internally, but good to define for consistency).
+
+#include "zvec.h"
+#include "zlist.h" // zlist will still use standard malloc!
+```
 
 ## Notes
 

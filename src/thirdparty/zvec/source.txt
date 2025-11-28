@@ -1,2 +1,2 @@
-Commit used: https://github.com/Zuhaitz-dev/zvec.h/commit/6c0baaf60b15ddfc0a351cda216a5baa897c05fb
-Master: https://github.com/Zuhaitz-dev/zvec.h
+Commit used: https://github.com/z-libs/zvec.h/commit/5ebd8ac1d1ee66e14210037f6938575901f9d17e
+Master: https://github.com/z-libs/zvec.h
