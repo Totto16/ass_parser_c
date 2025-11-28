@@ -69,10 +69,14 @@ import {
 	cstr_to_normal_ptr,
 	type ExportFnTypeImpl,
 	type FlatTuple,
+	type AnnotationResult,
+	type HasAnnotations,
 } from './c/types'
 import type {
 	GeneratedExportedFunctionKeys,
 	GeneratedExportedFunctions,
+	I32,
+	PtrWrapper,
 } from './generated/wasm_exports'
 
 type AssParseResultC = CStruct<'AssParseResult'>
@@ -207,6 +211,20 @@ export type AllocatorStatisticsJS = AllocatorStatisticsImpl<
 	GetJSTypeFromCType<UInt64T>
 >
 
+type _expected_ptr_annotated_ok = Expect<
+	Annotated<
+		Ptr<MessageStructC>,
+		Annotations<
+			Malloced<'free_message_struct'>,
+			NoAnnot<'cstr'>,
+			NoAnnot<'free_fn'>,
+			IsNullable
+		>
+	> extends CType
+		? true
+		: false
+>
+
 interface WASMExportsFnWithoutLibC {
 	parse_ass: (
 		source: Ptr<AssSource>,
@@ -330,7 +348,7 @@ interface WASMExportsFnWithoutLibC {
 	get_message: (
 		message: Ptr<MessageStructC>
 	) => Annotated<
-		CStr,
+		Ptr<Char>,
 		Annotations<
 			NoAnnot<'malloced'>,
 			IsCString,
@@ -533,10 +551,10 @@ interface WASMExportsFnWithoutLibC {
 	extra_section_entry_hm_entry_get_value: (
 		extra_section_entry_hm_entry: Ptr<ExtraSectionEntryC>
 	) => Annotated<
-		CStr,
+		Ptr<Char>,
 		Annotations<
 			NoAnnot<'malloced'>,
-			NoAnnot<'cstr'>,
+			IsCString,
 			NoAnnot<'free_fn'>,
 			IsNullable
 		>
@@ -644,9 +662,37 @@ type GetExportFnsInUniformFormatGeneratedImpl<Key, Type> = Type extends (
 					GetAnnotations<Ret>,
 					GetWrapper<Ret>
 				>
-			: [Key, 'error', 'ret non generated ctype']
-		: [Key, 'error', 'args not all generated ctypes']
+			: [Key, 'error', 'ret non generated ctype', Ret]
+		: [Key, 'error', 'args not all generated ctypes', Args]
 	: [Type, 'not a function type!']
+
+type _test_annotated_0 = Annotated<
+	PtrWrapper<I32>,
+	Annotations<Malloced<'free'>, IsCString, NoAnnot<'free_fn'>, IsNullable>
+>
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type _valid_annotation_1 = Expect<NotEqual<_test_annotated_0, any>>
+
+type _test_expect_genrated_ret_type0 = GetExportFnsInUniformFormatGeneratedImpl<
+	'test',
+	() => Annotated<
+		PtrWrapper<I32>,
+		Annotations<Malloced<'free'>, IsCString, NoAnnot<'free_fn'>, IsNullable>
+	>
+>
+
+type _expect_genrated_ret_type0 = Expect<
+	_test_expect_genrated_ret_type0 extends ExportEntryImpl<
+		infer _A,
+		infer _B,
+		infer _C,
+		infer _D,
+		infer _E
+	>
+		? true
+		: false
+>
 
 type GetExportFnsInUniformFormatGeneratedNonNested<T extends unknown[]> =
 	T extends []
@@ -948,6 +994,19 @@ type WrapEqual<W1, W2> =
 						]
 				: [never, 'complete mismatch', W1, W2]
 
+type CheckAnnotations<An1, An2> =
+	An1 extends AnnotationResult<infer A1, infer Type1>
+		? An2 extends AnnotationResult<infer A2, infer Type2>
+			? Equal<A1, A2> extends true
+				? HasAnnotations<Type1> extends false
+					? HasAnnotations<Type2> extends false
+						? true
+						: [never, 'has annotations 2', HasAnnotations<Type2>]
+					: [never, 'has annotations 1', HasAnnotations<Type1>]
+				: [never, 'not equal annotations', A1, A2]
+			: [never, 'error: no AnnotationResult', An2]
+		: [never, 'error: no AnnotationResult', An1]
+
 type FindMatchingFns<MyFn, ExportedFns extends unknown[][]> =
 	MyFn extends ExportEntryImpl<
 		infer Type1,
@@ -965,7 +1024,7 @@ type FindMatchingFns<MyFn, ExportedFns extends unknown[][]> =
 				>
 				? Equal<Args1, Args2> extends true
 					? Equal<Ret1, Ret2> extends true
-						? Equal<AN1, AN2> extends true
+						? CheckAnnotations<AN1, AN2> extends true
 							? WrapEqual<Wrap1, Wrap2> extends true
 								? FindSuccess
 								: [
@@ -976,7 +1035,14 @@ type FindMatchingFns<MyFn, ExportedFns extends unknown[][]> =
 										Wrap2,
 										WrapEqual<Wrap1, Wrap2>,
 									]
-							: ['error', 'annotation mismatch', Type1, AN1, AN2]
+							: [
+									'error',
+									'annotation mismatch',
+									Type1,
+									AN1,
+									AN2,
+									CheckAnnotations<AN1, AN2>,
+								]
 						: ['error', 'ret mismatch', Type1, Ret1, Ret2]
 					: ['error', 'args mismatch', Type1, Args1, Args2]
 				: ['error', 'no such function', Type1, TypeRes]
@@ -1028,10 +1094,12 @@ type ExportedFunctionMismatchImpl<
 					]
 				: []
 
-type _ExportedFunctionMismatch = FlatTuple<ExportedFunctionMismatchImpl<
+type _ExportedFunctionMismatchNested = ExportedFunctionMismatchImpl<
 	_DeclaredExportFns,
 	_GeneratedExportFns
->>
+>
+
+type _ExportedFunctionMismatch = FlatTuple<_ExportedFunctionMismatchNested>
 
 type _ExportedFunctionMismatchL = _ExportedFunctionMismatch['length']
 
@@ -2733,6 +2801,46 @@ interface ExtraSectionHashMapEntry {
 	value: ExtraSectionEntryRef
 }
 
+interface SectionFieldEntry {
+	key: string
+	value: string
+}
+
+export class SectionFieldEntryRef extends CArray<
+	SectionFieldEntry,
+	'extra_section_entry_hm'
+> {
+	constructor(
+		wasm: WASMWrapper,
+		extra_section_entry: Ptr<SectionFieldEntryC>
+	) {
+		super(wasm, extra_section_entry, 'extra_section_entry_hm')
+	}
+
+	public get_js_string_from_c(key_raw: CStr): string {
+		const result = cstr_by_ptr(this.wasm.buffer, key_raw)
+		return result
+	}
+
+	protected override convert_element_from_c_to_js(
+		element: Ptr<SectionFieldEntryC>
+	): SectionFieldEntry {
+		const key_raw =
+			this.wasm.functions.extra_section_entry_hm_entry_get_key(element)
+
+		const key = this.get_js_string_from_c(key_raw)
+
+		const value_raw =
+			this.wasm.functions.extra_section_entry_hm_entry_get_value(element)
+
+		const value_c = assert_not_null(value_raw)
+
+		const value = this.get_js_string_from_c(value_c)
+
+		return { key, value }
+	}
+}
+
 export class ExtraSectionHashMapEntryRef extends CArray<
 	ExtraSectionHashMapEntry,
 	'extra_sections_hm'
@@ -2779,24 +2887,44 @@ export class ExtraSectionEntryRef extends Unref<ExtraSectionEntry> {
 		this.#extra_section_entry = extra_section_entry
 	}
 
-	private __get_all_entries(): Ptr<ExtraSectionEntryC> | ARRAY {
-		return new Array()
+	public get_js_string_from_c(key_raw: CStr): string {
+		const result = cstr_by_ptr(this.#wasm.buffer, key_raw)
+		return result
+	}
+
+	public get_entry_by_name(name: string): string | undefined {
+		using name_c = allocate_js_utf8_string_disposable(
+			this.#wasm,
+			name,
+			false
+		)
+
+		const entry_raw =
+			this.#wasm.functions.get_entry_from_name_in_extra_section_entry(
+				this.#extra_section_entry,
+				name_c.value
+			)
+
+		if (!is_not_null(entry_raw)) {
+			return undefined
+		}
+
+		const entry = this.get_js_string_from_c(entry_raw)
+
+		return entry
+	}
+
+	private __get_all_entries(): SectionFieldEntryRef {
+		return new SectionFieldEntryRef(this.#wasm, this.#extra_section_entry)
 	}
 
 	public override unref(): ExtraSectionEntry {
-		const names = this.get_all_names()
+		const entries = this.__get_all_entries()
 
-		const result: ExtraSections = {}
+		const result: ExtraSectionEntry = {}
 
-		for (const name of names) {
-			const section_ref = this.get_section_by_name(name)
-			if (section_ref === undefined) {
-				throw new Error(
-					`Expected name '${name}' in extra sections to be present, but it is not!`
-				)
-			}
-
-			result[name] = section_ref.unref()
+		for (const entry of entries) {
+			result[entry.key] = entry.value
 		}
 
 		return result
@@ -2815,22 +2943,23 @@ export class ExtraSectionsRef extends Unref<ExtraSections> {
 	}
 
 	public get_section_by_name(name: string): ExtraSectionEntryRef | undefined {
-		const name_c = allocate_js_utf8_string(
-			this.#wasm.buffer,
-			this.#wasm.allocator,
+		using name_c = allocate_js_utf8_string_disposable(
+			this.#wasm,
 			name,
 			false
 		)
 
-		const name_raw =
+		const ptr_raw =
 			this.#wasm.functions.get_entry_from_name_in_extra_sections(
 				this.#extra_sections,
-				name_c.cstr()
+				name_c.value
 			)
 
-		if (!is_not_null(name_raw)) {
+		if (!is_not_null(ptr_raw)) {
 			return undefined
 		}
+
+		return new ExtraSectionEntryRef(this.#wasm, ptr_raw)
 	}
 
 	private __get_all_entries(): ExtraSectionHashMapEntryRef {
@@ -2838,19 +2967,12 @@ export class ExtraSectionsRef extends Unref<ExtraSections> {
 	}
 
 	public override unref(): ExtraSections {
-		const names = this.__get_all_entries()
+		const entries = this.__get_all_entries()
 
 		const result: ExtraSections = {}
 
-		for (const name of names) {
-			const section_ref = this.get_section_by_name(name)
-			if (section_ref === undefined) {
-				throw new Error(
-					`Expected name '${name}' in extra sections to be present, but it is not!`
-				)
-			}
-
-			result[name] = section_ref.unref()
+		for (const entry of entries) {
+			result[entry.key] = entry.value.unref()
 		}
 
 		return result

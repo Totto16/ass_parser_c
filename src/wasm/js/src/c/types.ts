@@ -439,20 +439,52 @@ export type Annotated<
 	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 > = (C extends CType ? RawType<C> : C extends void ? Void : never) & A
 
+export interface AnnotationResult<Annot, InnerType> {
+	readonly __type: 'annot_result'
+	readonly __annot: Annot
+	readonly __inner_type: InnerType
+}
+
+export interface NoAnnotation {
+	readonly __no__annot: 'no annotation'
+}
+
 export type GetAnnotations<T> =
-	T extends Annotated<infer _F, infer A>
-		? A extends Annotations<infer A, infer B, infer C, infer D>
-			? Annotations<A, B, C, D>
-			: A
-		: DefaultAnnotations
+	T extends Annotated<infer F, infer A>
+		? A extends Annotations<infer A2, infer B, infer C, infer D>
+			? AnnotationResult<Annotations<A2, B, C, D>, [F, 'HELLO']>
+			: AnnotationResult<NoAnnotation, T>
+		: AnnotationResult<DefaultAnnotations, T>
 
 type _expect_annot_get_0 = Expect<
-	Equal<DefaultAnnotations, GetAnnotations<Int>>
+	Equal<DefaultAnnotations, GetAnnotations<Int>['__annot']>
 >
 
 type _expect_annot_get_1 = Expect<
-	Equal<GetAnnotations<void>, GetAnnotations<Int>>
+	Equal<GetAnnotations<void>['__annot'], GetAnnotations<Int>['__annot']>
 >
+
+export type HasAnnotationsTrue<Type, Annot> = [true, Type, Annot]
+
+export type HasAnnotations<T> =
+	T extends Annotated<infer F, infer A> ? HasAnnotationsTrue<F, A> : false
+
+type _test_type_struct_0 = Annotated<
+	Ptr<CStruct<'Dummy'>>,
+	Annotations<
+		Malloced<'free_message_struct'>,
+		NoAnnot<'cstr'>,
+		NoAnnot<'free_fn'>,
+		IsNullable
+	>
+>
+
+type _test_type_struct_0_result = GetAnnotations<_test_type_struct_0>
+
+//TODO: make this work, and also ensure, that Annotated<HERE,...>, that HERE is not annotated
+/* type _expect_equal_type_with_get_annotauions0 = Expect<
+	Equal<_test_type_struct_0_result['__inner_type'], Ptr<CStruct<'Dummy'>>>
+> */
 
 export type CategoryWrapper<T extends CType, Desc extends string> = {
 	readonly __wrapper: '__generated_from_category'
