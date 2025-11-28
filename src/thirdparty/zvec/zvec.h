@@ -1,11 +1,12 @@
-/* zvec.h
-    based on https://github.com/z-libs/zvec.h/blob/5ebd8ac1d1ee66e14210037f6938575901f9d17e/zvec.h
-
-    modified to suit my needs
-
-By: Zuhaitz-dev
-
-Modifications by: Totto16
+/*
+ * zvec.h
+ * based on https://github.com/z-libs/zvec.h/blob/5ebd8ac1d1ee66e14210037f6938575901f9d17e/zvec.h
+ *
+ * modified to suit my needs
+ *
+ * By: Zuhaitz-dev
+ * 
+ * Modifications by: Totto16
 */
 
 #pragma once
@@ -15,19 +16,29 @@ Modifications by: Totto16
 #include <string.h>
 #include <assert.h>
 
-typedef enum  : bool{
+typedef enum : bool {
     ZvecResultErr = false,
     ZvecResultOk = true,
-}ZvecResult;
+} ZvecResult;
 
 // Memory Macros.
 // If the user hasn't defined their own allocator, use the standard one.
 #ifndef Z_MALLOC
-    #include <stdlib.h>
     #define Z_MALLOC(sz)       malloc(sz)
     #define Z_CALLOC(n, sz)    calloc(n, sz)
     #define Z_REALLOC(p, sz)   realloc(p, sz)
     #define Z_FREE(p)          free(p)
+#endif
+
+// Compiler Extensions (Optional).
+// We check for GCC/Clang features to enable RAII-style cleanup.
+// Define Z_NO_EXTENSIONS to disable this manually.
+#if !defined(Z_NO_EXTENSIONS) && (defined(__GNUC__) || defined(__clang__))
+    #define Z_HAS_CLEANUP 1
+    #define Z_CLEANUP(func) __attribute__((cleanup(func)))
+#else
+    #define Z_HAS_CLEANUP 0
+    #define Z_CLEANUP(func) 
 #endif
 
 
@@ -45,18 +56,6 @@ typedef enum  : bool{
 
 #ifndef Z_VEC_FREE
     #define Z_VEC_FREE(p)         Z_FREE(p)
-#endif
-
-
-// Compiler Extensions (Optional).
-// We check for GCC/Clang features to enable RAII-style cleanup.
-// Define Z_NO_EXTENSIONS to disable this manually.
-#if !defined(Z_NO_EXTENSIONS) && (defined(__GNUC__) || defined(__clang__))
-    #define Z_HAS_CLEANUP 1
-    #define Z_CLEANUP(func) __attribute__((cleanup(func)))
-#else
-    #define Z_HAS_CLEANUP 0
-    #define Z_CLEANUP(func) 
 #endif
 
 

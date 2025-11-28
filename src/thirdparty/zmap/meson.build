@@ -1,4 +1,4 @@
-lib_src_files += files('zmap.h')
+lib_src_files += files('zmap.c', 'zmap.h')
 
 
 install_headers(

@@ -1,35 +1,33 @@
 /*
- * GENERATED FILE - DO NOT EDIT DIRECTLY
- * Source: zmap.c
+ * zmap.h
  *
  * This file is part of the z-libs collection: https://github.com/z-libs
  * Licensed under the MIT License.
+ * 
+ * based on https://github.com/z-libs/zmap.h/blob/743b276cfccf65b8f4a07aa1175c12fc5359b525/zmap.h
+ * 
+ * modified to suit my needs
+ * 
+ * Modifications by: Totto16
  */
 
-
-/* ============================================================================
-   z-libs Common Definitions (Bundled)
-   This block is auto-generated. It is guarded so that if you include multiple
-   z-libs it is only defined once.
-   ============================================================================ */
-#ifndef Z_COMMON_BUNDLED
-#define Z_COMMON_BUNDLED
-
-
-#ifndef ZCOMMON_H
-#define ZCOMMON_H
+#pragma once
 
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 // Return Codes.
-#define Z_OK     0
-#define Z_ERR   -1
-#define Z_FOUND  1
+typedef enum : bool {
+    ZvecResultErr = false,
+    ZvecResultOk = true,
+} ZvecResult;
 
 // Memory Macros.
 // If the user hasn't defined their own allocator, use the standard one.
 #ifndef Z_MALLOC
-    #include <stdlib.h>
     #define Z_MALLOC(sz)       malloc(sz)
     #define Z_CALLOC(n, sz)    calloc(n, sz)
     #define Z_REALLOC(p, sz)   realloc(p, sz)
@@ -47,26 +45,6 @@
     #define Z_CLEANUP(func) 
 #endif
 
-// Metaprogramming Markers.
-// These macros are used by the Z-Scanner tool to find type definitions.
-// For the C compiler, they are no-ops (they compile to nothing).
-#define DEFINE_VEC_TYPE(T, Name)
-#define DEFINE_LIST_TYPE(T, Name)
-#define DEFINE_MAP_TYPE(Key, Val, Name)
-
-#endif
-
-
-#endif // Z_COMMON_BUNDLED
-/* ============================================================================ */
-
-
-#ifndef ZMAP_H
-#define ZMAP_H
-// [Bundled] "zcommon.h" is included inline in this same file
-#include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
 
 #ifndef Z_MAP_MALLOC
     #define Z_MAP_MALLOC(sz)      Z_MALLOC(sz)
@@ -78,17 +56,11 @@
     #define Z_MAP_FREE(p)         Z_FREE(p)
 #endif
 
-static inline uint32_t zmap_default_hash(const void *key, size_t len)
-{
-    uint32_t hash = 2166136261u;
-    const uint8_t *data = (const uint8_t *)key;
-    for (size_t i = 0; i < len; i++)
-    {
-        hash ^= data[i];
-        hash *= 16777619;
-    }
-    return hash;
-}
+
+// maybe some visibility things later, but I just removed the ZMAP_FUN_ATTRIBUTES
+#define ZMAP_FUN_ATTRIBUTES 
+
+ZMAP_FUN_ATTRIBUTES uint32_t zmap_default_hash(const void *key, size_t len);
 
 typedef enum 
 {
@@ -100,35 +72,79 @@ typedef enum
 #define ZMAP_HASH_SCALAR(k) zmap_default_hash(&(k), sizeof(k))
 #define ZMAP_HASH_STR(k)    zmap_default_hash((k), strlen(k))
 
-#define DEFINE_MAP_TYPE(KeyT, ValT, Name)                                                                       \
+#define ZMAP_TYPENAME_BUCKET(TypeName) zmap_bucket_##Name
+
+#define ZMAP_TYPENAME_MAP(TypeName) zmap_##Name
+
+#define ZMAP_DEFINE_MAP_TYPE(KeyT, ValT, Name)                                                                       \
                                                                                                                 \
 typedef struct {                                                                                                \
     KeyT key;                                                                                                   \
     ValT value;                                                                                                 \
     zmap_state state;                                                                                          \
-} zmap_bucket_##Name;                                                                                           \
+} ZMAP_TYPENAME_BUCKET(Name);                                                                                           \
                                                                                                                 \
 typedef struct {                                                                                                \
-    zmap_bucket_##Name *buckets;                                                                                \
+    ZMAP_TYPENAME_BUCKET(Name) *buckets;                                                                                \
     size_t capacity;                                                                                            \
     size_t count;                                                                                               \
     size_t occupied;                                                                                            \
     uint32_t (*hash_func)(KeyT);                                                                                \
     int      (*cmp_func)(KeyT, KeyT);                                                                           \
-} map_##Name;                                                                                                   \
+} ZMAP_TYPENAME_MAP(Name);                                                                                                   \
                                                                                                                 \
-static inline void map_free_##Name(map_##Name *m) {                                                             \
+ZMAP_FUN_ATTRIBUTES void zmap_free_##Name(ZMAP_TYPENAME_MAP(Name) *m) ;                                          \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES ZMAP_TYPENAME_MAP(Name) zmap_init_##Name(uint32_t (*h)(KeyT), int (*c)(KeyT, KeyT));        \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES ZvecResult zmap_resize_##Name(ZMAP_TYPENAME_MAP(Name) *m, size_t new_cap);                   \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES ZvecResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, ValT val);                 \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES ValT* zmap_get_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key);                                \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key)                               \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES size_t zmap_size_##Name(ZMAP_TYPENAME_MAP(Name) *m);                                       \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m);
+
+#define M_PUT_ENTRY(K, V, N)    zmap_##N*: zmap_put_##N,
+#define M_GET_ENTRY(K, V, N)    zmap_##N*: zmap_get_##N,
+#define M_REM_ENTRY(K, V, N)    zmap_##N*: zmap_remove_##N,
+#define M_FREE_ENTRY(K, V, N)   zmap_##N*: zmap_free_##N,
+#define M_SIZE_ENTRY(K, V, N)   zmap_##N*: zmap_size_##N,
+#define M_CLEAR_ENTRY(K, V, N)  zmap_##N*: zmap_clear_##N,
+
+#define zmap_init(Name, h_func, c_func) zmap_init_##Name(h_func, c_func)
+
+#if defined(Z_HAS_CLEANUP) && Z_HAS_CLEANUP
+    #define zmap_autofree(Name)  Z_CLEANUP(map_free_##Name) ZMAP_TYPENAME_MAP(Name)
+#endif
+
+#define zmap_put(m, k, v)   _Generic((m), REGISTER_MAP_TYPES(M_PUT_ENTRY)  default: 0) (m, k, v)
+#define zmap_get(m, k)      _Generic((m), REGISTER_MAP_TYPES(M_GET_ENTRY)  default: (void*)0) (m, k)
+#define zmap_remove(m, k)   _Generic((m), REGISTER_MAP_TYPES(M_REM_ENTRY)  default: (void)0) (m, k)
+#define zmap_free(m)        _Generic((m), REGISTER_MAP_TYPES(M_FREE_ENTRY) default: (void)0) (m)
+#define zmap_size(m)        _Generic((m), REGISTER_MAP_TYPES(M_SIZE_ENTRY) default: 0) (m)
+#define zmap_clear(m)       _Generic((m), REGISTER_MAP_TYPES(M_CLEAR_ENTRY) default: (void)0) (m)
+
+
+
+#define ZMAP_IMPLEMENT_MAP_TYPE(KeyT, ValT, Name)                                                                       \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES void zmap_free_##Name(ZMAP_TYPENAME_MAP(Name) *m) {                                                             \
     Z_MAP_FREE(m->buckets);                                                                                     \
-    *m = (map_##Name){0};                                                                                       \
+    *m = (ZMAP_TYPENAME_MAP(Name)){0};                                                                                       \
 }                                                                                                               \
                                                                                                                 \
-static inline map_##Name map_init_##Name(uint32_t (*h)(KeyT), int (*c)(KeyT, KeyT)) {                           \
-    return (map_##Name){ .hash_func = h, .cmp_func = c };                                                       \
+ZMAP_FUN_ATTRIBUTES ZMAP_TYPENAME_MAP(Name) zmap_init_##Name(uint32_t (*h)(KeyT), int (*c)(KeyT, KeyT)) {                           \
+    return (ZMAP_TYPENAME_MAP(Name)){ .hash_func = h, .cmp_func = c };                                                       \
 }                                                                                                               \
                                                                                                                 \
-static inline int map_resize_##Name(map_##Name *m, size_t new_cap) {                                            \
-    zmap_bucket_##Name *new_buckets = Z_MAP_CALLOC(new_cap, sizeof(zmap_bucket_##Name));                        \
-    if (!new_buckets) return Z_ERR;                                                                             \
+ZMAP_FUN_ATTRIBUTES ZvecResult zmap_resize_##Name(ZMAP_TYPENAME_MAP(Name) *m, size_t new_cap) {                                            \
+    ZMAP_TYPENAME_BUCKET(Name) *new_buckets = Z_MAP_CALLOC(new_cap, sizeof(ZMAP_TYPENAME_BUCKET(Name)));                        \
+    if (!new_buckets) { return ZvecResultErr };                                                                             \
                                                                                                                 \
     for (size_t i = 0; i < m->capacity; i++) {                                                                  \
             if (m->buckets[i].state == ZMAP_OCCUPIED) {                                                         \
@@ -144,13 +160,13 @@ static inline int map_resize_##Name(map_##Name *m, size_t new_cap) {            
         m->buckets = new_buckets;                                                                               \
         m->capacity = new_cap;                                                                                  \
         m->occupied = m->count;                                                                                 \
-        return Z_OK;                                                                                            \
+        return ZvecResultOk;                                                                                            \
 }                                                                                                               \
                                                                                                                 \
-static inline int map_put_##Name(map_##Name *m, KeyT key, ValT val) {                                           \
+ZMAP_FUN_ATTRIBUTES ZvecResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, ValT val) {                                           \
         if (m->occupied >= m->capacity * 0.75) {                                                                \
             size_t new_cap = m->capacity == 0 ? 16 : m->capacity * 2;                                           \
-            if (map_resize_##Name(m, new_cap) != Z_OK) return Z_ERR;                                            \
+            if (map_resize_##Name(m, new_cap) != ZvecResultOk) { return ZvecResultErr; }                                            \
         }                                                                                                       \
         uint32_t hash = m->hash_func(key);                                                                      \
         size_t idx = hash % m->capacity;                                                                        \
@@ -161,23 +177,23 @@ static inline int map_put_##Name(map_##Name *m, KeyT key, ValT val) {           
             if (s == ZMAP_EMPTY) {                                                                              \
                 if (deleted_idx != SIZE_MAX) idx = deleted_idx;                                                 \
                 else m->occupied++;                                                                             \
-                m->buckets[idx] = (zmap_bucket_##Name){ .key = key, .value = val, .state = ZMAP_OCCUPIED };     \
+                m->buckets[idx] = (ZMAP_TYPENAME_BUCKET(Name)){ .key = key, .value = val, .state = ZMAP_OCCUPIED };     \
                 m->count++;                                                                                     \
-                return Z_OK;                                                                                    \
+                return ZvecResultOk;                                                                                    \
             }                                                                                                   \
             if (s == ZMAP_DELETED) {                                                                            \
                 if (deleted_idx == SIZE_MAX) deleted_idx = idx;                                                 \
             }                                                                                                   \
             else if (m->cmp_func(m->buckets[idx].key, key) == 0) {                                              \
                 m->buckets[idx].value = val;                                                                    \
-                return Z_OK;                                                                                    \
+                return ZvecResultOk;                                                                                    \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \
-        return Z_ERR;                                                                                           \
+        return ZvecResultErr;                                                                                           \
     }                                                                                                           \
                                                                                                                 \
-    static inline ValT* map_get_##Name(map_##Name *m, KeyT key) {                                               \
+ZMAP_FUN_ATTRIBUTES ValT* zmap_get_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key) {                                               \
         if (m->count == 0) return NULL;                                                                         \
         uint32_t hash = m->hash_func(key);                                                                      \
         size_t idx = hash % m->capacity;                                                                        \
@@ -193,7 +209,7 @@ static inline int map_put_##Name(map_##Name *m, KeyT key, ValT val) {           
         return NULL;                                                                                            \
     }                                                                                                           \
                                                                                                                 \
-    static inline void map_remove_##Name(map_##Name *m, KeyT key) {                                             \
+ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key) {                                             \
         if (m->count == 0) return;                                                                              \
         uint32_t hash = m->hash_func(key);                                                                      \
         size_t idx = hash % m->capacity;                                                                        \
@@ -210,34 +226,12 @@ static inline int map_put_##Name(map_##Name *m, KeyT key, ValT val) {           
         }                                                                                                       \
     }                                                                                                           \
                                                                                                                 \
-    static inline size_t map_size_##Name(map_##Name *m) { return m->count; }                                    \
+ZMAP_FUN_ATTRIBUTES size_t zmap_size_##Name(ZMAP_TYPENAME_MAP(Name) *m) { return m->count; }                                    \
                                                                                                                 \
-    static inline void map_clear_##Name(map_##Name *m) {                                                        \
+ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m) {                                                        \
         if (m->capacity > 0) {                                                                                  \
-             memset(m->buckets, 0, m->capacity * sizeof(zmap_bucket_##Name));                                   \
+             memset(m->buckets, 0, m->capacity * sizeof(ZMAP_TYPENAME_BUCKET(Name)));                                   \
         }                                                                                                       \
         m->count = 0;                                                                                           \
         m->occupied = 0;                                                                                        \
     }
-
-#define M_PUT_ENTRY(K, V, N)    map_##N*: map_put_##N,
-#define M_GET_ENTRY(K, V, N)    map_##N*: map_get_##N,
-#define M_REM_ENTRY(K, V, N)    map_##N*: map_remove_##N,
-#define M_FREE_ENTRY(K, V, N)   map_##N*: map_free_##N,
-#define M_SIZE_ENTRY(K, V, N)   map_##N*: map_size_##N,
-#define M_CLEAR_ENTRY(K, V, N)  map_##N*: map_clear_##N,
-
-#define map_init(Name, h_func, c_func) map_init_##Name(h_func, c_func)
-
-#if defined(Z_HAS_CLEANUP) && Z_HAS_CLEANUP
-    #define map_autofree(Name)  Z_CLEANUP(map_free_##Name) map_##Name
-#endif
-
-#define map_put(m, k, v)   _Generic((m), REGISTER_MAP_TYPES(M_PUT_ENTRY)  default: 0) (m, k, v)
-#define map_get(m, k)      _Generic((m), REGISTER_MAP_TYPES(M_GET_ENTRY)  default: (void*)0) (m, k)
-#define map_remove(m, k)   _Generic((m), REGISTER_MAP_TYPES(M_REM_ENTRY)  default: (void)0) (m, k)
-#define map_free(m)        _Generic((m), REGISTER_MAP_TYPES(M_FREE_ENTRY) default: (void)0) (m)
-#define map_size(m)        _Generic((m), REGISTER_MAP_TYPES(M_SIZE_ENTRY) default: 0) (m)
-#define map_clear(m)       _Generic((m), REGISTER_MAP_TYPES(M_CLEAR_ENTRY) default: (void)0) (m)
-
-#endif
