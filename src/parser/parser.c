@@ -1586,7 +1586,7 @@ got_new_section_graphic:
 		return ErrorTypeFatal;
 	}
 
-	ExtraSectionEntry extra_section_entry = ZMAP_INIT_WITH_DEFAULTS(SectionFieldEntry, CString);
+	ExtraSectionEntry extra_section_entry = ZMAP_INIT(SectionFieldEntry);
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -2493,7 +2493,7 @@ static void free_ass_result(AssResult data) {
 		                     .styles = (AssStyles){ .entries = ZVEC_EMPTY(AssStyleEntry) },
 		                     .graphics = (AssGraphics){ .entries = ZVEC_EMPTY(AssGraphicEntry) } };
 
-	ass_result.extra_sections = ZMAP_INIT_WITH_DEFAULTS(ExtraSectionHashMapEntry, CString);
+	ass_result.extra_sections = ZMAP_INIT(ExtraSectionHashMapEntry);
 
 #undef FREE_AT_END
 #define FREE_AT_END() \

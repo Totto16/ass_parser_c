@@ -723,7 +723,7 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 #undef PROPAGATE_ERROR_IMPL
 #undef FREE_AT_END
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, StyleToFontHMEntry)
 
 typedef ZMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
@@ -756,7 +756,7 @@ typedef struct {
 
 #endif
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, MONOSTATE, UsedFontHMEntry)
 
 typedef ZMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 
@@ -783,7 +783,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		free_style_to_font_hm(&hm_style_to_font); \
 	} while(false)
 
-	StyleToFontHM hm_style_to_font = ZMAP_INIT_WITH_DEFAULTS(StyleToFontHMEntry, CString);
+	StyleToFontHM hm_style_to_font = ZMAP_INIT(StyleToFontHMEntry);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
@@ -852,7 +852,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	UsedFontsHM* used_fonts = malloc(sizeof(UsedFontsHM));
 
-	*used_fonts = ZMAP_INIT_WITH_DEFAULTS(UsedFontHMEntry, CString);
+	*used_fonts = ZMAP_INIT(UsedFontHMEntry);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.events.entries); ++i) {
 		AssEventEntry entry = ZVEC_AT(AssEventEntry, (ass_result.events.entries), i);

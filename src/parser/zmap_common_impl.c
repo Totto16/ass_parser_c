@@ -4,8 +4,6 @@
 
 #include "./types.h"
 
+ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, SectionFieldEntry)
 
-ZMAP_IMPLEMENT_MAP_TYPE(char*, FinalStr, SectionFieldEntry)
-
-
-ZMAP_IMPLEMENT_MAP_TYPE(char*, ExtraSectionEntry, ExtraSectionHashMapEntry)
+ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ExtraSectionEntry, ExtraSectionHashMapEntry)

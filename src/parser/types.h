@@ -262,13 +262,14 @@ typedef struct {
 	ZVEC_TYPENAME(AssGraphicEntry) entries;
 } AssGraphics;
 
-ZMAP_DEFINE_DEFAULT_FUNCTIONS(char*, CString)
-ZMAP_DEFINE_MAP_TYPE(char*, FinalStr, SectionFieldEntry)
+#define CHAR_PTR_KEYNAME CString
+
+ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, SectionFieldEntry)
 
 typedef ZMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
 typedef ZMAP_TYPENAME_BUCKET(SectionFieldEntry) SectionFieldEntry;
 
-ZMAP_DEFINE_MAP_TYPE(char*, ExtraSectionEntry, ExtraSectionHashMapEntry)
+ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ExtraSectionEntry, ExtraSectionHashMapEntry)
 
 typedef ZMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
 typedef ZMAP_TYPENAME_BUCKET(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
