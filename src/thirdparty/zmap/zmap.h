@@ -26,6 +26,13 @@ typedef enum : bool {
     ZmapResultOk = true,
 } ZmapResult;
 
+#define Z_WOULD_OVERWRITE (void*)(-1)
+
+typedef enum : uint8_t {
+    ZmapInsertResultOk = 0,
+    ZmapInsertResultErr = 1,
+    ZmapInsertResultWouldOverwrite = 2
+} ZmapInsertResult;
 
 // Memory Macros.
 // If the user hasn't defined their own allocator, use the standard one.
@@ -127,7 +134,7 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapResult zmap_resize_##Name(ZMAP_TYPENAME_MA
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, bool allow_overwrite);       \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val, bool allow_overwrite);                 \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val, bool allow_overwrite);                 \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ValT* zmap_put_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key){       \
     return zmap_insert_slot_##Name(m, key, true);                                                               \
@@ -252,7 +259,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, co
                 if (deleted_idx == SIZE_MAX) deleted_idx = idx;                                                 \
             }                                                                                                   \
             else if (m->cmp_func(m->buckets[idx].key, key) == 0) {                                              \
-                if(!allow_overwrite){ return NULL; }                                                            \
+                if(!allow_overwrite){ return Z_WOULD_OVERWRITE; }                                                            \
                 return &(m->buckets[idx].value);                                                                    \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
@@ -260,11 +267,12 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, co
         return NULL;                                                                                           \
     }                                                                                                           \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES ZmapResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val, bool allow_overwrite) {                                           \
+ZMAP_FUN_ATTRIBUTES ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val, bool allow_overwrite) {                                           \
     ValT* slot = zmap_insert_slot_##Name(m, key, allow_overwrite);                                               \
-    if (!slot) {return ZvecResultErr; }                                                              \
+    if (slot == NULL) { return ZmapInsertResultErr; }                                                              \
+    if(slot == Z_WOULD_OVERWRITE) { ZmapInsertResultWouldOverwrite; }                  \
     *slot = val;                                                                          \
-    return ZvecResultOk;                                                                    \
+    return ZmapInsertResultOk;                                                                    \
 }                                                                                                           \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key) {                                               \
