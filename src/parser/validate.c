@@ -723,7 +723,7 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 #undef PROPAGATE_ERROR_IMPL
 #undef FREE_AT_END
 
-ZMAP_DEFINE_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry)
 
 typedef ZMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
@@ -756,7 +756,7 @@ typedef struct {
 
 #endif
 
-ZMAP_DEFINE_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry)
 
 typedef ZMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 

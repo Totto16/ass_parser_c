@@ -1633,7 +1633,7 @@ got_new_section_graphic:
 				return ErrorTypeFatal;
 			}
 
-			const char* field_entry_key = get_normalized_string(field);
+			char* field_entry_key = get_normalized_string(field);
 
 			{
 				// NOTE: don't care for overwrites
