@@ -1574,6 +1574,20 @@ got_new_section_graphic:
 #undef FREE_GRAPHIC_ENTRY
 #undef FREE_AT_END
 
+static void free_extra_section_entry(ExtraSectionEntry entry) {
+	size_t hm_total_length = ZMAP_CAPACITY(entry);
+
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		const SectionFieldEntry* hm_entry = ZMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
+
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free(hm_entry->key);
+		}
+	}
+
+	ZMAP_FREE(SectionFieldEntry, &entry);
+}
+
 [[nodiscard]] static ErrorType extra_section(ConstStrView section_name, StrView* data_view,
                                              ExtraSections* extra_sections, LineType line_type,
                                              Diagnostics* diagnostics) {
@@ -1636,11 +1650,25 @@ got_new_section_graphic:
 			char* field_entry_key = get_normalized_string(field);
 
 			{
-				// NOTE: don't care for overwrites
+				// NOTE: if we would overwrite, we need to free the key afterwards, as it is not
+				// store in the hm! (note the same thing has to be done, when the value also need to
+				// be freed, not just the key, note, value is a pointer to the slot, not to the
+				// actual old value, this needs to be copied (shallow, e.g. the to free ptr needs a
+				// copy) and than freed)
+				const FinalStr* old_value =
+				    ZMAP_GET(SectionFieldEntry, &extra_section_entry, field_entry_key);
+
 				ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(field_entry_value);
 				FinalStr* slot = ZMAP_INSERT_SLOT(SectionFieldEntry, &extra_section_entry,
 				                                  field_entry_key, true);
 				ASSERT(slot != NULL, "OOM");
+
+				if(old_value != NULL) {
+					free(field_entry_key);
+				}
+
+				// NOTE: we also could skipping overwriting, then the behaviour on duplicate entires
+				// would change, to being the first one encountered and not the last one
 				*slot = field_entry_value;
 			}
 		}
@@ -1651,11 +1679,27 @@ got_new_section_graphic:
 	}
 
 	{
-		// NOTE: don't care for overwrites
+		// NOTE: if we would overwrite, we need to free the key and value afterwards, as it is not
+		// store in the hm! (note, value is a pointer to the slot, not to the actual old
+		// value, this needs to be copied (shallow, e.g. the to free ptr needs a copy) and than
+		// freed)
+		const ExtraSectionEntry* old_value =
+		    ZMAP_GET(ExtraSectionHashMapEntry, extra_sections, section_name_str);
+
 		ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(extra_section_entry);
 		ExtraSectionEntry* slot =
 		    ZMAP_INSERT_SLOT(ExtraSectionHashMapEntry, extra_sections, section_name_str, true);
 		ASSERT(slot != NULL, "OOM");
+
+		if(old_value != NULL) {
+			free(section_name_str);
+			ExtraSectionEntry old_value_shallow_cp = *old_value;
+
+			free_extra_section_entry(old_value_shallow_cp);
+		}
+
+		// NOTE: we also could skipping overwriting, then the behaviour on duplicate entires would
+		// change, to being the first one encountered and not the last one
 		*slot = extra_section_entry;
 	}
 
@@ -2267,32 +2311,18 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 	return ErrorTypeNone;
 }
 
-static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_total_length = ZMAP_CAPACITY(entry);
-
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const SectionFieldEntry* hm_entry = ZMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
-
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
-			free(hm_entry->key);
-		}
-	}
-
-	ZMAP_FREE(SectionFieldEntry, &entry);
-}
-
 static void free_extra_sections(ExtraSections sections) {
 
 	size_t hm_total_length = ZMAP_CAPACITY(sections);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-	const ExtraSectionHashMapEntry* hm_entry = ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
+		const ExtraSectionHashMapEntry* hm_entry =
+		    ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
 
 		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
 			free_extra_section_entry(hm_entry->value);
 			free(hm_entry->key);
 		}
-
 	}
 
 	ZMAP_FREE(ExtraSectionHashMapEntry, &sections);

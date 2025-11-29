@@ -115,8 +115,6 @@ typedef enum
 
 #define ZMAP_TYPENAME_MAP(TypeName) zmap_##TypeName
 
-//TODO: add free entry fn, if we remove a value we might need to free its content, this needs to be done in insert and remove and free! also check for keys, that eventually need a free (e.g. malloced strings)
-
 #define ZMAP_DEFINE_MAP_TYPE(KeyT, KeyName, ValT, Name)                                                                       \
                                                                                                                 \
 typedef struct {                                                                                                \
@@ -260,7 +258,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, Ke
             if (s == ZMAP_EMPTY) {                                                                              \
                 if (deleted_idx != SIZE_MAX) idx = deleted_idx;                                                 \
                 else m->occupied++;                                                                             \
-                m->buckets[idx] = (ZMAP_TYPENAME_BUCKET(Name)){ .entry = (ZMAP_TYPENAME_ENTRY(Name)){.key = key, .value = (ValT){0}}, .state = ZMAP_OCCUPIED };     \
+                m->buckets[idx] = (ZMAP_TYPENAME_BUCKET(Name)){ .entry = (ZMAP_TYPENAME_ENTRY(Name)){.key = key, .value = (ValT){}}, .state = ZMAP_OCCUPIED };     \
                 m->count++;                                                                                     \
                 return &(m->buckets[idx].entry.value);                                                                                    \
             }                                                                                                   \

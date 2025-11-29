@@ -913,18 +913,22 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		// TODO: make used_fonts a zvec and use bsearch to acomplish the same thing!
-
-		// TODO: to make the free correct, see the TODO in the zmap type!
-
 		{
 
-			ZMAP_ASSERT_SHOULD_USE_INSERT(MONOSTATE_VALUE);
+			// check if an insert is necessary, if it is, give "ownership" of the allocated
+			// font_name to the hm, otherwise free it
 
-			// insert font, if not already in the hm (that is used like a set)
-			ASSERT(ZMAP_INSERT(UsedFontHMEntry, used_fonts, font_name, MONOSTATE_VALUE, true) ==
-			           ZmapInsertResultOk,
-			       "OOM");
+			// use insert_slot here, even if MONOSTATE is not that huge and
+			// ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT fails, it is named should an not mandatory
+
+			MONOSTATE* slot = ZMAP_INSERT_SLOT(UsedFontHMEntry, used_fonts, font_name, false);
+			ASSERT(slot != NULL, "OOM");
+
+			if(slot != ZMAP_WOULD_OVERWRITE) {
+				free(font_name);
+			} else {
+				*slot = MONOSTATE_VALUE;
+			}
 		}
 	}
 
