@@ -5,9 +5,7 @@
 #include "../helper/message_struct.h"
 #include "../helper/string_view.h"
 
-#define STBDS_ONLY_MACROS
-#include <stb/ds.h>
-#undef STBDS_ONLY_MACROS
+#include <zmap/zmap.h>
 #include <zvec/zvec.h>
 
 #include <stdint.h>
@@ -69,7 +67,7 @@ typedef struct {
 			                                                  .data = { .simple = (message) } }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
-		ASSERT(ZVEC_PUSH(DiagnosticEntry, &entries, diagnostic) == ZvecResultOk, "OOM"); /*NOLINT(clang-analyzer-unix.Malloc)*/ \
+		ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &entries, diagnostic); \
 	} while(false)
 
 #define INSERT_SIMPLE_WARNING(entries, message, pos) \

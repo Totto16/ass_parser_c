@@ -213,7 +213,7 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 		}
 
 		if(matches_font(font_name, received_name, settings.font_match_res)) {
-			ASSERT(ZVEC_PUSH(AssFontName, names, entry.name) == ZvecResultOk, "OOM");
+			ZVEC_PUSH_SLOT_AND_ASSERT(AssFontName, names, entry.name);
 		}
 
 		free(received_name);
@@ -324,7 +324,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 		FontHandle handle = { .type = FontHandleTypeFontConfig,
 			                  .data = { .font_config = { .index_in_list = i } } };
 
-		ASSERT(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk, "OOM");
+		ZVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
 	}
 
 #endif
@@ -335,7 +335,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 			.data = { .embedded = { .font_name = ZVEC_AT(AssFontName, embedded_result, i) } }
 		};
 
-		ASSERT(ZVEC_PUSH(FontHandle, &handles, handle) == ZvecResultOk, "OOM");
+		ZVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
 	}
 
 	FontResultOk ok_result = { .handles = handles,
@@ -723,20 +723,20 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 #undef PROPAGATE_ERROR_IMPL
 #undef FREE_AT_END
 
-STBDS_HASH_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry);
+ZMAP_DEFINE_MAP_TYPE(char*, FinalStr, StyleToFontHMEntry)
 
-typedef STBDS_HASH_MAP(StyleToFontHMEntry) StyleToFontHM;
+typedef ZMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
 static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 
-	size_t hm_length = stbds_shlenu(*style_to_font_hm);
+	size_t hm_length = ZMAP_FOREACH_TODO(*style_to_font_hm);
 
 	for(size_t i = 0; i < hm_length; ++i) {
 		StyleToFontHMEntry entry = (*style_to_font_hm)[i];
 		free(entry.key);
 	}
 
-	stbds_shfree(*style_to_font_hm);
+	ZMAP_FREE(*style_to_font_hm);
 }
 
 #if defined(__clang__) && !defined(__WASM__)
@@ -753,20 +753,20 @@ typedef struct {
 
 #endif
 
-STBDS_HASH_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry);
+ZMAP_DEFINE_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry);
 
-typedef STBDS_HASH_MAP(UsedFontHMEntry) UsedFontsHM;
+typedef ZMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 
 static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
-	size_t hm_length = stbds_shlenu(*used_fonts_hm);
+	size_t hm_length = ZMAP_FOREACH_TODO(*used_fonts_hm);
 
 	for(size_t i = 0; i < hm_length; ++i) {
 		UsedFontHMEntry entry = (*used_fonts_hm)[i];
 		free(entry.key);
 	}
 
-	stbds_shfree(*used_fonts_hm);
+	ZMAP_FREE(*used_fonts_hm);
 }
 
 [[nodiscard]] static UsedFontsHM get_used_fonts(AssResult ass_result, bool allow_validation_errors,
@@ -792,7 +792,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		int index = stbds_shgeti(hm_style_to_font, style_name);
+		int index = ZMAP_GETI_TODO(hm_style_to_font, style_name);
 
 		if(index >= 0) {
 
@@ -823,7 +823,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		StyleToFontHMEntry hm_entry = { .key = style_name, .value = entry.fontname };
 
-		stbds_shputs(hm_style_to_font, hm_entry);
+		ZMAP_PUT(TODO, hm_style_to_font, hm_entry);
 	}
 
 #undef FREE_AT_END
@@ -853,7 +853,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		int index = stbds_shgeti(hm_style_to_font, style_name);
+		int index = ZMAP_GETI_TODO(hm_style_to_font, style_name);
 
 		if(index < 0) {
 
@@ -896,12 +896,12 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		}
 
 		// insert font, if not already in the hm (that is used like a set)
-		int font_index = stbds_shgeti(used_fonts, font_name);
+		int font_index = ZMAP_GETI_TODO(used_fonts, font_name);
 
 		if(font_index < 0) {
 			UsedFontHMEntry used_font_entry = { .key = font_name, .value = MONOSTATE_VALUE };
 
-			stbds_shputs(used_fonts, used_font_entry);
+			ZMAP_PUT(TODO, used_fonts, used_font_entry);
 		} else {
 			free(font_name);
 		}
@@ -913,7 +913,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	if(used_fonts == STBDS_HASH_MAP_EMPTY) {
 		UsedFontHMEntry default_value = { .key = NULL, .value = MONOSTATE_VALUE };
 		// forces the length to be 0, but the pointer to not be null!
-		stbds_shdefaults(used_fonts, default_value);
+		ZMAP_DEFAULTS_TODO(used_fonts, default_value);
 	}
 
 	return used_fonts;
@@ -983,7 +983,7 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		}
 
 		if(settings.check_only_used_fonts) {
-			int font_index = stbds_shgeti(used_fonts, font_name);
+			int font_index = ZMAP_GETI_TODO(used_fonts, font_name);
 
 			if(font_index < 0) {
 

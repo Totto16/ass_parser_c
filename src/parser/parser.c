@@ -14,11 +14,11 @@
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
-#include <stb/ds.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <zmap/zmap.h>
 #include <zvec/zvec.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
@@ -324,7 +324,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 			format = AssStyleFormatUnknownField;
 		}
 
-		ASSERT(ZVEC_PUSH(AssStyleFormat, format_result, format) == ZvecResultOk, "OOM");
+		ZVEC_PUSH_AND_ASSERT(AssStyleFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
@@ -555,7 +555,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 		return ErrorTypeFatal;
 	}
 
-	ASSERT(ZVEC_PUSH(AssStyleEntry, &(styles_result->entries), entry) == ZvecResultOk, "OOM");
+	ZVEC_PUSH_SLOT_AND_ASSERT(AssStyleEntry, &(styles_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -667,9 +667,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 					.position = field.file_pos
 				};
 
-				ASSERT(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
-				           ZvecResultOk,
-				       "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -791,9 +789,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 						.position = field.file_pos
 					};
 
-					ASSERT(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
-					           ZvecResultOk,
-					       "OOM");
+					ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 					/*** @see keep-going */
 					break;
@@ -803,7 +799,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 			if(!found_field) {
 				// note: as this is not intended, we can choose if the last or the first value is
 				// the final value
-				ASSERT(ZVEC_PUSH(FinalStr, &field_names, field) == ZvecResultOk, "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &field_names, field);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
@@ -878,9 +874,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 					.position = field.file_pos
 				};
 
-				ASSERT(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
-				           ZvecResultOk,
-				       "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -1179,7 +1173,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 		       "OOM");
 
 		for(size_t j = 0; j < normalized_length; ++j) {
-			ASSERT(ZVEC_PUSH(char, &final_data, entry_normalized[j]) == ZvecResultOk, "OOM");
+			ZVEC_PUSH_AND_ASSERT(char, &final_data, entry_normalized[j]);
 		}
 
 		free(entry_normalized);
@@ -1273,7 +1267,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 		if(!is_empty_message_struct(font_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
 		} else { \
-			ASSERT(ZVEC_PUSH(AssFontEntry, &(fonts.entries), result_font) == ZvecResultOk, "OOM"); \
+			ZVEC_PUSH_SLOT_AND_ASSERT(AssFontEntry, &(fonts.entries), result_font); \
 		} \
 	} while(false)
 
@@ -1381,8 +1375,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 				// add to the raw data!
 
-				ASSERT(ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line) == ZvecResultOk,
-				       "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1446,9 +1439,7 @@ got_new_section_font:
 		if(!is_empty_message_struct(graphic_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, graphic_process_result, (pos)); \
 		} else { \
-			ASSERT(ZVEC_PUSH(AssGraphicEntry, &(graphics.entries), result_graphic) == \
-			           ZvecResultOk, \
-			       "OOM"); \
+			ZVEC_PUSH_SLOT_AND_ASSERT(AssGraphicEntry, &(graphics.entries), result_graphic); \
 		} \
 	} while(false)
 
@@ -1556,8 +1547,7 @@ got_new_section_font:
 
 				// add to the raw data!
 
-				ASSERT(ZVEC_PUSH(FinalStr, &(temp_entry.data_raw.entries), line) == ZvecResultOk,
-				       "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1596,8 +1586,7 @@ got_new_section_graphic:
 		return ErrorTypeFatal;
 	}
 
-	ExtraSectionHashMapEntry extra_section = { .key = section_name_str,
-		                                       .value = { .fields = STBDS_HASH_MAP_EMPTY } };
+	ExtraSectionEntry extra_section_entry = ZMAP_INIT_WITH_DEFAULTS(SectionFieldEntry, CString);
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -1613,8 +1602,6 @@ got_new_section_graphic:
 			if(line.length == 0) {
 				continue;
 			}
-
-			SectionFieldEntry field_entry = {};
 
 			StrView line_view = get_str_view_from_const_str_view(line);
 
@@ -1637,18 +1624,18 @@ got_new_section_graphic:
 				return ErrorTypeFatal;
 			}
 
-			ConstStrView key = {};
+			ConstStrView field_entry_value = {};
 
-			if(!str_view_get_substring_until_eof(&line_view, &key, false, NO_LINE_TYPE)) {
+			if(!str_view_get_substring_until_eof(&line_view, &field_entry_value, false,
+			                                     NO_LINE_TYPE)) {
 				INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("eof error"),
 				                    line_view.position.file_pos);
 				return ErrorTypeFatal;
 			}
 
-			field_entry.key = get_normalized_string(field);
-			field_entry.value = key;
+			const char* field_entry_key = get_normalized_string(field);
 
-			stbds_shputs(extra_section.value.fields, field_entry);
+			ZMAP_PUT(SectionFieldEntry, &extra_section_entry, field_entry_key, field_entry_value);
 		}
 
 		if(str_view_is_eof(*data_view)) {
@@ -1656,7 +1643,7 @@ got_new_section_graphic:
 		}
 	}
 
-	stbds_shputs(extra_sections->entries, extra_section);
+	ZMAP_PUT(ExtraSectionHashMapEntry, extra_sections, section_name_str, extra_section_entry);
 
 	return ErrorTypeNone;
 }
@@ -1747,7 +1734,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 			format = AssEventFormatUnknownField;
 		}
 
-		ASSERT(ZVEC_PUSH(AssEventFormat, format_result, format) == ZvecResultOk, "OOM");
+		ZVEC_PUSH_AND_ASSERT(AssEventFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
@@ -1989,7 +1976,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 		return ErrorTypeFatal;
 	}
 
-	ASSERT(ZVEC_PUSH(AssEventEntry, &(events_result->entries), entry) == ZvecResultOk, "OOM");
+	ZVEC_PUSH_SLOT_AND_ASSERT(AssEventEntry, &(events_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -2208,9 +2195,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 					.position = field.file_pos
 				};
 
-				ASSERT(ZVEC_PUSH(DiagnosticEntry, &(diagnostics->entries), diagnostic) ==
-				           ZvecResultOk,
-				       "OOM");
+				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -2269,7 +2254,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 }
 
 static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_length = stbds_shlenu(entry.fields);
+	size_t hm_length = ZMAP_FOREACH_TODO(entry.fields);
 
 	for(size_t i = 0; i < hm_length; ++i) {
 		SectionFieldEntry hm_entry = entry.fields[i];
@@ -2277,12 +2262,12 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 		free(hm_entry.key);
 	}
 
-	stbds_shfree(entry.fields);
+	ZMAP_FREE(entry.fields);
 }
 
 static void free_extra_sections(ExtraSections sections) {
 
-	size_t hm_length = stbds_shlenu(sections.entries);
+	size_t hm_length = ZMAP_LENGTH(ExtraSectionHashMapEntry, sections.entries);
 
 	for(size_t i = 0; i < hm_length; ++i) {
 		ExtraSectionHashMapEntry entry = sections.entries[i];
@@ -2291,7 +2276,7 @@ static void free_extra_sections(ExtraSections sections) {
 		free(entry.key);
 	}
 
-	stbds_shfree(sections.entries);
+	ZMAP_FREE(sections.entries);
 }
 
 static void free_fonts(AssFonts fonts) {

@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <stb/ds.h>
+#include <zmap/zmap.h>
 
 // this is a hack, so that I don't need malloc the result, since only ptrs can be returned to wasm
 static AllocatorStatistics g_global_stats = {};
@@ -334,7 +334,7 @@ LineType get_line_type_from_file_props(const FileProps* file_props) {
 	return file_props->line_type;
 }
 
-// TODO: make extra_sections const, is not doable, as stbds_shgeti might allocate, which is dumb
+// TODO: make extra_sections const, is not doable, as ZMAP_GETI_TODO might allocate, which is dumb
 // imo, but it might do it, if extra_sections is NULL
 ExtraSectionEntry* get_entry_from_name_in_extra_sections(ExtraSections* extra_sections,
                                                          char* name) {
@@ -342,7 +342,7 @@ ExtraSectionEntry* get_entry_from_name_in_extra_sections(ExtraSections* extra_se
 		return NULL;
 	}
 
-	int index = stbds_shgeti(extra_sections->entries, name);
+	int index = ZMAP_GETI_TODO(extra_sections->entries, name);
 
 	if(index < 0) {
 		return NULL;
@@ -357,7 +357,7 @@ char* get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_sectio
 		return NULL;
 	}
 
-	int index = stbds_shgeti(extra_section_entry->fields, name);
+	int index = ZMAP_GETI_TODO(extra_section_entry->fields, name);
 
 	if(index < 0) {
 		return NULL;
@@ -370,7 +370,7 @@ char* get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_sectio
 
 const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* extra_sections_hm,
                                                          size_t index) {
-	size_t hm_length = stbds_shlenu(extra_sections_hm->entries);
+	size_t hm_length = ZMAP_FOREACH_TODO(extra_sections_hm->entries);
 	if(index >= hm_length) {
 		return NULL;
 	}
@@ -379,13 +379,13 @@ const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* ex
 }
 
 size_t extra_sections_hm_get_length(ExtraSections* extra_sections_hm) {
-	size_t hm_length = stbds_shlenu(extra_sections_hm->entries);
+	size_t hm_length = ZMAP_FOREACH_TODO(extra_sections_hm->entries);
 	return hm_length;
 }
 
 const SectionFieldEntry*
 extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, size_t index) {
-	size_t hm_length = stbds_shlenu(extra_section_entry_hm->fields);
+	size_t hm_length = ZMAP_FOREACH_TODO(extra_section_entry_hm->fields);
 	if(index >= hm_length) {
 		return NULL;
 	}
@@ -394,7 +394,7 @@ extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, s
 }
 
 size_t extra_section_entry_hm_get_length(ExtraSectionEntry* extra_section_entry_hm) {
-	size_t hm_length = stbds_shlenu(extra_section_entry_hm->fields);
+	size_t hm_length = ZMAP_FOREACH_TODO(extra_section_entry_hm->fields);
 	return hm_length;
 }
 

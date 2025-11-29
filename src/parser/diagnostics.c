@@ -3,7 +3,7 @@
 
 #include "../helper/macros.h"
 
-#include <stb/ds.h>
+#include <zmap/zmap.h>
 #include <stdio.h>
 
 ZVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)

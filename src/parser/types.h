@@ -262,17 +262,14 @@ typedef struct {
 	ZVEC_TYPENAME(AssGraphicEntry) entries;
 } AssGraphics;
 
-STBDS_HASH_MAP_TYPE(char*, FinalStr, SectionFieldEntry);
+ZMAP_DEFINE_DEFAULT_FUNCTIONS(char*, CString)
+ZMAP_DEFINE_MAP_TYPE(char*, FinalStr, SectionFieldEntry)
 
-typedef struct {
-	STBDS_HASH_MAP(SectionFieldEntry) fields;
-} ExtraSectionEntry;
+typedef ZMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
 
-STBDS_HASH_MAP_TYPE(char*, ExtraSectionEntry, ExtraSectionHashMapEntry);
+ZMAP_DEFINE_MAP_TYPE(char*, ExtraSectionEntry, ExtraSectionHashMapEntry)
 
-typedef struct {
-	STBDS_HASH_MAP(ExtraSectionHashMapEntry) entries;
-} ExtraSections;
+typedef ZMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
 
 typedef enum : uint8_t {
 	FileTypeUnknown,
