@@ -266,10 +266,12 @@ ZMAP_DEFINE_DEFAULT_FUNCTIONS(char*, CString)
 ZMAP_DEFINE_MAP_TYPE(char*, FinalStr, SectionFieldEntry)
 
 typedef ZMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
+typedef ZMAP_TYPENAME_BUCKET(SectionFieldEntry) SectionFieldEntry;
 
 ZMAP_DEFINE_MAP_TYPE(char*, ExtraSectionEntry, ExtraSectionHashMapEntry)
 
 typedef ZMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
+typedef ZMAP_TYPENAME_BUCKET(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
 
 typedef enum : uint8_t {
 	FileTypeUnknown,

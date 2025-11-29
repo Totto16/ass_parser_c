@@ -237,14 +237,14 @@ size_t get_play_res_y_from_script_info(const AssScriptInfo* script_info) {
 	return script_info->play_res_y;
 }
 
-#define RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(a) \
+#define RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(value) \
 	do { \
-		if((a).start == NULL) { \
+		if((value).start == NULL) { \
 			char* res = (char*)malloc(1); \
 			res[0] = '\0'; \
 			return res; \
 		} \
-		return get_normalized_string(a); \
+		return get_normalized_string(value); \
 	} while(false)
 
 char* get_string_by_name_from_script_info(const AssScriptInfo* script_info, const char* name) {
@@ -334,68 +334,77 @@ LineType get_line_type_from_file_props(const FileProps* file_props) {
 	return file_props->line_type;
 }
 
-// TODO: make extra_sections const, is not doable, as ZMAP_GETI_TODO might allocate, which is dumb
-// imo, but it might do it, if extra_sections is NULL
-ExtraSectionEntry* get_entry_from_name_in_extra_sections(ExtraSections* extra_sections,
+const ExtraSectionEntry* 
+get_entry_from_name_in_extra_sections(const ExtraSections* const extra_sections,
                                                          char* name) {
-	if(extra_sections == NULL || extra_sections->entries == NULL) {
+	if(extra_sections == NULL) {
 		return NULL;
 	}
 
-	int index = ZMAP_GETI_TODO(extra_sections->entries, name);
+	const ExtraSectionEntry* value = ZMAP_GET(ExtraSectionHashMapEntry, extra_sections, name);
 
-	if(index < 0) {
-		return NULL;
-	}
-
-	return &(extra_sections->entries[index].value);
+	return value;
 }
 
-char* get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_section_entry,
+char* get_entry_from_name_in_extra_section_entry(const ExtraSectionEntry* const extra_section_entry,
                                                  char* name) {
-	if(extra_section_entry == NULL || extra_section_entry->fields == NULL) {
+	if(extra_section_entry == NULL) {
 		return NULL;
 	}
 
-	int index = ZMAP_GETI_TODO(extra_section_entry->fields, name);
+	const FinalStr* value = ZMAP_GET(SectionFieldEntry, extra_section_entry, name);
 
-	if(index < 0) {
+
+	if(value == NULL){
 		return NULL;
 	}
 
-	FinalStr value = extra_section_entry->fields[index].value;
 
-	RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(value);
+	RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(*value);
 }
+
+#define MAP_NOT_OCCUPIED ((void*)(1))
 
 const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* extra_sections_hm,
                                                          size_t index) {
-	size_t hm_length = ZMAP_FOREACH_TODO(extra_sections_hm->entries);
-	if(index >= hm_length) {
+	size_t hm_total_length = ZMAP_CAPACITY(*extra_sections_hm);
+	if(index >= hm_total_length) {
 		return NULL;
 	}
 
-	return &(extra_sections_hm->entries[index]);
+	const ExtraSectionHashMapEntry* bucket = &(extra_sections_hm->buckets[index]);
+
+	if(bucket->state == ZMAP_OCCUPIED) {
+		return bucket;
+	}
+
+	return MAP_NOT_OCCUPIED;
 }
 
 size_t extra_sections_hm_get_length(ExtraSections* extra_sections_hm) {
-	size_t hm_length = ZMAP_FOREACH_TODO(extra_sections_hm->entries);
-	return hm_length;
+	size_t hm_total_length = ZMAP_CAPACITY(*extra_sections_hm);
+	return hm_total_length;
 }
 
 const SectionFieldEntry*
 extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, size_t index) {
-	size_t hm_length = ZMAP_FOREACH_TODO(extra_section_entry_hm->fields);
-	if(index >= hm_length) {
+	size_t hm_total_length = ZMAP_CAPACITY(*extra_section_entry_hm);
+	if(index >= hm_total_length) {
 		return NULL;
 	}
 
-	return &(extra_section_entry_hm->fields[index]);
+	const SectionFieldEntry* bucket = &(extra_section_entry_hm->buckets[index]);
+
+	if(bucket->state == ZMAP_OCCUPIED) {
+		return bucket;
+	}
+
+	return MAP_NOT_OCCUPIED;
 }
 
 size_t extra_section_entry_hm_get_length(ExtraSectionEntry* extra_section_entry_hm) {
-	size_t hm_length = ZMAP_FOREACH_TODO(extra_section_entry_hm->fields);
-	return hm_length;
+	size_t hm_total_length = ZMAP_CAPACITY(*extra_section_entry_hm);
+	return hm_total_length;
 }
 
 char* extra_sections_hm_entry_get_key(const ExtraSectionHashMapEntry* extra_sections_hm_entry) {

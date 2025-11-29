@@ -2271,7 +2271,7 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 	size_t hm_total_length = ZMAP_CAPACITY(entry);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		ZMAP_TYPENAME_BUCKET(SectionFieldEntry) hm_bucket = entry.buckets[i];
+		SectionFieldEntry hm_bucket = entry.buckets[i];
 
 		if(hm_bucket.state == ZMAP_OCCUPIED) {
 			free(hm_bucket.key);
@@ -2286,7 +2286,7 @@ static void free_extra_sections(ExtraSections sections) {
 	size_t hm_total_length = ZMAP_CAPACITY(sections);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		ZMAP_TYPENAME_BUCKET(ExtraSectionHashMapEntry) hm_bucket = sections.buckets[i];
+		ExtraSectionHashMapEntry hm_bucket = sections.buckets[i];
 
 		if(hm_bucket.state == ZMAP_OCCUPIED) {
 			free_extra_section_entry(hm_bucket.value);

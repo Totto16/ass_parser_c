@@ -148,12 +148,12 @@ CATEGORY_ENUM(ENUM_ANNOT_LineType)
 LineType get_line_type_from_file_props(const FileProps* file_props);
 
 PUBLIC("get_entry_from_name_in_extra_sections")
-ANNOTATION_NULLABLE ExtraSectionEntry*
-get_entry_from_name_in_extra_sections(ExtraSections* extra_sections, char* name);
+ANNOTATION_NULLABLE const ExtraSectionEntry*
+get_entry_from_name_in_extra_sections(const ExtraSections* extra_sections, char* name);
 
 PUBLIC("get_entry_from_name_in_extra_section_entry")
 ANNOTATION_NULLABLE ANNOTATION_CSTRING char*
-get_entry_from_name_in_extra_section_entry(ExtraSectionEntry* extra_section_entry, char* name);
+get_entry_from_name_in_extra_section_entry(const ExtraSectionEntry* extra_section_entry, char* name);
 
 PUBLIC("extra_sections_hm_get_at")
 ANNOTATION_NULLABLE const ExtraSectionHashMapEntry*

@@ -26,7 +26,7 @@ typedef enum : bool {
     ZmapResultOk = true,
 } ZmapResult;
 
-#define Z_WOULD_OVERWRITE (void*)(-1)
+#define Z_WOULD_OVERWRITE ((void*)(1))
 
 typedef enum : uint8_t {
     ZmapInsertResultOk = 0,

@@ -2,9 +2,9 @@
 
 #include "./zmap.h"
 
-ZMAP_FUN_ATTRIBUTES uint32_t zmap_default_hash(const void *key, size_t len)
+ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_default_hash(const void *key, size_t len)
 {
-    uint32_t hash = 2166136261u;
+    ZmapHashType hash = 2166136261u;
     const uint8_t *data = (const uint8_t *)key;
     for (size_t i = 0; i < len; i++)
     {
@@ -48,16 +48,32 @@ static size_t stbds_hash_string(char *str, size_t seed)
 
 static size_t stbds_hash_seed=0x31415926;
 
-ZMAP_FUN_ATTRIBUTES uint32_t zmap_stbds_hash_string( char* str){
+ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_string( char* str){
     return stbds_hash_string(str,stbds_hash_seed);
 }
 
+
+#ifdef __WASM__
+#else
 #define STBDS_SIPHASH_2_4
+#endif 
+
+
+#ifdef STBDS_SIPHASH_2_4
 #define STBDS_SIPHASH_C_ROUNDS 2
 #define STBDS_SIPHASH_D_ROUNDS 4
 typedef int STBDS_SIPHASH_2_4_can_only_be_used_in_64_bit_builds[sizeof(size_t) == 8 ? 1 : -1];
+#endif
 
-static size_t stbds_siphash_bytes(void *p, size_t len, size_t seed)
+#ifndef STBDS_SIPHASH_C_ROUNDS
+#define STBDS_SIPHASH_C_ROUNDS 1
+#endif
+#ifndef STBDS_SIPHASH_D_ROUNDS
+#define STBDS_SIPHASH_D_ROUNDS 1
+#endif
+
+
+static size_t stbds_siphash_bytes(const void *p, size_t len, size_t seed)
 {
   unsigned char *d = (unsigned char *) p;
   size_t i,j;
@@ -122,8 +138,8 @@ static size_t stbds_siphash_bytes(void *p, size_t len, size_t seed)
 #endif
 }
 
-ZMAP_FUN_ATTRIBUTES uint32_t zmap_stbds_hash_bytes(const void *key, size_t len){
-    return stbds_siphash_bytes(key,len,stbds_hash_seed);
+ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_bytes(const void *key, size_t len){
+    return stbds_siphash_bytes(key, len,stbds_hash_seed);
 }
 
 /*
