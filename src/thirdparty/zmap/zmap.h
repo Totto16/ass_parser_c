@@ -26,7 +26,8 @@ typedef enum : bool {
     ZmapResultOk = true,
 } ZmapResult;
 
-#define Z_WOULD_OVERWRITE ((void*)(1))
+#define ZMAP_WOULD_OVERWRITE ((void*)(1))
+#define ZMAP_NO_ELEMENT_HERE ((void*)(2))
 
 typedef enum : uint8_t {
     ZmapInsertResultOk = 0,
@@ -108,6 +109,7 @@ typedef enum
 
 #define ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName) ZMAP_FUN_ATTRIBUTES int ZMAP_COMPARE_FUNC_NAME(KeyName)(const KeyT key1, const KeyT key2)
 
+#define ZMAP_TYPENAME_ENTRY(TypeName) zmap_entry_##TypeName
 
 #define ZMAP_TYPENAME_BUCKET(TypeName) zmap_bucket_##TypeName
 
@@ -120,6 +122,10 @@ typedef enum
 typedef struct {                                                                                                \
     KeyT key;                                                                                                   \
     ValT value;                                                                                                 \
+} ZMAP_TYPENAME_ENTRY(Name);                                                                                    \
+                                                                                                                \
+typedef struct {                                                                                                \
+    ZMAP_TYPENAME_ENTRY(Name) entry;                                                                                                   \
     zmap_state state;                                                                                          \
 } ZMAP_TYPENAME_BUCKET(Name);                                                                                           \
                                                                                                                 \
@@ -152,6 +158,8 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Na
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_at_##Name(const ZMAP_TYPENAME_MAP(Name) *m, size_t index);             \
+                                                                                                                \
 ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);                        \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m);                                         \
@@ -170,7 +178,9 @@ ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName);
 #define ZMAP_PUT_SLOT(Name, Map, Key) zmap_put_slot_##Name(Map, Key)
 #define ZMAP_INSERT(Name, Map, Key, Value, AllowOverwrite) zmap_insert_##Name(Map, Key, Value, AllowOverwrite)
 #define ZMAP_INSERT_SLOT(Name, Map, Key, AllowOverwrite) zmap_insert_slot_##Name(Map, Key, AllowOverwrite)
-#define ZMAP_GET(Name, Map, Key)        zmap_get_##Name(Map, Key)
+#define ZMAP_GET(Name, Map, Key)                        zmap_get_##Name(Map, Key)
+#define ZMAP_GET_MUT(Name, Map, Key)                    zmap_get_mut_##Name(Map, Key)
+#define ZMAP_GET_ENTRY_AT(Name, Map, Index)             zmap_get_entry_at_##Name(Map, Index)
 #define ZMAP_REM(Name, Map, Key)        zmap_remove_##Name(Map, Key)
 #define ZMAP_FREE(Name, Map)            zmap_free_##Name(Map)
 #define ZMAP_CLEAR(Name, Map)           zmap_clear_##Name(Map)
@@ -215,12 +225,13 @@ ZMAP_FUN_ATTRIBUTES ZMAP_TYPENAME_MAP(Name) zmap_init_##Name(void) {            
 }                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES ZmapResult zmap_resize_##Name(ZMAP_TYPENAME_MAP(Name) *m, size_t new_cap) {                                            \
+    if(new_cap < m->occupied){ return ZmapResultErr; }                                                           \
     ZMAP_TYPENAME_BUCKET(Name) *new_buckets = Z_MAP_CALLOC(new_cap, sizeof(ZMAP_TYPENAME_BUCKET(Name)));                        \
     if (!new_buckets) { return ZmapResultErr; };                                                                             \
                                                                                                                 \
     for (size_t i = 0; i < m->capacity; i++) {                                                                  \
             if (m->buckets[i].state == ZMAP_OCCUPIED) {                                                         \
-                ZmapHashType hash = ZMAP_HASH_FUNC_NAME(KeyName)(m->buckets[i].key);                                                \
+                ZmapHashType hash = ZMAP_HASH_FUNC_NAME(KeyName)(m->buckets[i].entry.key);                                                \
                 size_t idx = hash % new_cap;                                                                    \
                 while (new_buckets[idx].state == ZMAP_OCCUPIED) {                                               \
                     idx = (idx + 1) % new_cap;                                                                  \
@@ -249,16 +260,16 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, Ke
             if (s == ZMAP_EMPTY) {                                                                              \
                 if (deleted_idx != SIZE_MAX) idx = deleted_idx;                                                 \
                 else m->occupied++;                                                                             \
-                m->buckets[idx] = (ZMAP_TYPENAME_BUCKET(Name)){ .key = key, .value = {}, .state = ZMAP_OCCUPIED };     \
+                m->buckets[idx] = (ZMAP_TYPENAME_BUCKET(Name)){ .entry = (ZMAP_TYPENAME_ENTRY(Name)){.key = key, .value = (ValT){0}}, .state = ZMAP_OCCUPIED };     \
                 m->count++;                                                                                     \
-                return &(m->buckets[idx].value);                                                                                    \
+                return &(m->buckets[idx].entry.value);                                                                                    \
             }                                                                                                   \
             if (s == ZMAP_DELETED) {                                                                            \
                 if (deleted_idx == SIZE_MAX) deleted_idx = idx;                                                 \
             }                                                                                                   \
-            else if (ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].key, key) == 0) {                                              \
-                if(!allow_overwrite){ return Z_WOULD_OVERWRITE; }                                                            \
-                return &(m->buckets[idx].value);                                                                    \
+            else if (ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                                              \
+                if(!allow_overwrite){ return ZMAP_WOULD_OVERWRITE; }                                                            \
+                return &(m->buckets[idx].entry.value);                                                                    \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \
@@ -268,7 +279,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, Ke
 ZMAP_FUN_ATTRIBUTES ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val, bool allow_overwrite) {                                           \
     ValT* slot = zmap_insert_slot_##Name(m, key, allow_overwrite);                                               \
     if (slot == NULL) { return ZmapInsertResultErr; }                                                              \
-    if(slot == Z_WOULD_OVERWRITE) { ZmapInsertResultWouldOverwrite; }                  \
+    if(slot == ZMAP_WOULD_OVERWRITE) { ZmapInsertResultWouldOverwrite; }                  \
     *slot = val;                                                                          \
     return ZmapInsertResultOk;                                                                    \
 }                                                                                                           \
@@ -281,8 +292,8 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, const 
         for (size_t i = 0; i < m->capacity; i++) {                                                              \
             zmap_state s = m->buckets[idx].state;                                                               \
             if (s == ZMAP_EMPTY) return NULL;                                                                   \
-            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].key, key) == 0) {                             \
-                return &m->buckets[idx].value;                                                                  \
+            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                             \
+                return &(m->buckets[idx].entry.value);                                                                  \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \
@@ -297,13 +308,25 @@ ZMAP_FUN_ATTRIBUTES const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) * 
         for (size_t i = 0; i < m->capacity; i++) {                                                              \
             zmap_state s = m->buckets[idx].state;                                                               \
             if (s == ZMAP_EMPTY) return NULL;                                                                   \
-            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].key, key) == 0) {                             \
-                return &m->buckets[idx].value;                                                                  \
+            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                             \
+                return &(m->buckets[idx].entry.value);                                                                  \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \
         return NULL;                                                                                            \
     }                                                                                                           \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_at_##Name(const ZMAP_TYPENAME_MAP(Name) * const m, size_t index){                                                                                                         \
+    if(index >= m->capacity){ return NULL; }                                                                    \
+                                                                                                                \
+    ZMAP_TYPENAME_BUCKET(Name)* hm_bucket = &(m->buckets[index]);                                               \
+                                                                                                                \
+    if(hm_bucket->state == ZMAP_OCCUPIED) {                                                                     \
+        return &(hm_bucket->entry);                                                                              \
+    }                                                                                                           \
+                                                                                                                \
+    return ZMAP_NO_ELEMENT_HERE;                                                                                \
+}                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key) {                                             \
         if (m->count == 0) return;                                                                              \
@@ -313,7 +336,7 @@ ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, const Ke
         for (size_t i = 0; i < m->capacity; i++) {                                                              \
             zmap_state s = m->buckets[idx].state;                                                               \
             if (s == ZMAP_EMPTY) return;                                                                        \
-            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].key, key) == 0) {                             \
+            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                             \
                 m->buckets[idx].state = ZMAP_DELETED;                                                           \
                 m->count--;                                                                                     \
                 return;                                                                                         \

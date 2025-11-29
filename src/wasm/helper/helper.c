@@ -334,9 +334,8 @@ LineType get_line_type_from_file_props(const FileProps* file_props) {
 	return file_props->line_type;
 }
 
-const ExtraSectionEntry* 
-get_entry_from_name_in_extra_sections(const ExtraSections* const extra_sections,
-                                                         char* name) {
+const ExtraSectionEntry*
+get_entry_from_name_in_extra_sections(const ExtraSections* const extra_sections, char* name) {
 	if(extra_sections == NULL) {
 		return NULL;
 	}
@@ -354,16 +353,12 @@ char* get_entry_from_name_in_extra_section_entry(const ExtraSectionEntry* const 
 
 	const FinalStr* value = ZMAP_GET(SectionFieldEntry, extra_section_entry, name);
 
-
-	if(value == NULL){
+	if(value == NULL) {
 		return NULL;
 	}
 
-
 	RETURN_FINALSTR_TO_WASM_COMPATIBLE_STR(*value);
 }
-
-#define MAP_NOT_OCCUPIED ((void*)(1))
 
 const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* extra_sections_hm,
                                                          size_t index) {
@@ -372,13 +367,10 @@ const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* ex
 		return NULL;
 	}
 
-	const ExtraSectionHashMapEntry* bucket = &(extra_sections_hm->buckets[index]);
+	const ExtraSectionHashMapEntry* hm_entry =
+	    ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, extra_sections_hm, index);
 
-	if(bucket->state == ZMAP_OCCUPIED) {
-		return bucket;
-	}
-
-	return MAP_NOT_OCCUPIED;
+	return hm_entry;
 }
 
 size_t extra_sections_hm_get_length(ExtraSections* extra_sections_hm) {
@@ -393,13 +385,10 @@ extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, s
 		return NULL;
 	}
 
-	const SectionFieldEntry* bucket = &(extra_section_entry_hm->buckets[index]);
+	const SectionFieldEntry* hm_entry =
+	    ZMAP_GET_ENTRY_AT(SectionFieldEntry, extra_section_entry_hm, index);
 
-	if(bucket->state == ZMAP_OCCUPIED) {
-		return bucket;
-	}
-
-	return MAP_NOT_OCCUPIED;
+	return hm_entry;
 }
 
 size_t extra_section_entry_hm_get_length(ExtraSectionEntry* extra_section_entry_hm) {

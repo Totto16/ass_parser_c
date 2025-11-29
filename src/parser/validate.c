@@ -732,10 +732,11 @@ static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 	size_t hm_total_length = ZMAP_CAPACITY(*style_to_font_hm);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		ZMAP_TYPENAME_BUCKET(StyleToFontHMEntry) hm_bucket = style_to_font_hm->buckets[i];
+		const ZMAP_TYPENAME_ENTRY(StyleToFontHMEntry)* hm_entry =
+		    ZMAP_GET_ENTRY_AT(StyleToFontHMEntry, style_to_font_hm, i);
 
-		if(hm_bucket.state == ZMAP_OCCUPIED) {
-			free(hm_bucket.key);
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free(hm_entry->key);
 		}
 	}
 
@@ -765,10 +766,11 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 	size_t hm_total_length = ZMAP_CAPACITY(*used_fonts_hm);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		ZMAP_TYPENAME_BUCKET(UsedFontHMEntry) hm_bucket = used_fonts_hm->buckets[i];
+		const ZMAP_TYPENAME_ENTRY(UsedFontHMEntry)* hm_entry =
+		    ZMAP_GET_ENTRY_AT(UsedFontHMEntry, used_fonts_hm, i);
 
-		if(hm_bucket.state == ZMAP_OCCUPIED) {
-			free(hm_bucket.key);
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free(hm_entry->key);
 		}
 	}
 
@@ -811,7 +813,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			font_hm_entry = slot;
 		}
 
-		if(font_hm_entry == Z_WOULD_OVERWRITE) {
+		if(font_hm_entry == ZMAP_WOULD_OVERWRITE) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \

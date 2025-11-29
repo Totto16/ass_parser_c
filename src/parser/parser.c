@@ -2271,10 +2271,10 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 	size_t hm_total_length = ZMAP_CAPACITY(entry);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		SectionFieldEntry hm_bucket = entry.buckets[i];
+		const SectionFieldEntry* hm_entry = ZMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
 
-		if(hm_bucket.state == ZMAP_OCCUPIED) {
-			free(hm_bucket.key);
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free(hm_entry->key);
 		}
 	}
 
@@ -2286,12 +2286,13 @@ static void free_extra_sections(ExtraSections sections) {
 	size_t hm_total_length = ZMAP_CAPACITY(sections);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		ExtraSectionHashMapEntry hm_bucket = sections.buckets[i];
+	const ExtraSectionHashMapEntry* hm_entry = ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
 
-		if(hm_bucket.state == ZMAP_OCCUPIED) {
-			free_extra_section_entry(hm_bucket.value);
-			free(hm_bucket.key);
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free_extra_section_entry(hm_entry->value);
+			free(hm_entry->key);
 		}
+
 	}
 
 	ZMAP_FREE(ExtraSectionHashMapEntry, &sections);

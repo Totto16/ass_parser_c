@@ -267,12 +267,12 @@ typedef struct {
 ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, SectionFieldEntry)
 
 typedef ZMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
-typedef ZMAP_TYPENAME_BUCKET(SectionFieldEntry) SectionFieldEntry;
+typedef ZMAP_TYPENAME_ENTRY(SectionFieldEntry) SectionFieldEntry;
 
 ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ExtraSectionEntry, ExtraSectionHashMapEntry)
 
 typedef ZMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
-typedef ZMAP_TYPENAME_BUCKET(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
+typedef ZMAP_TYPENAME_ENTRY(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
 
 typedef enum : uint8_t {
 	FileTypeUnknown,
