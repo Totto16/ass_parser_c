@@ -83,7 +83,7 @@ typedef size_t ZmapHashType;
 
 ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_default_hash(const void *key, size_t len);
 
-ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_string(char* str);
+ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_string(const char* str);
 
 ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_bytes(const void *key, size_t len);
 

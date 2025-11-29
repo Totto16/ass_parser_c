@@ -29,7 +29,7 @@ ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_default_hash(const void *key, size_t len)
 #define STBDS_ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (STBDS_SIZE_T_BITS - (n))))
 
 
-static size_t stbds_hash_string(char *str, size_t seed)
+static size_t stbds_hash_string(const char * str, size_t seed)
 {
   size_t hash = seed;
   while (*str)
@@ -48,8 +48,8 @@ static size_t stbds_hash_string(char *str, size_t seed)
 
 static size_t stbds_hash_seed=0x31415926;
 
-ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_string( char* str){
-    return stbds_hash_string(str,stbds_hash_seed);
+ZMAP_FUN_ATTRIBUTES ZmapHashType zmap_stbds_hash_string(const char* str){
+    return stbds_hash_string(str, stbds_hash_seed);
 }
 
 
