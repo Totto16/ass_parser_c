@@ -58,6 +58,7 @@ typedef enum : bool {
     #define Z_VEC_FREE(p)         Z_FREE(p)
 #endif
 
+
 #if __STDC_VERSION__ >= 202311L || defined(__cplusplus)
 #define STATIC_ASSERT(check, message) static_assert(check, message)
 #elif __STDC_VERSION__ < 201112L
@@ -66,7 +67,6 @@ typedef enum : bool {
 #else
 #define STATIC_ASSERT(check, message) _Static_assert(check, message)
 #endif
-
 
 
 // maybe some visibility things later, but I just removed the static inline
@@ -95,7 +95,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##Name(ZVEC_TYPENAME(N
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##Name(ZVEC_TYPENAME(Name) v);                                \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]]  T* zvec_push_slot_##Name(ZVEC_TYPENAME(Name) *v);               \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_push_slot_##Name(ZVEC_TYPENAME(Name) *v);               \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_push_##Name(ZVEC_TYPENAME(Name) *v, T value);                           \
                                                                                             \
@@ -130,10 +130,10 @@ ZVEC_FUN_ATTRIBUTES void zvec_reverse_##Name(ZVEC_TYPENAME(Name) *v);           
 ZVEC_FUN_ATTRIBUTES void zvec_sort_##Name(ZVEC_TYPENAME(Name) *v,                                    \
                                                 int (*compar)(const T *, const T *));       \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(ZVEC_TYPENAME(Name) *v, const T *key,                  \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(const ZVEC_TYPENAME(Name) *v, const T *key,                  \
                                  int (*compar)(const T *, const T *));                      \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name) *v, const T *key,                        \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) *v, const T *key,                        \
                                         int (*compar)(const T *, const T *));
 
 #define ZVEC_EMPTY(TypeName) ((ZVEC_TYPENAME(TypeName)){.data=NULL, .length=0, .capacity=0})
@@ -271,7 +271,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_init_capacity_##Name(
     return v;                                                                               \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_from_array_##Name(const T *arr, size_t count){                \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_from_array_##Name(const T * const arr, size_t count){                \
     ZVEC_TYPENAME(Name) v = zvec_init_capacity_##Name(count);                                         \
     if (v.data) {                                                                           \
         memcpy(v.data, arr, count * sizeof(T));                                             \
@@ -307,7 +307,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_push_##Name(ZVEC_TYPENAME(Name
     return ZvecResultOk;                                                                    \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_extend_##Name(ZVEC_TYPENAME(Name) *v, const T *items, size_t count) {   \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_extend_##Name(ZVEC_TYPENAME(Name) *v, const T * const items, size_t count) {   \
     if (v->length + count > v->capacity) {                                                  \
         size_t new_cap = v->capacity == 0 ? 8 : v->capacity;                                \
         while (new_cap < v->length + count) new_cap *= 2;                                   \
@@ -349,7 +349,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_at_mut_##Name( ZVEC_TYPENAME(Name)
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                            \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##Name(const ZVEC_TYPENAME(Name) *v, size_t index){ \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##Name(const ZVEC_TYPENAME(Name) * const v, size_t index){ \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                            \
                                                                                             \
@@ -402,7 +402,7 @@ ZVEC_FUN_ATTRIBUTES void zvec_sort_##Name(ZVEC_TYPENAME(Name) *v,               
     }                                                                                       \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(ZVEC_TYPENAME(Name) *v, const T *key,                  \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(const ZVEC_TYPENAME(Name) * const v, const T *key,                  \
                                  int (*compar)(const T *, const T *)) {                     \
     if (v->length == 0) return NULL;                                                        \
     int (*bs_cmp)(const void *, const void *) =                                             \
@@ -410,7 +410,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(ZVEC_TYPENAME(Name) *v,
     return (T*) bsearch(key, v->data, v->length, sizeof(T), bs_cmp);                        \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name) *v, const T *key,                        \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) * const v, const T *key,                        \
                                         int (*compar)(const T *, const T *)) {              \
     size_t l = 0;                                                                           \
     size_t r = v->length;                                                                   \

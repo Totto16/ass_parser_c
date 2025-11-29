@@ -23,6 +23,8 @@ ZMAP_FUN_ATTRIBUTES uint32_t zmap_default_hash(const void *key, size_t len)
 */
 
 
+#define STBDS_SIZE_T_BITS           ((sizeof (size_t)) * 8)
+
 #define STBDS_ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (STBDS_SIZE_T_BITS - (n))))
 #define STBDS_ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (STBDS_SIZE_T_BITS - (n))))
 
@@ -54,8 +56,6 @@ ZMAP_FUN_ATTRIBUTES uint32_t zmap_stbds_hash_string( char* str){
 #define STBDS_SIPHASH_C_ROUNDS 2
 #define STBDS_SIPHASH_D_ROUNDS 4
 typedef int STBDS_SIPHASH_2_4_can_only_be_used_in_64_bit_builds[sizeof(size_t) == 8 ? 1 : -1];
-
-#define STBDS_SIZE_T_BITS           ((sizeof (size_t)) * 8)
 
 static size_t stbds_siphash_bytes(void *p, size_t len, size_t seed)
 {
