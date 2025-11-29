@@ -18,9 +18,12 @@ for arg in "${ARGS[@]}"; do
     -fuse-ld=wasm-ld*)
         USE_WASM_LD="true"
         ;;
-    -Wl,--version)
+    -Wl,--version | -Wl,-v)
         IS_LINKING="true"
         NEW_ARGS+=("$arg")
+        ;;
+    -Wl,--allow-shlib-undefined)
+        continue
         ;;
     -c)
         IS_LINKING="false"
@@ -30,9 +33,15 @@ for arg in "${ARGS[@]}"; do
         NEW_ARGS+=("$arg")
         NEXT_IS_OUTPUT="true"
         ;;
-    *.c | *.cpp | *.o)
+    *.o)
         IS_LINKING="true"
         NEW_ARGS+=("$arg")
+        ;;
+    --unresolved-symbols=report-all)
+        NEW_ARGS+=("-Wl,$arg")
+        ;;
+    --version)
+        NEW_ARGS+=("--target=wasm32" "$arg")
         ;;
     *)
         if [[ "$NEXT_IS_OUTPUT" == true ]]; then
@@ -56,7 +65,7 @@ if [[ "$USE_WASM_LD" == true && "$IS_LINKING" == true ]]; then
         *.c | *.cpp)
             continue
             ;;
-        -Wl,--as-needed | -Wl,--no-undefined | -Wl,--start-group | -Wl,--end-group | -nostdlib)
+        -Wl,--as-needed | -Wl,--allow-shlib-undefined | -Wl,--no-undefined | -Wl,--start-group | -Wl,--end-group | -nostdlib)
             continue
             ;;
         -Wl,*)

@@ -55,3 +55,7 @@ void* calloc(size_t nmemb, size_t size) {
 	}
 	return p;
 }
+
+__attribute__((noreturn)) void exit(int status) {
+	platform_exit(status);
+}

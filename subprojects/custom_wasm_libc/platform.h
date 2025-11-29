@@ -19,6 +19,10 @@ platform_log_add(const char* message);
 __attribute__((import_module("env"), import_name("platform_log_end"))) extern void
 platform_log_end(void);
 
+__attribute__((import_module("env"), import_name("platform_exit")))
+__attribute__((noreturn)) extern void
+platform_exit(int status);
+
 __attribute__((import_module("env"), import_name("platform_string_conversion"))) extern void
 platform_string_conversion(void* data, size_t len, const char* format, void** out_data,
                            size_t* out_len);

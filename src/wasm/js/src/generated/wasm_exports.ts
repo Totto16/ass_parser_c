@@ -84,6 +84,7 @@ export interface GeneratedExportedFunctions {
 	extra_section_entry_hm_entry_get_key: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, NoAnnot<"nullable">>>
 	extra_section_entry_hm_entry_get_value: (p_0: I32) => Annotated<PtrWrapper<I32>, Annotations<NoAnnot<"malloced">, IsCString, NoAnnot<"free_fn">, IsNullable>>
 	_initialize: () => void
+	exit: (p_0: I32) => void
 }
 export type GeneratedExportedFunctionKeys = ["calloc",
 	"realloc",
@@ -153,5 +154,6 @@ export type GeneratedExportedFunctionKeys = ["calloc",
 	"extra_sections_hm_entry_get_value",
 	"extra_section_entry_hm_entry_get_key",
 	"extra_section_entry_hm_entry_get_value",
-	"_initialize"
+	"_initialize",
+	"exit"
 ]

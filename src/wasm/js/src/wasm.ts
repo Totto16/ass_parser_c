@@ -1119,6 +1119,7 @@ interface TypedWasmFn {
 	platform_log_start: (error: Bool) => void
 	platform_log_add: (message_ptr: CStr) => void
 	platform_log_end: () => void
+	platform_exit: (status: Int) => void
 	platform_string_conversion: (
 		data_ptr: Ptr<Void>,
 		len: SizeT,
@@ -1279,8 +1280,8 @@ export class WasmBinding {
 	): void {
 		const file_path = cstr_by_ptr(this.wasm.buffer, file_path_ptr)
 		const message = cstr_by_ptr(this.wasm.buffer, message_ptr)
-		console.error(
-			`${this.log_prefix}${file_path}:${get_value<Int>(line).toString()}: ${message}`
+		throw new Error(
+			`PANIC: ${this.log_prefix}${file_path}:${get_value<Int>(line).toString()}: ${message}`
 		)
 	}
 
@@ -1324,6 +1325,13 @@ export class WasmBinding {
 		this.log_state.state = 'empty'
 		this.log_state.buffer = ''
 		this.log_state.error = false
+	}
+
+	// void platform_exit(int status)
+	private platform_exit(status: Int): void {
+		throw new Error(
+			`Exit called with code: ${get_value<Int>(status).toString()}`
+		)
 	}
 
 	// void platform_string_conversion(void* data, size_t len, const char* format, void** out_data, size_t* out_len);
@@ -1428,6 +1436,9 @@ export class WasmBinding {
 			},
 			platform_log_end: (): void => {
 				wasm.platform_log_end.call(wasm)
+			},
+			platform_exit: (status: Int): void => {
+				wasm.platform_exit.call(wasm, status)
 			},
 			platform_string_conversion: (
 				data_ptr: Ptr<Void>,
