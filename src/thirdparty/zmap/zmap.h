@@ -115,8 +115,6 @@ typedef enum
 
 //TODO: add free entry fn, if we remove a value we might need to free its content, this needs to be done in insert and remove and free! also check for keys, that eventually need a free (e.g. malloced strings)
 
-//TODO: rename SHOULD macros to ASSERT something, to make it more clear, what they do
-
 #define ZMAP_DEFINE_MAP_TYPE(KeyT, KeyName, ValT, Name)                                                                       \
                                                                                                                 \
 typedef struct {                                                                                                \
@@ -163,9 +161,9 @@ ZMAP_HASH_FUNC_SIG(KeyT, KeyName);                                              
 ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName);
 
 
-#define ZVEC_SHOULD_USE_INSERT(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use insert, use insert slot for larger ones instead!")
+#define ZMAP_ASSERT_SHOULD_USE_INSERT(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use insert, use insert slot for larger ones instead!")
 
-#define ZVEC_SHOULD_USE_INSERT_SLOT(val) STATIC_ASSERT(sizeof(val) > 8, "only big values should use insert slot, use insert for smaller ones instead!")
+#define ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(val) STATIC_ASSERT(sizeof(val) > 8, "only big values should use insert slot, use insert for smaller ones instead!")
 
 
 #define ZMAP_PUT(Name, Map, Key, Value) zmap_put_##Name(Map, Key, Value)

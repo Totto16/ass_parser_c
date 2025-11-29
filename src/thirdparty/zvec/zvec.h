@@ -139,9 +139,9 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_LENGTH(v) (v).length
 #define ZVEC_IS_EMPTY(v) ((v).length == 0)
 
-#define ZVEC_SHOULD_USE_PUSH(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use push, use push slot for larger ones instead!")
+#define ZVEC_ASSERT_SHOULD_USE_PUSH(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use push, use push slot for larger ones instead!")
 
-#define ZVEC_SHOULD_USE_PUSH_SLOT(val) STATIC_ASSERT(sizeof(val) > 8, "only big values should use push slot, use push for smaller ones instead!")
+#define ZVEC_ASSERT_SHOULD_USE_PUSH_SLOT(val) STATIC_ASSERT(sizeof(val) > 8, "only big values should use push slot, use push for smaller ones instead!")
 
 
 #define ZVEC_PUSH(T, v, val)           ZVEC_PUSH_EXTENDED(T, T, v, val)         

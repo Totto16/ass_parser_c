@@ -1637,7 +1637,7 @@ got_new_section_graphic:
 
 			{
 				// NOTE: don't care for overwrites
-				ZVEC_SHOULD_USE_INSERT_SLOT(field_entry_value);
+				ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(field_entry_value);
 				FinalStr* slot = ZMAP_INSERT_SLOT(SectionFieldEntry, &extra_section_entry,
 				                                  field_entry_key, true);
 				ASSERT(slot != NULL, "OOM");
@@ -1652,7 +1652,7 @@ got_new_section_graphic:
 
 	{
 		// NOTE: don't care for overwrites
-		ZVEC_SHOULD_USE_INSERT_SLOT(extra_section_entry);
+		ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(extra_section_entry);
 		ExtraSectionEntry* slot =
 		    ZMAP_INSERT_SLOT(ExtraSectionHashMapEntry, extra_sections, section_name_str, true);
 		ASSERT(slot != NULL, "OOM");

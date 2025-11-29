@@ -801,7 +801,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		FinalStr* font_hm_entry = NULL;
 
 		{
-			ZVEC_SHOULD_USE_INSERT_SLOT(entry.fontname);
+			ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(entry.fontname);
 
 			// NOTE: overwrite check is required here
 			FinalStr* slot =
@@ -917,7 +917,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		{
 
-			ZVEC_SHOULD_USE_INSERT(MONOSTATE_VALUE);
+			ZMAP_ASSERT_SHOULD_USE_INSERT(MONOSTATE_VALUE);
 
 			// insert font, if not already in the hm (that is used like a set)
 			ASSERT(ZMAP_INSERT(UsedFontHMEntry, used_fonts, font_name, MONOSTATE_VALUE, true) ==
