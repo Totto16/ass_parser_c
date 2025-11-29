@@ -93,8 +93,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_from_array_##Name(con
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##Name(ZVEC_TYPENAME(Name) *v, size_t new_cap);                 \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##Name(ZVEC_TYPENAME(Name) v);                                \
-                                                                                            \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_push_slot_##Name(ZVEC_TYPENAME(Name) *v);               \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_push_##Name(ZVEC_TYPENAME(Name) *v, T value);                           \
@@ -139,6 +137,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_EMPTY(TypeName) ((ZVEC_TYPENAME(TypeName)){.data=NULL, .length=0, .capacity=0})
 
 #define ZVEC_LENGTH(v) (v).length
+#define ZVEC_IS_EMPTY(v) ((v).length == 0)
 
 #define ZVEC_SHOULD_USE_PUSH(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use push, use push slot for larger ones instead!")
 
@@ -149,7 +148,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_PUSH_SLOT(T, v)           ZVEC_PUSH_SLOT_EXTENDED(T, T, v)         
 #define ZVEC_EXTEND(T, v, arr, count)  ZVEC_EXTEND_EXTENDED(T, T, v, arr, count)
 #define ZVEC_RESERVE(T, v, cap)        ZVEC_RESERVE_EXTENDED(T, T, v, cap)      
-#define ZVEC_IS_EMPTY(T, v)            ZVEC_IS_EMPTY_EXTENDED(T, T, v)          
 #define ZVEC_AT(T, v, idx)             ZVEC_AT_EXTENDED(T, T, v, idx)           
 #define ZVEC_GET_AT(T, v, idx)         ZVEC_GET_AT_EXTENDED(T, T, v, idx)       
 #define ZVEC_GET_AT_MUT(T, v, idx)     ZVEC_GET_AT_MUT_EXTENDED(T, T, v, idx)   
@@ -172,7 +170,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_PUSH_SLOT_EXTENDED(T, Name, v)           zvec_push_slot_##Name(v)
 #define ZVEC_EXTEND_EXTENDED(T, Name, v, arr, count)  zvec_extend_##Name(v, arr, count)
 #define ZVEC_RESERVE_EXTENDED(T, Name, v, cap)        zvec_reserve_##Name(v, cap)
-#define ZVEC_IS_EMPTY_EXTENDED(T, Name, v)            zvec_is_empty_##Name(v)
 #define ZVEC_AT_EXTENDED(T, Name, v, idx)             zvec_at_##Name(v, idx)
 #define ZVEC_GET_AT_EXTENDED(T, Name, v, idx)         zvec_get_at_##Name(v, idx)
 #define ZVEC_GET_AT_MUT_EXTENDED(T, Name, v, idx)     zvec_get_at_mut_##Name(v, idx)
@@ -197,7 +194,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_PUSH_SLOT_ENTRY(T, Name)  ZVEC_TYPENAME(Name)*: zvec_push_slot_##Name,
 #define ZVEC_EXTEND_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_extend_##Name,
 #define ZVEC_RESERVE_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_reserve_##Name,
-#define ZVEC_IS_EMPTY_ENTRY(T, Name)   ZVEC_TYPENAME(Name)*: zvec_is_empty_##Name,
 #define ZVEC_AT_ENTRY(T, Name)         ZVEC_TYPENAME(Name)*: zvec_at_##Name,
 #define ZVEC_GET_AT_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_get_at_##Name,
 #define ZVEC_GET_AT_MUT_ENTRY(T, Name) ZVEC_TYPENAME(Name)*: zvec_get_at_mut_##Name,
@@ -220,7 +216,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define zvec_push_slot(v)          _Generic((v), REGISTER_TYPES(ZVEC_PUSH_SLOT_ENTRY) default: (void*)0)(v)
 #define zvec_extend(v, arr, count) _Generic((v), REGISTER_TYPES(ZVEC_EXTEND_ENTRY)    default: 0)      (v, arr, count)
 #define zvec_reserve(v, cap)       _Generic((v), REGISTER_TYPES(ZVEC_RESERVE_ENTRY)   default: 0)      (v, cap)
-#define zvec_is_empty(v)           _Generic((v), REGISTER_TYPES(ZVEC_IS_EMPTY_ENTRY)  default: 0)      (v)
 #define zvec_at(v, idx)            _Generic((v), REGISTER_TYPES(ZVEC_AT_ENTRY)        default: (void*)0)(v, idx)
 #define zvec_get_at(v, idx)        _Generic((v), REGISTER_TYPES(ZVEC_GET_AT_ENTRY)    default: (void)0)(v, idx)
 #define zvec_get_at_mut(v, idx)    _Generic((v), REGISTER_TYPES(ZVEC_GET_AT_MUT_ENTRY)default: (void)0)(v, idx)
@@ -287,11 +282,6 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZvecResult zvec_reserve_##Name(ZVEC_TYPENAME(N
     v->capacity = new_cap;                                                                  \
     return ZvecResultOk;                                                                          \
 }                                                                                           \
-                                                                                            \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] bool zvec_is_empty_##Name(ZVEC_TYPENAME(Name) v) {                               \
-    return v.length == 0;                                                                  \
-}                                                                                           \
-                                                                                            \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]]  T* zvec_push_slot_##Name(ZVEC_TYPENAME(Name) *v) {                                      \
     if (v->length >= v->capacity) {                                                         \

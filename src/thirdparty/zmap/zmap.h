@@ -125,29 +125,23 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZMAP_TYPENAME_MAP(Name) zmap_init_##Name(ZmapH
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapResult zmap_resize_##Name(ZMAP_TYPENAME_MAP(Name) *m, size_t new_cap);                   \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES inline [[nodiscard]] ValT* zmap_put_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key){       \
-    return zmap_insert_slot_##Name(m, key, true);                                                               \
-}                                                                                                               \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES inline [[nodiscard]] ZmapResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val){                 \
-    return zmap_insert_##Name(m, key, val, true);                                                                \
-}                                                                                                               \
-                                                                                                                \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, bool allow_overwrite);       \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val, bool allow_overwrite);                 \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ValT* zmap_put_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key){       \
+    return zmap_insert_slot_##Name(m, key, true);                                                               \
+}                                                                                                               \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ZmapResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key, const ValT val){                 \
+    return zmap_insert_##Name(m, key, val, true);                                                                \
+}                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);                        \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] size_t zmap_size_##Name(const ZMAP_TYPENAME_MAP(Name) *m);                    \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] size_t zmap_capacity_##Name(const ZMAP_TYPENAME_MAP(Name) *m);                \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] size_t zmap_occupied_##Name(const ZMAP_TYPENAME_MAP(Name) *m);                \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m);                                         \
 
@@ -165,16 +159,22 @@ ZMAP_FUN_ATTRIBUTES int ZMAP_DEFAULT_C_FUNC_NAME(KeyName)(const KeyT key1, const
 
 
 #define ZMAP_PUT(Name, Map, Key, Value) zmap_put_##Name(Map, Key, Value)
+#define ZMAP_PUT_SLOT(Name, Map, Key) zmap_put_slot_##Name(Map, Key)
+#define ZMAP_INSERT(Name, Map, Key, Value, AllowOverwrite) zmap_insert_##Name(Map, Key, Value, AllowOverwrite)
+#define ZMAP_INSERT_SLOT(Name, Map, Key, AllowOverwrite) zmap_insert_slot_##Name(Map, Key, AllowOverwrite)
 #define ZMAP_GET(Name, Map, Key)        zmap_get_##Name(Map, Key)
 #define ZMAP_REM(Name, Map, Key)        zmap_remove_##Name(Map, Key)
 #define ZMAP_FREE(Name, Map)            zmap_free_##Name(Map)
-#define ZMAP_SIZE(Name, Map)            zmap_size_##Name(Map)
 #define ZMAP_CLEAR(Name, Map)           zmap_clear_##Name(Map)
 
 #define ZMAP_INIT_WITH_DEFAULTS(Name, KeyName) zmap_init_##Name(ZMAP_DEFAULT_H_FUNC_NAME(KeyName), ZMAP_DEFAULT_C_FUNC_NAME(KeyName))
 
-
 #define ZMAP_INIT(Name, h_func, c_func) zmap_init_##Name(h_func, c_func)
+
+#define ZMAP_SIZE(v) (v).count
+#define ZMAP_IS_EMPTY(v) ((v).count == 0)
+#define ZMAP_CAPACITY(v) (v).capacity
+#define ZMAP_OCCUPIED_COUNT(v) (v).occupied
 
 #if defined(Z_HAS_CLEANUP) && Z_HAS_CLEANUP
     #define zmap_autofree(Name)  Z_CLEANUP(map_free_##Name) ZMAP_TYPENAME_MAP(Name)
@@ -186,14 +186,12 @@ ZMAP_FUN_ATTRIBUTES int ZMAP_DEFAULT_C_FUNC_NAME(KeyName)(const KeyT key1, const
 #define M_GET_ENTRY(K, V, N)    zmap_##N*: zmap_get_##N,
 #define M_REM_ENTRY(K, V, N)    zmap_##N*: zmap_remove_##N,
 #define M_FREE_ENTRY(K, V, N)   zmap_##N*: zmap_free_##N,
-#define M_SIZE_ENTRY(K, V, N)   zmap_##N*: zmap_size_##N,
 #define M_CLEAR_ENTRY(K, V, N)  zmap_##N*: zmap_clear_##N,
 
 #define zmap_put(m, k, v)   _Generic((m), REGISTER_MAP_TYPES(M_PUT_ENTRY)  default: 0) (m, k, v)
 #define zmap_get(m, k)      _Generic((m), REGISTER_MAP_TYPES(M_GET_ENTRY)  default: (void*)0) (m, k)
 #define zmap_remove(m, k)   _Generic((m), REGISTER_MAP_TYPES(M_REM_ENTRY)  default: (void)0) (m, k)
 #define zmap_free(m)        _Generic((m), REGISTER_MAP_TYPES(M_FREE_ENTRY) default: (void)0) (m)
-#define zmap_size(m)        _Generic((m), REGISTER_MAP_TYPES(M_SIZE_ENTRY) default: 0) (m)
 #define zmap_clear(m)       _Generic((m), REGISTER_MAP_TYPES(M_CLEAR_ENTRY) default: (void)0) (m)
 
 
@@ -317,12 +315,6 @@ ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \
     }                                                                                                           \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES size_t zmap_size_##Name(const ZMAP_TYPENAME_MAP(Name) * const m) { return m->count; }                                    \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES size_t zmap_capacity_##Name(const ZMAP_TYPENAME_MAP(Name) * const m) { return m->capacity; }                                    \
-                                                                                                                \
-ZMAP_FUN_ATTRIBUTES size_t zmap_occupied_##Name(const ZMAP_TYPENAME_MAP(Name) * const m) { return m->occupied; }                                    \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m) {                                                        \
         if (m->capacity > 0) {                                                                                  \
