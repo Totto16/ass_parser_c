@@ -1,5 +1,5 @@
 #include <ass_parser_lib.h>
-#include <stb/ds.h>
+#include <zmap/zmap.h>
 
 #include "./log.h"
 
