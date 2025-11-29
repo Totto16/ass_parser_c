@@ -258,7 +258,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 
 #define ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(T, Name)                                                          \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] ZVEC_TYPENAME(Name) zvec_init_capacity_##Name(size_t cap) {                      \
-    ZVEC_TYPENAME(Name) v = ZVEC_EMPTY(T);                                                                  \
+    ZVEC_TYPENAME(Name) v = ZVEC_EMPTY(Name);                                                                  \
     if (cap > 0) {                                                                          \
         v.data = Z_VEC_CALLOC(cap, sizeof(T));                                                    \
         v.capacity = v.data ? cap : 0;                                                      \
@@ -320,7 +320,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T zvec_pop_get_##Name(ZVEC_TYPENAME(Name) *v) 
 ZVEC_FUN_ATTRIBUTES void zvec_shrink_to_fit_##Name(ZVEC_TYPENAME(Name) *v) {                         \
     if (v->length == 0) {                                                                   \
         Z_VEC_FREE(v->data);                                                                      \
-        *v = ZVEC_EMPTY(T);                                                            \
+        *v = ZVEC_EMPTY(Name);                                                            \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
@@ -369,7 +369,7 @@ ZVEC_FUN_ATTRIBUTES void zvec_clear_##Name(ZVEC_TYPENAME(Name) *v) {            
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_free_##Name(ZVEC_TYPENAME(Name) *v) {                                  \
     Z_VEC_FREE(v->data);                                                                          \
-    *v = ZVEC_EMPTY(T);                                                                \
+    *v = ZVEC_EMPTY(Name);                                                                \
 }                                                                                           \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_reverse_##Name(ZVEC_TYPENAME(Name) *v) {                               \
