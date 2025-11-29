@@ -345,7 +345,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		                   .file_pos = input.position.file_pos };
 }
 
-[[nodiscard]] char* get_normalized_string(ConstStrView str_view) {
+[[nodiscard]] char* get_normalized_string(const ConstStrView str_view) {
 	return get_normalized_string_from_codepoints(
 	    (RawCodepoints){ .data = str_view.start, .size = str_view.length });
 }

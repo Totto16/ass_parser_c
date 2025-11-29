@@ -109,6 +109,12 @@ typedef enum
 
 #define ZMAP_TYPENAME_MAP(TypeName) zmap_##TypeName
 
+//TODO: add free entry fn, if we remove a value we might need to free its content, this needs to be done in insert and remove and free! also check for keys, that eventually need a free (e.g. malloced strings)
+
+//TODO: i like the idea better, that each type has its hash function, and you cant chnage it, same for the cmp function, so remove the functions in the struct for the hm
+
+//TODO: rename SHOULD macros to ASSERT something, to make it more clear, what they do
+
 #define ZMAP_DEFINE_MAP_TYPE(KeyT, ValT, Name)                                                                       \
                                                                                                                 \
 typedef struct {                                                                                                \

@@ -12,7 +12,7 @@
 
 #include <zvec/zvec.h>
 
-#include <stb/ds.h>
+#include <zmap/zmap.h>
 
 #include <stdio.h>
 
@@ -729,14 +729,17 @@ typedef ZMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
 static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 
-	size_t hm_length = ZMAP_FOREACH_TODO(*style_to_font_hm);
+	size_t hm_total_length = ZMAP_CAPACITY(*style_to_font_hm);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		StyleToFontHMEntry entry = (*style_to_font_hm)[i];
-		free(entry.key);
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		ZMAP_TYPENAME_BUCKET(StyleToFontHMEntry) hm_bucket = style_to_font_hm->buckets[i];
+
+		if(hm_bucket.state == ZMAP_OCCUPIED) {
+			free(hm_bucket.key);
+		}
 	}
 
-	ZMAP_FREE(*style_to_font_hm);
+	ZMAP_FREE(StyleToFontHMEntry, style_to_font_hm);
 }
 
 #if defined(__clang__) && !defined(__WASM__)
@@ -753,31 +756,34 @@ typedef struct {
 
 #endif
 
-ZMAP_DEFINE_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry);
+ZMAP_DEFINE_MAP_TYPE(char*, MONOSTATE, UsedFontHMEntry)
 
 typedef ZMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 
 static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
-	size_t hm_length = ZMAP_FOREACH_TODO(*used_fonts_hm);
+	size_t hm_total_length = ZMAP_CAPACITY(*used_fonts_hm);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		UsedFontHMEntry entry = (*used_fonts_hm)[i];
-		free(entry.key);
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		ZMAP_TYPENAME_BUCKET(UsedFontHMEntry) hm_bucket = used_fonts_hm->buckets[i];
+
+		if(hm_bucket.state == ZMAP_OCCUPIED) {
+			free(hm_bucket.key);
+		}
 	}
 
-	ZMAP_FREE(*used_fonts_hm);
+	ZMAP_FREE(UsedFontHMEntry, used_fonts_hm);
 }
 
-[[nodiscard]] static UsedFontsHM get_used_fonts(AssResult ass_result, bool allow_validation_errors,
-                                                Diagnostics* diagnostics) {
+[[nodiscard]] static UsedFontsHM* get_used_fonts(AssResult ass_result, bool allow_validation_errors,
+                                                 Diagnostics* diagnostics) {
 
 #define FREE_AT_END() \
 	do { \
 		free_style_to_font_hm(&hm_style_to_font); \
 	} while(false)
 
-	StyleToFontHM hm_style_to_font = STBDS_HASH_MAP_EMPTY;
+	StyleToFontHM hm_style_to_font = ZMAP_INIT_WITH_DEFAULTS(StyleToFontHMEntry, CString);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
@@ -792,9 +798,20 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		int index = ZMAP_GETI_TODO(hm_style_to_font, style_name);
+		FinalStr* font_hm_entry = NULL;
 
-		if(index >= 0) {
+		{
+			ZVEC_SHOULD_USE_INSERT_SLOT(entry.fontname);
+
+			// NOTE: overwrite check is required here
+			FinalStr* slot =
+			    ZMAP_INSERT_SLOT(StyleToFontHMEntry, &hm_style_to_font, style_name, false);
+
+			ASSERT(slot != NULL, "OOM");
+			font_hm_entry = slot;
+		}
+
+		if(font_hm_entry == Z_WOULD_OVERWRITE) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -821,19 +838,21 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			continue;
 		}
 
-		StyleToFontHMEntry hm_entry = { .key = style_name, .value = entry.fontname };
-
-		ZMAP_PUT(TODO, hm_style_to_font, hm_entry);
+		// this is a ZMAP_INSERT, but in a faster way, as we already need to check for a duplicate
+		// entry above
+		*font_hm_entry = entry.fontname;
 	}
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
 	do { \
-		free_used_fonts_hm(&used_fonts); \
+		free_used_fonts_hm(used_fonts); \
 		free_style_to_font_hm(&hm_style_to_font); \
 	} while(false)
 
-	UsedFontsHM used_fonts = STBDS_HASH_MAP_EMPTY;
+	UsedFontsHM* used_fonts = malloc(sizeof(UsedFontsHM));
+
+	*used_fonts = ZMAP_INIT_WITH_DEFAULTS(UsedFontHMEntry, CString);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.events.entries); ++i) {
 		AssEventEntry entry = ZVEC_AT(AssEventEntry, (ass_result.events.entries), i);
@@ -848,14 +867,13 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
 			                    EMPTY_POS());
 
-			free_used_fonts_hm(&used_fonts);
 			FREE_AT_END();
 			return NULL;
 		}
 
-		int index = ZMAP_GETI_TODO(hm_style_to_font, style_name);
+		const FinalStr* font_value = ZMAP_GET(StyleToFontHMEntry, &hm_style_to_font, style_name);
 
-		if(index < 0) {
+		if(font_value == NULL) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -884,9 +902,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 		free(style_name);
 
-		StyleToFontHMEntry style_to_font_entry = hm_style_to_font[index];
-
-		char* font_name = get_normalized_string(style_to_font_entry.value);
+		char* font_name = get_normalized_string(*font_value);
 
 		if(!font_name) {
 			INSERT_SIMPLE_ERROR(diagnostics->entries, STATIC_MESSAGE_STRUCT("allocation error"),
@@ -895,26 +911,23 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		// insert font, if not already in the hm (that is used like a set)
-		int font_index = ZMAP_GETI_TODO(used_fonts, font_name);
+		// TODO: make used_fonts a zvec and use bsearch to acomplish the same thing!
 
-		if(font_index < 0) {
-			UsedFontHMEntry used_font_entry = { .key = font_name, .value = MONOSTATE_VALUE };
+		// TODO: to make the free correct, see the TODO in the zmap type!
 
-			ZMAP_PUT(TODO, used_fonts, used_font_entry);
-		} else {
-			free(font_name);
+		{
+
+			ZVEC_SHOULD_USE_INSERT(MONOSTATE_VALUE);
+
+			// insert font, if not already in the hm (that is used like a set)
+			ASSERT(ZMAP_INSERT(UsedFontHMEntry, used_fonts, font_name, MONOSTATE_VALUE, true) ==
+			           ZmapInsertResultOk,
+			       "OOM");
 		}
 	}
 
 	// this hm is not needed anymore
 	free_style_to_font_hm(&hm_style_to_font);
-
-	if(used_fonts == STBDS_HASH_MAP_EMPTY) {
-		UsedFontHMEntry default_value = { .key = NULL, .value = MONOSTATE_VALUE };
-		// forces the length to be 0, but the pointer to not be null!
-		ZMAP_DEFAULTS_TODO(used_fonts, default_value);
-	}
 
 	return used_fonts;
 }
@@ -937,18 +950,18 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 	}
 #endif
 
-	UsedFontsHM used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
+	UsedFontsHM* used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
 
 #ifdef ASS_PARSER_HAVE_FONTCONFIG
 #define FREE_AT_END() \
 	do { \
-		free_used_fonts_hm(&used_fonts); \
+		free_used_fonts_hm(used_fonts); \
 		FcFini(); \
 	} while(false)
 #else
 #define FREE_AT_END() \
 	do { \
-		free_used_fonts_hm(&used_fonts); \
+		free_used_fonts_hm(used_fonts); \
 	} while(false)
 #endif
 
@@ -983,9 +996,9 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		}
 
 		if(settings.check_only_used_fonts) {
-			int font_index = ZMAP_GETI_TODO(used_fonts, font_name);
+			const MONOSTATE* font_is_present = ZMAP_GET(UsedFontHMEntry, used_fonts, font_name);
 
-			if(font_index < 0) {
+			if(font_is_present == NULL) {
 
 				free(font_name);
 				free(style_name);

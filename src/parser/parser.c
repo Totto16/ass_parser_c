@@ -1635,7 +1635,14 @@ got_new_section_graphic:
 
 			const char* field_entry_key = get_normalized_string(field);
 
-			ZMAP_PUT(SectionFieldEntry, &extra_section_entry, field_entry_key, field_entry_value);
+			{
+				// NOTE: don't care for overwrites
+				ZVEC_SHOULD_USE_INSERT_SLOT(field_entry_value);
+				FinalStr* slot = ZMAP_INSERT_SLOT(SectionFieldEntry, &extra_section_entry,
+				                                  field_entry_key, true);
+				ASSERT(slot != NULL, "OOM");
+				*slot = field_entry_value;
+			}
 		}
 
 		if(str_view_is_eof(*data_view)) {
@@ -1643,7 +1650,14 @@ got_new_section_graphic:
 		}
 	}
 
-	ZMAP_PUT(ExtraSectionHashMapEntry, extra_sections, section_name_str, extra_section_entry);
+	{
+		// NOTE: don't care for overwrites
+		ZVEC_SHOULD_USE_INSERT_SLOT(extra_section_entry);
+		ExtraSectionEntry* slot =
+		    ZMAP_INSERT_SLOT(ExtraSectionHashMapEntry, extra_sections, section_name_str, true);
+		ASSERT(slot != NULL, "OOM");
+		*slot = extra_section_entry;
+	}
 
 	return ErrorTypeNone;
 }
@@ -2254,29 +2268,33 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 }
 
 static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_length = ZMAP_FOREACH_TODO(entry.fields);
+	size_t hm_total_length = ZMAP_CAPACITY(entry);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		SectionFieldEntry hm_entry = entry.fields[i];
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		ZMAP_TYPENAME_BUCKET(SectionFieldEntry) hm_bucket = entry.buckets[i];
 
-		free(hm_entry.key);
+		if(hm_bucket.state == ZMAP_OCCUPIED) {
+			free(hm_bucket.key);
+		}
 	}
 
-	ZMAP_FREE(entry.fields);
+	ZMAP_FREE(SectionFieldEntry, &entry);
 }
 
 static void free_extra_sections(ExtraSections sections) {
 
-	size_t hm_length = ZMAP_LENGTH(ExtraSectionHashMapEntry, sections.entries);
+	size_t hm_total_length = ZMAP_CAPACITY(sections);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		ExtraSectionHashMapEntry entry = sections.entries[i];
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		ZMAP_TYPENAME_BUCKET(ExtraSectionHashMapEntry) hm_bucket = sections.buckets[i];
 
-		free_extra_section_entry(entry.value);
-		free(entry.key);
+		if(hm_bucket.state == ZMAP_OCCUPIED) {
+			free_extra_section_entry(hm_bucket.value);
+			free(hm_bucket.key);
+		}
 	}
 
-	ZMAP_FREE(sections.entries);
+	ZMAP_FREE(ExtraSectionHashMapEntry, &sections);
 }
 
 static void free_fonts(AssFonts fonts) {
@@ -2467,13 +2485,15 @@ static void free_ass_result(AssResult data) {
 		RETURN_ERROR(STATIC_MESSAGE_STRUCT("expected newline"));
 	}
 
-	AssResult ass_result = { .extra_sections = (ExtraSections){ .entries = STBDS_HASH_MAP_EMPTY },
+	AssResult ass_result = { .extra_sections = { 0 },
 		                     .file_props =
 		                         (FileProps){ .file_type = file_type, .line_type = line_type },
 		                     .events = (AssEvents){ .entries = ZVEC_EMPTY(AssEventEntry) },
 		                     .fonts = (AssFonts){ .entries = ZVEC_EMPTY(AssFontEntry) },
 		                     .styles = (AssStyles){ .entries = ZVEC_EMPTY(AssStyleEntry) },
 		                     .graphics = (AssGraphics){ .entries = ZVEC_EMPTY(AssGraphicEntry) } };
+
+	ass_result.extra_sections = ZMAP_INIT_WITH_DEFAULTS(ExtraSectionHashMapEntry, CString);
 
 #undef FREE_AT_END
 #define FREE_AT_END() \
