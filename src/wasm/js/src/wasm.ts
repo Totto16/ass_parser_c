@@ -2806,8 +2806,12 @@ interface SectionFieldEntry {
 	value: string
 }
 
+const ZMAP_NO_ELEMENT_HERE = 2
+
+type NoElementHere = 'no_element_here'
+
 export class SectionFieldEntryRef extends CArray<
-	SectionFieldEntry,
+	SectionFieldEntry | NoElementHere,
 	'extra_section_entry_hm'
 > {
 	constructor(
@@ -2824,7 +2828,13 @@ export class SectionFieldEntryRef extends CArray<
 
 	protected override convert_element_from_c_to_js(
 		element: Ptr<SectionFieldEntryC>
-	): SectionFieldEntry {
+	): SectionFieldEntry | NoElementHere {
+		if (
+			get_ptr_value<SectionFieldEntryC>(element) === ZMAP_NO_ELEMENT_HERE
+		) {
+			return 'no_element_here'
+		}
+
 		const key_raw =
 			this.wasm.functions.extra_section_entry_hm_entry_get_key(element)
 
@@ -2842,7 +2852,7 @@ export class SectionFieldEntryRef extends CArray<
 }
 
 export class ExtraSectionHashMapEntryRef extends CArray<
-	ExtraSectionHashMapEntry,
+	ExtraSectionHashMapEntry | NoElementHere,
 	'extra_sections_hm'
 > {
 	constructor(wasm: WASMWrapper, extra_sections: Ptr<ExtraSectionsC>) {
@@ -2856,7 +2866,14 @@ export class ExtraSectionHashMapEntryRef extends CArray<
 
 	protected override convert_element_from_c_to_js(
 		element: Ptr<ExtraSectionHashMapEntryC>
-	): ExtraSectionHashMapEntry {
+	): ExtraSectionHashMapEntry | NoElementHere {
+		if (
+			get_ptr_value<ExtraSectionHashMapEntryC>(element) ===
+			ZMAP_NO_ELEMENT_HERE
+		) {
+			return 'no_element_here'
+		}
+
 		const key_raw =
 			this.wasm.functions.extra_sections_hm_entry_get_key(element)
 
@@ -2924,7 +2941,9 @@ export class ExtraSectionEntryRef extends Unref<ExtraSectionEntry> {
 		const result: ExtraSectionEntry = {}
 
 		for (const entry of entries) {
-			result[entry.key] = entry.value
+			if (entry !== 'no_element_here') {
+				result[entry.key] = entry.value
+			}
 		}
 
 		return result
@@ -2972,7 +2991,9 @@ export class ExtraSectionsRef extends Unref<ExtraSections> {
 		const result: ExtraSections = {}
 
 		for (const entry of entries) {
-			result[entry.key] = entry.value.unref()
+			if (entry !== 'no_element_here') {
+				result[entry.key] = entry.value.unref()
+			}
 		}
 
 		return result
