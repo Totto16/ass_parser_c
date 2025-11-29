@@ -94,6 +94,8 @@ if not is_wasm
     internal_c_args += '-DASS_PARSER_HAVE_FREETYPE'
 endif
 
+internal_c_args += '-DZ_NO_GENERIC_USAGE'
+
 
 lib_src_files = []
 cli_files = []

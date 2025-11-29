@@ -58,6 +58,16 @@ typedef enum : bool {
     #define Z_VEC_FREE(p)         Z_FREE(p)
 #endif
 
+#if __STDC_VERSION__ >= 202311L || defined(__cplusplus)
+#define STATIC_ASSERT(check, message) static_assert(check, message)
+#elif __STDC_VERSION__ < 201112L
+// empty, as not supported
+#define STATIC_ASSERT(check, message)
+#else
+#define STATIC_ASSERT(check, message) _Static_assert(check, message)
+#endif
+
+
 
 // maybe some visibility things later, but I just removed the static inline
 #define ZVEC_FUN_ATTRIBUTES 
@@ -130,27 +140,10 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
 
 #define ZVEC_LENGTH(v) (v).length
 
-#define ZVEC_PUSH_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_push_##Name,
-#define ZVEC_PUSH_SLOT_ENTRY(T, Name)  ZVEC_TYPENAME(Name)*: zvec_push_slot_##Name,
-#define ZVEC_EXTEND_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_extend_##Name,
-#define ZVEC_RESERVE_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_reserve_##Name,
-#define ZVEC_IS_EMPTY_ENTRY(T, Name)   ZVEC_TYPENAME(Name)*: zvec_is_empty_##Name,
-#define ZVEC_AT_ENTRY(T, Name)         ZVEC_TYPENAME(Name)*: zvec_at_##Name,
-#define ZVEC_GET_AT_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_get_at_##Name,
-#define ZVEC_GET_AT_MUT_ENTRY(T, Name) ZVEC_TYPENAME(Name)*: zvec_get_at_mut_##Name,
-#define ZVEC_DATA_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_data_##Name,
-#define ZVEC_LAST_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_last_##Name,
-#define ZVEC_FREE_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_free_##Name,
-#define ZVEC_POP_ENTRY(T, Name)        ZVEC_TYPENAME(Name)*: zvec_pop_##Name,
-#define ZVEC_POP_GET_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_pop_get_##Name,
-#define ZVEC_SHRINK_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_shrink_to_fit_##Name,
-#define ZVEC_REMOVE_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_remove_##Name,
-#define ZVEC_SWAP_REM_ENTRY(T, Name)   ZVEC_TYPENAME(Name)*: zvec_swap_remove_##Name,
-#define ZVEC_CLEAR_ENTRY(T, Name)      ZVEC_TYPENAME(Name)*: zvec_clear_##Name,
-#define ZVEC_REVERSE_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_reverse_##Name,
-#define ZVEC_SORT_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_sort_##Name,
-#define ZVEC_BSEARCH_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_bsearch_##Name,
-#define ZVEC_LOWER_BOUND_ENTRY(T, Name) ZVEC_TYPENAME(Name)*: zvec_lower_bound_##Name,
+#define ZVEC_SHOULD_USE_PUSH(val) STATIC_ASSERT(sizeof(val) <= 8, "only small values should use push, use push slot for larger ones instead!")
+
+#define ZVEC_SHOULD_USE_PUSH_SLOT(val) STATIC_ASSERT(sizeof(val) > 8, "only big values should use push slot, use push for smaller ones instead!")
+
 
 #define ZVEC_PUSH(T, v, val)           ZVEC_PUSH_EXTENDED(T, T, v, val)         
 #define ZVEC_PUSH_SLOT(T, v)           ZVEC_PUSH_SLOT_EXTENDED(T, T, v)         
@@ -198,6 +191,31 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
 #define ZVEC_LOWER_BOUND_EXTENDED(T, Name, v, key, cmp) zvec_lower_bound_##Name(v, key, cmp)
 #define ZVEC_FROM_EXTENDED(T, Name, arr, size)         zvec_from_array_##Name(arr, size)
 
+#if !defined(Z_NO_GENERIC_USAGE)
+
+#define ZVEC_PUSH_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_push_##Name,
+#define ZVEC_PUSH_SLOT_ENTRY(T, Name)  ZVEC_TYPENAME(Name)*: zvec_push_slot_##Name,
+#define ZVEC_EXTEND_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_extend_##Name,
+#define ZVEC_RESERVE_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_reserve_##Name,
+#define ZVEC_IS_EMPTY_ENTRY(T, Name)   ZVEC_TYPENAME(Name)*: zvec_is_empty_##Name,
+#define ZVEC_AT_ENTRY(T, Name)         ZVEC_TYPENAME(Name)*: zvec_at_##Name,
+#define ZVEC_GET_AT_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_get_at_##Name,
+#define ZVEC_GET_AT_MUT_ENTRY(T, Name) ZVEC_TYPENAME(Name)*: zvec_get_at_mut_##Name,
+#define ZVEC_DATA_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_data_##Name,
+#define ZVEC_LAST_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_last_##Name,
+#define ZVEC_FREE_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_free_##Name,
+#define ZVEC_POP_ENTRY(T, Name)        ZVEC_TYPENAME(Name)*: zvec_pop_##Name,
+#define ZVEC_POP_GET_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_pop_get_##Name,
+#define ZVEC_SHRINK_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_shrink_to_fit_##Name,
+#define ZVEC_REMOVE_ENTRY(T, Name)     ZVEC_TYPENAME(Name)*: zvec_remove_##Name,
+#define ZVEC_SWAP_REM_ENTRY(T, Name)   ZVEC_TYPENAME(Name)*: zvec_swap_remove_##Name,
+#define ZVEC_CLEAR_ENTRY(T, Name)      ZVEC_TYPENAME(Name)*: zvec_clear_##Name,
+#define ZVEC_REVERSE_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_reverse_##Name,
+#define ZVEC_SORT_ENTRY(T, Name)       ZVEC_TYPENAME(Name)*: zvec_sort_##Name,
+#define ZVEC_BSEARCH_ENTRY(T, Name)    ZVEC_TYPENAME(Name)*: zvec_bsearch_##Name,
+#define ZVEC_LOWER_BOUND_ENTRY(T, Name) ZVEC_TYPENAME(Name)*: zvec_lower_bound_##Name,
+
+
 #define zvec_push(v, val)          _Generic((v), REGISTER_TYPES(ZVEC_PUSH_ENTRY)      default: 0)      (v, val)
 #define zvec_push_slot(v)          _Generic((v), REGISTER_TYPES(ZVEC_PUSH_SLOT_ENTRY) default: (void*)0)(v)
 #define zvec_extend(v, arr, count) _Generic((v), REGISTER_TYPES(ZVEC_EXTEND_ENTRY)    default: 0)      (v, arr, count)
@@ -219,6 +237,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(ZVEC_TYPENAME(Name)
 #define zvec_sort(v, cmp)          _Generic((v), REGISTER_TYPES(ZVEC_SORT_ENTRY)      default: (void)0)(v, cmp)
 #define zvec_bsearch(v, key, cmp)  _Generic((v), REGISTER_TYPES(ZVEC_BSEARCH_ENTRY)   default: (void*)0)(v, key, cmp)
 #define zvec_lower_bound(v, k, c)  _Generic((v), REGISTER_TYPES(ZVEC_LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
+
+#endif
 
 #define ZVEC_INIT(T) ZVEC_EMPTY(T)
 
