@@ -924,7 +924,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			MONOSTATE* slot = ZMAP_INSERT_SLOT(UsedFontHMEntry, used_fonts, font_name, false);
 			ASSERT(slot != NULL, "OOM");
 
-			if(slot != ZMAP_WOULD_OVERWRITE) {
+			if(slot == ZMAP_WOULD_OVERWRITE) {
 				free(font_name);
 			} else {
 				*slot = MONOSTATE_VALUE;
@@ -962,12 +962,14 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 #define FREE_AT_END() \
 	do { \
 		free_used_fonts_hm(used_fonts); \
+		free(used_fonts); \
 		FcFini(); \
 	} while(false)
 #else
 #define FREE_AT_END() \
 	do { \
 		free_used_fonts_hm(used_fonts); \
+		free(used_fonts); \
 	} while(false)
 #endif
 
