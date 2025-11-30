@@ -149,7 +149,8 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ValT* zmap_put_slot_##Name(ZMAP_TYPENAM
 }                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ZmapResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val){                 \
-    return zmap_insert_##Name(m, key, val, true);                                                                \
+    const ZmapInsertResult result = zmap_insert_##Name(m, key, val, true);                                                                \
+    return result == ZmapInsertResultOk ? ZmapResultOk : ZmapResultErr;                                         \
 }                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
@@ -277,7 +278,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, Ke
 ZMAP_FUN_ATTRIBUTES ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val, bool allow_overwrite) {                                           \
     ValT* slot = zmap_insert_slot_##Name(m, key, allow_overwrite);                                               \
     if (slot == NULL) { return ZmapInsertResultErr; }                                                              \
-    if(slot == ZMAP_WOULD_OVERWRITE) { ZmapInsertResultWouldOverwrite; }                  \
+    if(slot == ZMAP_WOULD_OVERWRITE) { return ZmapInsertResultWouldOverwrite; }                  \
     *slot = val;                                                                          \
     return ZmapInsertResultOk;                                                                    \
 }                                                                                                           \

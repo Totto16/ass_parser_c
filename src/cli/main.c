@@ -93,7 +93,7 @@ static void print_uu_conversion_usage(bool is_subcommand) {
 	// TODO
 
 	(void)(is_subcommand);
-	COMMAND_UU_CONVERSION;
+	//TODO: COMMAND_UU_CONVERSION;
 }
 
 // prints the usage, if argc is not the right amount!

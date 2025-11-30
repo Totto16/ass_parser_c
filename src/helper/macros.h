@@ -64,6 +64,7 @@
 #define UNREACHABLE() \
 	do { \
 		ASSERT(false, "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \
+		__builtin_unreachable(); \
 	} while(false)
 
 #endif
