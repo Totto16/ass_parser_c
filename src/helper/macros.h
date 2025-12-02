@@ -80,6 +80,6 @@
 #define ZVEC_PUSH_AND_ASSERT(Name, Vec, Value) \
 	do { \
 		ZVEC_ASSERT_SHOULD_USE_PUSH(Value); \
-		ZvecResult result = ZVEC_PUSH(Name, Vec, Value); \
-		ASSERT(result == ZvecResultOk, "OOM"); \
+		ZvecResult zvec_result = ZVEC_PUSH(Name, Vec, Value); \
+		ASSERT(zvec_result == ZvecResultOk, "OOM"); \
 	} while(false)

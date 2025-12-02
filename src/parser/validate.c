@@ -476,9 +476,9 @@ fontconfig_find_type_for_fonts(const char* font_name, FcPattern* font, FontStyle
 
 	FcChar8* family = NULL;
 
-	FcResult res = FcPatternGetString(font, FC_FAMILY, 0, &family);
+	FcResult fc_res = FcPatternGetString(font, FC_FAMILY, 0, &family);
 
-	if(res != FcResultMatch) {
+	if(fc_res != FcResultMatch) {
 
 		return (FontSearchResult){ .type = FontSearchResultTypeError,
 			                       .data = { .error = STATIC_MESSAGE_STRUCT(
@@ -564,7 +564,7 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
 
-[[nodiscard]] FontSearchResult find_type_for_fonts(const char* font_name, FontResultOk fonts_result,
+[[nodiscard]] static FontSearchResult find_type_for_fonts(const char* font_name, FontResultOk fonts_result,
                                                    FontStyleType font_type,
                                                    DetailedFontValidateSettings settings,
                                                    bool strict_errors) {

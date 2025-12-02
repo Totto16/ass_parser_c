@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-[[nodiscard]] bool is_file_a_directory(FILE* file) {
+[[nodiscard]] static bool is_file_a_directory(FILE* file) {
 	if(!file) {
 		return false;
 	}

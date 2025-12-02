@@ -155,7 +155,7 @@ static SizedPtr convert_to_utf8_from_format(SizedPtr ptr, const char* format) {
 
 #endif
 
-[[nodiscard]] CodepointsResult get_codepoints_from_format(SizedPtr ptr, const char* format) {
+[[nodiscard]] static CodepointsResult get_codepoints_from_format(SizedPtr ptr, const char* format) {
 	SizedPtr converted_result = convert_to_utf8_from_format(ptr, format);
 
 	if(is_ptr_error(converted_result)) {

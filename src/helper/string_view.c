@@ -291,8 +291,8 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 		ConstStrView temp = {};
 
 		while(true) {
-			bool result = str_view_get_substring_until_eol(str_view, &temp, line_type, true);
-			if(!result) {
+			bool is_ok = str_view_get_substring_until_eol(str_view, &temp, line_type, true);
+			if(!is_ok) {
 				return false;
 			}
 		}
@@ -326,7 +326,7 @@ typedef bool (*DelimiterFn)(int32_t code_point, void* data_ptr);
 	return true;
 }
 
-[[nodiscard]] bool category_delimiter(int32_t code_point, void* data_ptr) {
+[[nodiscard]] static bool category_delimiter(int32_t code_point, void* data_ptr) {
 
 	return utf8proc_category(code_point) == (*(utf8proc_category_t*)data_ptr);
 }
