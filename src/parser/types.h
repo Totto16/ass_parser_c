@@ -99,8 +99,12 @@ typedef struct {
 	uint8_t r;
 	uint8_t g;
 	uint8_t b;
+} AssColorTODO;
+
+typedef struct {
+	AssColorTODO base;
 	uint8_t a;
-} AssColor;
+} AssColorWithAlpha;
 
 typedef enum : uint8_t {
 	BorderStyleOutline = 1,
@@ -110,40 +114,55 @@ typedef enum : uint8_t {
 typedef size_t EncodingType;
 
 typedef enum : uint8_t {
-	// bottom
-	AssAlignmentBL = 1,
-	AssAlignmentBC,
-	AssAlignmentBR,
-	// middle
-	AssAlignmentML,
-	AssAlignmentMC,
-	AssAlignmentMR,
+	// bottom, sub
+	AssAlignmentNumpadBL = 1,
+	AssAlignmentNumpadBC = 2,
+	AssAlignmentNumpadBR = 3,
+	// middle, mid
+	AssAlignmentNumpadML = 4,
+	AssAlignmentNumpadMC = 5,
+	AssAlignmentNumpadMR = 6,
 	// top
-	AssAlignmentTL,
-	AssAlignmentTC,
-	AssAlignmentTR,
-} AssAlignment;
+	AssAlignmentNumpadTL = 7,
+	AssAlignmentNumpadTC = 8,
+	AssAlignmentNumpadTR = 9,
+} AssAlignmentNumpad;
+
+typedef enum : uint8_t {
+	// bottom
+	AssAlignmentOldBL = 1,
+	AssAlignmentOldBC = 2,
+	AssAlignmentOldBR = 3,
+	// middle
+	AssAlignmentOldML = 8 + 1,
+	AssAlignmentOldMC = 8 + 2,
+	AssAlignmentOldMR = 8 + 3,
+	// top
+	AssAlignmentOldTL = 4 + 1,
+	AssAlignmentOldTC = 4 + 2,
+	AssAlignmentOldTR = 4 + 3,
+} AssAlignmentOld;
 
 typedef struct {
 	FinalStr name;
 	FinalStr fontname;
 	size_t fontsize;
-	AssColor primary_colour;
-	AssColor secondary_colour;
-	AssColor outline_colour;
-	AssColor back_colour;
+	AssColorWithAlpha primary_colour;
+	AssColorWithAlpha secondary_colour;
+	AssColorWithAlpha outline_colour;
+	AssColorWithAlpha back_colour;
 	bool bold;
 	bool italic;
 	bool underline;
 	bool strike_out;
 	size_t scale_x;
 	size_t scale_y;
-	double spacing;
+	double spacing; // TODO: spacing can be size_t ?? use same types for overrides and style!
 	double angle;
 	BorderStyle border_style;
 	double outline;
 	double shadow;
-	AssAlignment alignment;
+	AssAlignmentNumpad alignment;
 	size_t margin_l;
 	size_t margin_r;
 	size_t margin_v;
@@ -179,8 +198,174 @@ typedef struct {
 	} data;
 } MarginValue;
 
+typedef enum : unsigned char {
+	AssTextSpecialCharOpenCurlyBrace = '{',      // "\{" or non closed "{"
+	AssTextSpecialCharClosedCurlyBrace = '}',    // "\}" or non opened "}"
+	AssTextSpecialCharNewlineSuggestion = '\n',  // "\n"
+	AssTextSpecialCharNewlineForced = ('\n') + 1 // "\N"
+} AssTextSpecialChar;
+
+typedef enum : bool {
+	_2DChoiceX = false,
+	_2DChoiceY = true,
+} _2DChoice;
+
+typedef enum : uint8_t {
+	_3DChoiceX = 0,
+	_3DChoiceY,
+	_3DChoiceZ,
+} _3DChoice;
+
 typedef struct {
-	FinalStr todo;
+	_2DChoice _2dchoice; // x or y
+	double scale;
+} FontSizeScale;
+
+typedef struct {
+	_3DChoice _3dchoice; // x, y or z
+	double angle;
+} RotationAngle;
+
+typedef enum : uint8_t {
+	NumberColorType1 = 1,
+	NumberColorType2 = 2,
+	NumberColorType3 = 3,
+	NumberColorType4 = 4
+} NumberColorType;
+
+typedef struct {
+	NumberColorType color_type;
+	AssColorTODO color;
+} AssColorOverride;
+
+typedef enum : uint8_t {
+	AlphaTypeAll = 0,
+	AlphaType1 = 1,
+	AlphaType2 = 2,
+	AlphaType3 = 3,
+	AlphaType4 = 4
+} AlphaType;
+
+typedef struct {
+	AlphaType alpha_type; // \alpha or 1-4, \alpha sets all 4!
+	uint8_t alpha;
+} AssAlphaOverride;
+
+typedef enum : uint8_t {
+	KaraokeStyleOverrideTypeNormal,             // \k
+	KaraokeStyleOverrideTypeFillUp,             // \K or \kf
+	KaraokeStyleOverrideTypeOutlineHighlighting // \ko
+} KaraokeStyleOverrideType;
+
+typedef struct {
+	KaraokeStyleOverrideType type;
+	size_t duration; // in 10ms intervals alias hundreds
+} KaraokeStyleOverride;
+
+typedef struct {
+	bool has_style; // can eb empty \r, so restore / resets to line style
+	FinalStr style;
+} RestoreStyle;
+
+struct ASSOverrideFunctionImpl;
+typedef struct ASSOverrideFunctionImpl ASSOverrideFunction;
+
+typedef enum : uint8_t {
+	StyleOverrideEntryTypeBold = 0,
+	StyleOverrideEntryTypeItalic,
+	StyleOverrideEntryTypeUnderline,
+	StyleOverrideEntryTypeStrikeout,
+	StyleOverrideEntryTypeBorder,
+	StyleOverrideEntryTypeShadow,
+	StyleOverrideEntryTypeBlurEdges,
+	StyleOverrideEntryTypeFontName,
+	StyleOverrideEntryTypeFontSize,
+	StyleOverrideEntryTypeFontSizeScale,
+	StyleOverrideEntryTypeFontSpacing,
+	StyleOverrideEntryTypeRotationAngle,
+	StyleOverrideEntryTypeCharset,
+	StyleOverrideEntryTypeColor,
+	StyleOverrideEntryTypeAlpha,
+	StyleOverrideEntryTypeAlignment,
+	StyleOverrideEntryTypeAlignmentNumpad,
+	StyleOverrideEntryTypeKaraoke,
+	StyleOverrideEntryTypeWrapStyle,
+	StyleOverrideEntryTypeRestore,
+	StyleOverrideEntryTypeFunction
+} StyleOverrideEntryType;
+
+typedef struct {
+	StyleOverrideEntryType type;
+	union {
+		size_t bold;
+		bool italic;
+		bool underline;
+		bool strikeout;
+		size_t border;
+		size_t shadow;
+		bool blur_edges;
+		FinalStr font_name;
+		size_t font_size;
+		FontSizeScale font_size_scale;
+		size_t font_spacing; // fsp
+		RotationAngle rotation_angle;
+		size_t charset;
+		AssColorOverride color;
+		AssAlphaOverride alpha;
+		AssAlignmentOld alignment;
+		AssAlignmentNumpad alignment_numpad;
+		KaraokeStyleOverride karaoke;
+		WrapStyle wrap_style;
+		RestoreStyle restore;
+		ASSOverrideFunction* function;
+	} data;
+} StyleOverrideEntry;
+
+ZVEC_DEFINE_VEC_TYPE(StyleOverrideEntry)
+
+typedef struct {
+	ZVEC_TYPENAME(StyleOverrideEntry) overrides;
+} StyleOverride;
+
+//TODO support also template parsing!
+
+typedef enum : uint8_t {
+	ASSOverrideFunctionTypeT = 0,
+	ASSOverrideFunctionTypeMove,
+	ASSOverrideFunctionTypePos,
+	ASSOverrideFunctionTypeOrg,
+	ASSOverrideFunctionTypeFade,
+	ASSOverrideFunctionTypeFad,
+	ASSOverrideFunctionTypeClip,
+}ASSOverrideFunctionType;
+
+//TODO: also check aegisub functions and manual!
+
+struct ASSOverrideFunctionImpl{
+	ASSOverrideFunctionType type;
+	// TODO: \t() can have a vec of StyleOverrideEntry as argument
+};
+
+typedef enum : uint8_t {
+	AssTextEntryTypeText,
+	AssTextEntryTypeStyleOverride,
+	AssTextEntryTypeSpecialChar
+} AssTextEntryType;
+
+typedef struct {
+	AssTextEntryType type;
+	union {
+		FinalStr text;
+		StyleOverride style_override;
+		AssTextSpecialChar special_char;
+	} data;
+} AssTextEntry;
+
+ZVEC_DEFINE_VEC_TYPE(AssTextEntry)
+
+typedef struct {
+	FinalStr original;
+	ZVEC_TYPENAME(AssTextEntry) parsed;
 } AssText;
 
 typedef enum : uint8_t {
