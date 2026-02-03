@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <zmap/zmap.h>
+#include <tmap.h>
 #include <tvec.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
@@ -1575,17 +1575,17 @@ got_new_section_graphic:
 #undef FREE_AT_END
 
 static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_total_length = ZMAP_CAPACITY(entry);
+	size_t hm_total_length = TMAP_CAPACITY(entry);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		const SectionFieldEntry* hm_entry = ZMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
+		const SectionFieldEntry* hm_entry = TMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
 
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
 			free(hm_entry->key);
 		}
 	}
 
-	ZMAP_FREE(SectionFieldEntry, &entry);
+	TMAP_FREE(SectionFieldEntry, &entry);
 }
 
 [[nodiscard]] static ErrorType extra_section(ConstStrView section_name, StrView* data_view,
@@ -1600,7 +1600,7 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 		return ErrorTypeFatal;
 	}
 
-	ExtraSectionEntry extra_section_entry = ZMAP_INIT(SectionFieldEntry);
+	ExtraSectionEntry extra_section_entry = TMAP_INIT(SectionFieldEntry);
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -1656,10 +1656,10 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 				// actual old value, this needs to be copied (shallow, e.g. the to free ptr needs a
 				// copy) and than freed)
 				const FinalStr* old_value =
-				    ZMAP_GET(SectionFieldEntry, &extra_section_entry, field_entry_key);
+				    TMAP_GET(SectionFieldEntry, &extra_section_entry, field_entry_key);
 
-				ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(field_entry_value);
-				FinalStr* slot = ZMAP_INSERT_SLOT(SectionFieldEntry, &extra_section_entry,
+				TMAP_ASSERT_SHOULD_USE_INSERT_SLOT(field_entry_value);
+				FinalStr* slot = TMAP_INSERT_SLOT(SectionFieldEntry, &extra_section_entry,
 				                                  field_entry_key, true);
 				ASSERT(slot != NULL, "OOM");
 
@@ -1684,11 +1684,11 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 		// value, this needs to be copied (shallow, e.g. the to free ptr needs a copy) and than
 		// freed)
 		const ExtraSectionEntry* old_value =
-		    ZMAP_GET(ExtraSectionHashMapEntry, extra_sections, section_name_str);
+		    TMAP_GET(ExtraSectionHashMapEntry, extra_sections, section_name_str);
 
-		ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(extra_section_entry);
+		TMAP_ASSERT_SHOULD_USE_INSERT_SLOT(extra_section_entry);
 		ExtraSectionEntry* slot =
-		    ZMAP_INSERT_SLOT(ExtraSectionHashMapEntry, extra_sections, section_name_str, true);
+		    TMAP_INSERT_SLOT(ExtraSectionHashMapEntry, extra_sections, section_name_str, true);
 		ASSERT(slot != NULL, "OOM");
 
 		if(old_value != NULL) {
@@ -2313,19 +2313,19 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 static void free_extra_sections(ExtraSections sections) {
 
-	size_t hm_total_length = ZMAP_CAPACITY(sections);
+	size_t hm_total_length = TMAP_CAPACITY(sections);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
 		const ExtraSectionHashMapEntry* hm_entry =
-		    ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
+		    TMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
 
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
 			free_extra_section_entry(hm_entry->value);
 			free(hm_entry->key);
 		}
 	}
 
-	ZMAP_FREE(ExtraSectionHashMapEntry, &sections);
+	TMAP_FREE(ExtraSectionHashMapEntry, &sections);
 }
 
 static void free_fonts(AssFonts fonts) {
@@ -2524,7 +2524,7 @@ static void free_ass_result(AssResult data) {
 		                     .styles = (AssStyles){ .entries = TVEC_EMPTY(AssStyleEntry) },
 		                     .graphics = (AssGraphics){ .entries = TVEC_EMPTY(AssGraphicEntry) } };
 
-	ass_result.extra_sections = ZMAP_INIT(ExtraSectionHashMapEntry);
+	ass_result.extra_sections = TMAP_INIT(ExtraSectionHashMapEntry);
 
 #undef FREE_AT_END
 #define FREE_AT_END() \

@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <zmap/zmap.h>
+#include <tmap.h>
 
 // this is a hack, so that I don't need malloc the result, since only ptrs can be returned to wasm
 static AllocatorStatistics g_global_stats = {};
@@ -340,7 +340,7 @@ get_entry_from_name_in_extra_sections(const ExtraSections* const extra_sections,
 		return NULL;
 	}
 
-	const ExtraSectionEntry* value = ZMAP_GET(ExtraSectionHashMapEntry, extra_sections, name);
+	const ExtraSectionEntry* value = TMAP_GET(ExtraSectionHashMapEntry, extra_sections, name);
 
 	return value;
 }
@@ -351,7 +351,7 @@ char* get_entry_from_name_in_extra_section_entry(const ExtraSectionEntry* const 
 		return NULL;
 	}
 
-	const FinalStr* value = ZMAP_GET(SectionFieldEntry, extra_section_entry, name);
+	const FinalStr* value = TMAP_GET(SectionFieldEntry, extra_section_entry, name);
 
 	if(value == NULL) {
 		return NULL;
@@ -362,37 +362,37 @@ char* get_entry_from_name_in_extra_section_entry(const ExtraSectionEntry* const 
 
 const ExtraSectionHashMapEntry* extra_sections_hm_get_at(const ExtraSections* extra_sections_hm,
                                                          size_t index) {
-	size_t hm_total_length = ZMAP_CAPACITY(*extra_sections_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*extra_sections_hm);
 	if(index >= hm_total_length) {
 		return NULL;
 	}
 
 	const ExtraSectionHashMapEntry* hm_entry =
-	    ZMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, extra_sections_hm, index);
+	    TMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, extra_sections_hm, index);
 
 	return hm_entry;
 }
 
 size_t extra_sections_hm_get_length(ExtraSections* extra_sections_hm) {
-	size_t hm_total_length = ZMAP_CAPACITY(*extra_sections_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*extra_sections_hm);
 	return hm_total_length;
 }
 
 const SectionFieldEntry*
 extra_section_entry_hm_get_at(const ExtraSectionEntry* extra_section_entry_hm, size_t index) {
-	size_t hm_total_length = ZMAP_CAPACITY(*extra_section_entry_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*extra_section_entry_hm);
 	if(index >= hm_total_length) {
 		return NULL;
 	}
 
 	const SectionFieldEntry* hm_entry =
-	    ZMAP_GET_ENTRY_AT(SectionFieldEntry, extra_section_entry_hm, index);
+	    TMAP_GET_ENTRY_AT(SectionFieldEntry, extra_section_entry_hm, index);
 
 	return hm_entry;
 }
 
 size_t extra_section_entry_hm_get_length(ExtraSectionEntry* extra_section_entry_hm) {
-	size_t hm_total_length = ZMAP_CAPACITY(*extra_section_entry_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*extra_section_entry_hm);
 	return hm_total_length;
 }
 

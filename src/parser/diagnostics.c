@@ -3,7 +3,7 @@
 
 #include "../helper/macros.h"
 
-#include <zmap/zmap.h>
+#include <tmap.h>
 #include <stdio.h>
 
 TVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)

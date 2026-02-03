@@ -2817,7 +2817,7 @@ interface SectionFieldEntry {
 	value: string
 }
 
-const ZMAP_NO_ELEMENT_HERE = 2
+const TMAP_NO_ELEMENT_HERE = 2
 
 type NoElementHere = 'no_element_here'
 
@@ -2841,7 +2841,7 @@ export class SectionFieldEntryRef extends CArray<
 		element: Ptr<SectionFieldEntryC>
 	): SectionFieldEntry | NoElementHere {
 		if (
-			get_ptr_value<SectionFieldEntryC>(element) === ZMAP_NO_ELEMENT_HERE
+			get_ptr_value<SectionFieldEntryC>(element) === TMAP_NO_ELEMENT_HERE
 		) {
 			return 'no_element_here'
 		}
@@ -2880,7 +2880,7 @@ export class ExtraSectionHashMapEntryRef extends CArray<
 	): ExtraSectionHashMapEntry | NoElementHere {
 		if (
 			get_ptr_value<ExtraSectionHashMapEntryC>(element) ===
-			ZMAP_NO_ELEMENT_HERE
+			TMAP_NO_ELEMENT_HERE
 		) {
 			return 'no_element_here'
 		}

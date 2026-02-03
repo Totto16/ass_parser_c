@@ -12,7 +12,7 @@
 
 #include <tvec.h>
 
-#include <zmap/zmap.h>
+#include <tmap.h>
 
 #include <stdio.h>
 
@@ -723,24 +723,24 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 #undef PROPAGATE_ERROR_IMPL
 #undef FREE_AT_END
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, StyleToFontHMEntry)
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, StyleToFontHMEntry)
 
-typedef ZMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
+typedef TMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
 static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 
-	size_t hm_total_length = ZMAP_CAPACITY(*style_to_font_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*style_to_font_hm);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		const ZMAP_TYPENAME_ENTRY(StyleToFontHMEntry)* hm_entry =
-		    ZMAP_GET_ENTRY_AT(StyleToFontHMEntry, style_to_font_hm, i);
+		const TMAP_TYPENAME_ENTRY(StyleToFontHMEntry)* hm_entry =
+		    TMAP_GET_ENTRY_AT(StyleToFontHMEntry, style_to_font_hm, i);
 
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
 			free(hm_entry->key);
 		}
 	}
 
-	ZMAP_FREE(StyleToFontHMEntry, style_to_font_hm);
+	TMAP_FREE(StyleToFontHMEntry, style_to_font_hm);
 }
 
 #if defined(__clang__) && !defined(__WASM__)
@@ -757,24 +757,24 @@ typedef struct {
 
 #endif
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, MONOSTATE, UsedFontHMEntry)
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, MONOSTATE, UsedFontHMEntry)
 
-typedef ZMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
+typedef TMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 
 static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
-	size_t hm_total_length = ZMAP_CAPACITY(*used_fonts_hm);
+	size_t hm_total_length = TMAP_CAPACITY(*used_fonts_hm);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		const ZMAP_TYPENAME_ENTRY(UsedFontHMEntry)* hm_entry =
-		    ZMAP_GET_ENTRY_AT(UsedFontHMEntry, used_fonts_hm, i);
+		const TMAP_TYPENAME_ENTRY(UsedFontHMEntry)* hm_entry =
+		    TMAP_GET_ENTRY_AT(UsedFontHMEntry, used_fonts_hm, i);
 
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
 			free(hm_entry->key);
 		}
 	}
 
-	ZMAP_FREE(UsedFontHMEntry, used_fonts_hm);
+	TMAP_FREE(UsedFontHMEntry, used_fonts_hm);
 }
 
 [[nodiscard]] static UsedFontsHM* get_used_fonts(AssResult ass_result, bool allow_validation_errors,
@@ -785,7 +785,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		free_style_to_font_hm(&hm_style_to_font); \
 	} while(false)
 
-	StyleToFontHM hm_style_to_font = ZMAP_INIT(StyleToFontHMEntry);
+	StyleToFontHM hm_style_to_font = TMAP_INIT(StyleToFontHMEntry);
 
 	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
@@ -803,17 +803,17 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 		FinalStr* font_hm_entry = NULL;
 
 		{
-			ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT(entry.fontname);
+			TMAP_ASSERT_SHOULD_USE_INSERT_SLOT(entry.fontname);
 
 			// NOTE: overwrite check is required here
 			FinalStr* slot =
-			    ZMAP_INSERT_SLOT(StyleToFontHMEntry, &hm_style_to_font, style_name, false);
+			    TMAP_INSERT_SLOT(StyleToFontHMEntry, &hm_style_to_font, style_name, false);
 
 			ASSERT(slot != NULL, "OOM");
 			font_hm_entry = slot;
 		}
 
-		if(font_hm_entry == ZMAP_WOULD_OVERWRITE) {
+		if(font_hm_entry == TMAP_WOULD_OVERWRITE) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -840,7 +840,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			continue;
 		}
 
-		// this is a ZMAP_INSERT, but in a faster way, as we already need to check for a duplicate
+		// this is a TMAP_INSERT, but in a faster way, as we already need to check for a duplicate
 		// entry above
 		*font_hm_entry = entry.fontname;
 	}
@@ -854,7 +854,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	UsedFontsHM* used_fonts = malloc(sizeof(UsedFontsHM));
 
-	*used_fonts = ZMAP_INIT(UsedFontHMEntry);
+	*used_fonts = TMAP_INIT(UsedFontHMEntry);
 
 	for(size_t i = 0; i < TVEC_LENGTH(ass_result.events.entries); ++i) {
 		AssEventEntry entry = TVEC_AT(AssEventEntry, (ass_result.events.entries), i);
@@ -873,7 +873,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			return NULL;
 		}
 
-		const FinalStr* font_value = ZMAP_GET(StyleToFontHMEntry, &hm_style_to_font, style_name);
+		const FinalStr* font_value = TMAP_GET(StyleToFontHMEntry, &hm_style_to_font, style_name);
 
 		if(font_value == NULL) {
 
@@ -919,12 +919,12 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 			// font_name to the hm, otherwise free it
 
 			// use insert_slot here, even if MONOSTATE is not that huge and
-			// ZMAP_ASSERT_SHOULD_USE_INSERT_SLOT fails, it is named should an not mandatory
+			// TMAP_ASSERT_SHOULD_USE_INSERT_SLOT fails, it is named should an not mandatory
 
-			MONOSTATE* slot = ZMAP_INSERT_SLOT(UsedFontHMEntry, used_fonts, font_name, false);
+			MONOSTATE* slot = TMAP_INSERT_SLOT(UsedFontHMEntry, used_fonts, font_name, false);
 			ASSERT(slot != NULL, "OOM");
 
-			if(slot == ZMAP_WOULD_OVERWRITE) {
+			if(slot == TMAP_WOULD_OVERWRITE) {
 				free(font_name);
 			} else {
 				*slot = MONOSTATE_VALUE;
@@ -1004,7 +1004,7 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		}
 
 		if(settings.check_only_used_fonts) {
-			const MONOSTATE* font_is_present = ZMAP_GET(UsedFontHMEntry, used_fonts, font_name);
+			const MONOSTATE* font_is_present = TMAP_GET(UsedFontHMEntry, used_fonts, font_name);
 
 			if(font_is_present == NULL) {
 

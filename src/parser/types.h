@@ -449,15 +449,15 @@ typedef struct {
 
 #define CHAR_PTR_KEYNAME CString
 
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, SectionFieldEntry)
+TMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, FinalStr, SectionFieldEntry)
 
-typedef ZMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
-typedef ZMAP_TYPENAME_ENTRY(SectionFieldEntry) SectionFieldEntry;
+typedef TMAP_TYPENAME_MAP(SectionFieldEntry) ExtraSectionEntry;
+typedef TMAP_TYPENAME_ENTRY(SectionFieldEntry) SectionFieldEntry;
 
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ExtraSectionEntry, ExtraSectionHashMapEntry)
+TMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ExtraSectionEntry, ExtraSectionHashMapEntry)
 
-typedef ZMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
-typedef ZMAP_TYPENAME_ENTRY(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
+typedef TMAP_TYPENAME_MAP(ExtraSectionHashMapEntry) ExtraSections;
+typedef TMAP_TYPENAME_ENTRY(ExtraSectionHashMapEntry) ExtraSectionHashMapEntry;
 
 typedef enum : uint8_t {
 	FileTypeUnknown,

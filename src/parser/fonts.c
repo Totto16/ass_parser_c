@@ -3,7 +3,7 @@
 #include "./fonts.h"
 #include "../helper/macros.h"
 
-#include <zmap/zmap.h>
+#include <tmap.h>
 
 #include <tvec.h>
 
