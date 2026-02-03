@@ -10,7 +10,7 @@
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 #include <zmap/zmap.h>
 
@@ -186,24 +186,24 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 
 #endif
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssFontName)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssFontName)
 
-typedef ZVEC_TYPENAME(AssFontName) AssFontNames;
+typedef TVEC_TYPENAME(AssFontName) AssFontNames;
 
 static AssFontNames*
 embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_name,
                                          DetailedFontValidateSettings settings) {
 
 	AssFontNames* names = malloc(sizeof(AssFontNames));
-	*names = ZVEC_EMPTY(AssFontName);
+	*names = TVEC_EMPTY(AssFontName);
 
 #define FREE_AT_END() \
 	do { \
-		ZVEC_FREE(AssFontName, names); \
+		TVEC_FREE(AssFontName, names); \
 	} while(false)
 
-	for(size_t i = 0; i < ZVEC_LENGTH(ass_fonts.entries); ++i) {
-		AssFontEntry entry = ZVEC_AT(AssFontEntry, (ass_fonts.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(ass_fonts.entries); ++i) {
+		AssFontEntry entry = TVEC_AT(AssFontEntry, (ass_fonts.entries), i);
 
 		char* received_name = get_normalized_string(entry.name.name);
 
@@ -213,7 +213,7 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 		}
 
 		if(matches_font(font_name, received_name, settings.font_match_res)) {
-			ZVEC_PUSH_SLOT_AND_ASSERT(AssFontName, names, entry.name);
+			TVEC_PUSH_SLOT_AND_ASSERT(AssFontName, names, entry.name);
 		}
 
 		free(received_name);
@@ -252,9 +252,9 @@ typedef struct {
 	AssFontNames embedded;
 } FontConfigRefs;
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FontHandle)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FontHandle)
 
-typedef ZVEC_TYPENAME(FontHandle) FontHandles;
+typedef TVEC_TYPENAME(FontHandle) FontHandles;
 
 typedef struct {
 	FontHandles handles;
@@ -273,8 +273,8 @@ static void free_font_result_ok(FontResultOk result) {
 #ifdef ASS_PARSER_HAVE_FONTCONFIG
 	free_fontconfig_font_result_ok(result.refs.fontconfig);
 #endif
-	ZVEC_FREE(AssFontName, &(result.refs.embedded));
-	ZVEC_FREE(FontHandle, &(result.handles));
+	TVEC_FREE(AssFontName, &(result.refs.embedded));
+	TVEC_FREE(FontHandle, &(result.handles));
 }
 
 static void free_font_result(FontResultObject result) {
@@ -314,7 +314,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 	AssFontNames embedded_result = *embedded_result_temp;
 	free(embedded_result_temp);
 
-	FontHandles handles = ZVEC_EMPTY(FontHandle);
+	FontHandles handles = TVEC_EMPTY(FontHandle);
 
 #ifdef ASS_PARSER_HAVE_FONTCONFIG
 	FontConfigFontResultOk font_config_ok = font_config_result.data.ok;
@@ -324,18 +324,18 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 		FontHandle handle = { .type = FontHandleTypeFontConfig,
 			                  .data = { .font_config = { .index_in_list = i } } };
 
-		ZVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
+		TVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
 	}
 
 #endif
 
-	for(size_t i = 0; i < ZVEC_LENGTH(embedded_result); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(embedded_result); ++i) {
 		FontHandle handle = {
 			.type = FontHandleTypeEmbedded,
-			.data = { .embedded = { .font_name = ZVEC_AT(AssFontName, embedded_result, i) } }
+			.data = { .embedded = { .font_name = TVEC_AT(AssFontName, embedded_result, i) } }
 		};
 
-		ZVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
+		TVEC_PUSH_SLOT_AND_ASSERT(FontHandle, &handles, handle);
 	}
 
 	FontResultOk ok_result = { .handles = handles,
@@ -568,9 +568,9 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
                                                    FontStyleType font_type,
                                                    DetailedFontValidateSettings settings,
                                                    bool strict_errors) {
-	for(size_t i = 0; i < ZVEC_LENGTH(fonts_result.handles); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(fonts_result.handles); ++i) {
 
-		FontHandle handle = ZVEC_AT(FontHandle, (fonts_result.handles), i);
+		FontHandle handle = TVEC_AT(FontHandle, (fonts_result.handles), i);
 
 		FontSearchResult res = { .type = FontSearchResultTypeNotFound };
 
@@ -653,7 +653,7 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 
 	FontResultOk ok_res = result.data.ok;
 
-	if(ZVEC_LENGTH(ok_res.handles) == 0) {
+	if(TVEC_LENGTH(ok_res.handles) == 0) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -787,8 +787,8 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	StyleToFontHM hm_style_to_font = ZMAP_INIT(StyleToFontHMEntry);
 
-	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* style_name = get_normalized_string(entry.name);
 
@@ -856,8 +856,8 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	*used_fonts = ZMAP_INIT(UsedFontHMEntry);
 
-	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.events.entries); ++i) {
-		AssEventEntry entry = ZVEC_AT(AssEventEntry, (ass_result.events.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(ass_result.events.entries); ++i) {
+		AssEventEntry entry = TVEC_AT(AssEventEntry, (ass_result.events.entries), i);
 
 		if(entry.type != EventTypeComment && entry.type != EventTypeDialogue) {
 			continue;
@@ -979,8 +979,8 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		return;
 	}
 
-	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* font_name = get_normalized_string(entry.fontname);
 
@@ -1057,8 +1057,8 @@ static void validate_style_angle(double angle, FilePos file_pos, bool allow_vali
 static void validate_styles(AssResult ass_result, bool allow_validation_errors,
                             Diagnostics* diagnostics) {
 
-	for(size_t i = 0; i < ZVEC_LENGTH(ass_result.styles.entries); ++i) {
-		AssStyleEntry entry = ZVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		// TODO: validate windows encoding
 		// validate_style_encoding(entry, diagnostics);

@@ -169,10 +169,10 @@ typedef struct {
 	EncodingType encoding;
 } AssStyleEntry;
 
-ZVEC_DEFINE_VEC_TYPE(AssStyleEntry)
+TVEC_DEFINE_VEC_TYPE(AssStyleEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(AssStyleEntry) entries;
+	TVEC_TYPENAME(AssStyleEntry) entries;
 } AssStyles;
 
 typedef enum : uint8_t {
@@ -321,10 +321,10 @@ typedef struct {
 	} data;
 } StyleOverrideEntry;
 
-ZVEC_DEFINE_VEC_TYPE(StyleOverrideEntry)
+TVEC_DEFINE_VEC_TYPE(StyleOverrideEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(StyleOverrideEntry) overrides;
+	TVEC_TYPENAME(StyleOverrideEntry) overrides;
 } StyleOverride;
 
 //TODO support also template parsing!
@@ -361,11 +361,11 @@ typedef struct {
 	} data;
 } AssTextEntry;
 
-ZVEC_DEFINE_VEC_TYPE(AssTextEntry)
+TVEC_DEFINE_VEC_TYPE(AssTextEntry)
 
 typedef struct {
 	FinalStr original;
-	ZVEC_TYPENAME(AssTextEntry) parsed;
+	TVEC_TYPENAME(AssTextEntry) parsed;
 } AssText;
 
 typedef enum : uint8_t {
@@ -412,10 +412,10 @@ typedef struct {
 	} text_union;
 } AssEventEntry;
 
-ZVEC_DEFINE_VEC_TYPE(AssEventEntry)
+TVEC_DEFINE_VEC_TYPE(AssEventEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(AssEventEntry) entries;
+	TVEC_TYPENAME(AssEventEntry) entries;
 } AssEvents;
 
 typedef struct {
@@ -430,10 +430,10 @@ typedef struct {
 	SizedPtr data;
 } AssFontEntry;
 
-ZVEC_DEFINE_VEC_TYPE(AssFontEntry)
+TVEC_DEFINE_VEC_TYPE(AssFontEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(AssFontEntry) entries;
+	TVEC_TYPENAME(AssFontEntry) entries;
 } AssFonts;
 
 typedef struct {
@@ -441,10 +441,10 @@ typedef struct {
 	SizedPtr data;
 } AssGraphicEntry;
 
-ZVEC_DEFINE_VEC_TYPE(AssGraphicEntry)
+TVEC_DEFINE_VEC_TYPE(AssGraphicEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(AssGraphicEntry) entries;
+	TVEC_TYPENAME(AssGraphicEntry) entries;
 } AssGraphics;
 
 #define CHAR_PTR_KEYNAME CString

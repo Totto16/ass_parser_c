@@ -69,17 +69,17 @@
 
 #endif
 
-#define ZVEC_PUSH_SLOT_AND_ASSERT(Name, Vec, Value) \
+#define TVEC_PUSH_SLOT_AND_ASSERT(Name, Vec, Value) \
 	do { \
-		ZVEC_ASSERT_SHOULD_USE_PUSH_SLOT(Value); \
-		ZVEC_ELEMENT_TYPENAME(Name)* slot = ZVEC_PUSH_SLOT(Name, Vec); \
+		TVEC_ASSERT_SHOULD_USE_PUSH_SLOT(Value); \
+		TVEC_ELEMENT_TYPENAME(Name)* slot = TVEC_PUSH_SLOT(Name, Vec); \
 		ASSERT(slot != NULL, "OOM"); \
 		*slot = Value; \
 	} while(false)
 
-#define ZVEC_PUSH_AND_ASSERT(Name, Vec, Value) \
+#define TVEC_PUSH_AND_ASSERT(Name, Vec, Value) \
 	do { \
-		ZVEC_ASSERT_SHOULD_USE_PUSH(Value); \
-		ZvecResult zvec_result = ZVEC_PUSH(Name, Vec, Value); \
-		ASSERT(zvec_result == ZvecResultOk, "OOM"); \
+		TVEC_ASSERT_SHOULD_USE_PUSH(Value); \
+		TvecResult zvec_result = TVEC_PUSH(Name, Vec, Value); \
+		ASSERT(zvec_result == TvecResultOk, "OOM"); \
 	} while(false)

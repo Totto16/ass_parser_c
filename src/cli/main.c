@@ -406,10 +406,10 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	Diagnostics diagnostics = get_diagnostics_from_result(result);
 
-	size_t diagnostics_length = ZVEC_LENGTH(diagnostics.entries);
+	size_t diagnostics_length = TVEC_LENGTH(diagnostics.entries);
 
 	for(size_t i = 0; i < diagnostics_length; ++i) {
-		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, diagnostics.entries, i);
+		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, diagnostics.entries, i);
 
 		MessageStruct message = get_message_from_entry_pretty(entry, source_file);
 

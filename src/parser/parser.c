@@ -19,7 +19,7 @@
 #include <stdlib.h>
 
 #include <zmap/zmap.h>
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 [[nodiscard]] const char* get_script_type_name(ScriptType script_type) {
 	switch(script_type) {
@@ -216,10 +216,10 @@ typedef enum ENUM_EXTENSIBILITY_CLOSED : bool {
 	ErrorTypeNone = true,
 } ErrorType;
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssStyleFormat)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssStyleFormat)
 
 [[nodiscard]] static ErrorType
-parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleFormat) * format_result,
+parse_format_line_for_styles(const ConstStrView line, TVEC_TYPENAME(AssStyleFormat) * format_result,
                              Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
@@ -324,7 +324,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 			format = AssStyleFormatUnknownField;
 		}
 
-		ZVEC_PUSH_AND_ASSERT(AssStyleFormat, format_result, format);
+		TVEC_PUSH_AND_ASSERT(AssStyleFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
@@ -339,12 +339,12 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
     errors */
 
 [[nodiscard]] static ErrorType parse_style_line_for_styles(
-    const ConstStrView line, const ZVEC_TYPENAME(AssStyleFormat) format_spec,
+    const ConstStrView line, const TVEC_TYPENAME(AssStyleFormat) format_spec,
     AssStyles* styles_result, ParseSettings settings, Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
 
-	size_t field_size = ZVEC_LENGTH(format_spec);
+	size_t field_size = TVEC_LENGTH(format_spec);
 
 	AssStyleEntry entry = {};
 
@@ -389,7 +389,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 
 		MessageStruct error = EMPTY_MESSAGE_STRUCT();
 
-		AssStyleFormat format = ZVEC_AT(AssStyleFormat, format_spec, i);
+		AssStyleFormat format = TVEC_AT(AssStyleFormat, format_spec, i);
 
 		switch(format) {
 			case AssStyleFormatName: {
@@ -555,7 +555,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 		return ErrorTypeFatal;
 	}
 
-	ZVEC_PUSH_SLOT_AND_ASSERT(AssStyleEntry, &(styles_result->entries), entry);
+	TVEC_PUSH_SLOT_AND_ASSERT(AssStyleEntry, &(styles_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -566,14 +566,14 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
                                             ParseSettings settings, LineType line_type,
                                             Diagnostics* diagnostics) {
 
-	AssStyles styles = { .entries = ZVEC_EMPTY(AssStyleEntry) };
+	AssStyles styles = { .entries = TVEC_EMPTY(AssStyleEntry) };
 
-	ZVEC_TYPENAME(AssStyleFormat) style_format = ZVEC_EMPTY(AssStyleFormat);
+	TVEC_TYPENAME(AssStyleFormat) style_format = TVEC_EMPTY(AssStyleFormat);
 
 #define FREE_AT_END() \
 	do { \
-		ZVEC_FREE(AssStyleEntry, &styles.entries); \
-		ZVEC_FREE(AssStyleFormat, &style_format); \
+		TVEC_FREE(AssStyleEntry, &styles.entries); \
+		TVEC_FREE(AssStyleFormat, &style_format); \
 	} while(false)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
@@ -609,7 +609,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(ZVEC_LENGTH(style_format) != 0) {
+				if(TVEC_LENGTH(style_format) != 0) {
 					INSERT_SIMPLE_ERROR(
 					    diagnostics->entries,
 					    STATIC_MESSAGE_STRUCT(
@@ -631,7 +631,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 
 			} else if(str_view_eq_ascii(field, "Style")) {
 
-				if(ZVEC_LENGTH(style_format) == 0) {
+				if(TVEC_LENGTH(style_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(
@@ -667,7 +667,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				TVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -681,7 +681,7 @@ parse_format_line_for_styles(const ConstStrView line, ZVEC_TYPENAME(AssStyleForm
 		}
 	}
 
-	ZVEC_FREE(AssStyleFormat, &style_format);
+	TVEC_FREE(AssStyleFormat, &style_format);
 
 	*ass_styles = styles;
 
@@ -707,11 +707,11 @@ static FinalStr
 	    .file_pos = { .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL }
     };
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 
 #define FREE_AT_END() \
 	do { \
-		ZVEC_FREE(FinalStr, &field_names); \
+		TVEC_FREE(FinalStr, &field_names); \
 	} while(false)
 
 [[nodiscard]] static ErrorType parse_script_info(AssScriptInfo* script_info_result,
@@ -726,7 +726,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 	FilePos script_info_section_pos = { .line = data_view->position.file_pos.line - 1,
 		                                data_view->position.file_pos.column };
 
-	ZVEC_TYPENAME(FinalStr) field_names = ZVEC_EMPTY(FinalStr);
+	TVEC_TYPENAME(FinalStr) field_names = TVEC_EMPTY(FinalStr);
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
 
@@ -767,8 +767,8 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 
 			// check for duplicate fields
 			bool found_field = false;
-			for(size_t i = 0; i < ZVEC_LENGTH(field_names); ++i) {
-				FinalStr field_str = ZVEC_AT(FinalStr, field_names, i);
+			for(size_t i = 0; i < TVEC_LENGTH(field_names); ++i) {
+				FinalStr field_str = TVEC_AT(FinalStr, field_names, i);
 
 				if(str_view_eq_str_view(field_str, field)) {
 					found_field = true;
@@ -789,7 +789,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 						.position = field.file_pos
 					};
 
-					ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+					TVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 					/*** @see keep-going */
 					break;
@@ -799,7 +799,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 			if(!found_field) {
 				// note: as this is not intended, we can choose if the last or the first value is
 				// the final value
-				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &field_names, field);
+				TVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &field_names, field);
 			}
 
 			if(!str_view_skip_optional_whitespace(&line_view)) {
@@ -874,7 +874,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				TVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -939,7 +939,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 		}
 	}
 
-	ZVEC_FREE(FinalStr, &field_names);
+	TVEC_FREE(FinalStr, &field_names);
 #undef FREE_AT_END
 
 	// check script info
@@ -993,7 +993,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 }
 
 typedef struct {
-	ZVEC_TYPENAME(FinalStr) entries;
+	TVEC_TYPENAME(FinalStr) entries;
 } TempDataArray;
 
 typedef struct {
@@ -1004,9 +1004,9 @@ typedef struct {
 #define EMPTY_TEMP_ENCODE_ENTRY() \
 	((TempEncodingEntry){ .name_raw = \
 	                          (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
-	                      .data_raw = (TempDataArray){ .entries = ZVEC_EMPTY(FinalStr) } })
+	                      .data_raw = (TempDataArray){ .entries = TVEC_EMPTY(FinalStr) } })
 
-#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (ZVEC_LENGTH((entry).data_raw.entries) == 0)
+#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (TVEC_LENGTH((entry).data_raw.entries) == 0)
 
 #define IS_EMPTY_ENCODE_NAME(entry) ((entry).name_raw.length == 0)
 
@@ -1018,7 +1018,7 @@ typedef struct {
 	     ? ((entry).name_raw.file_pos) \
 	     : ((IS_EMPTY_ENCODE_ENTRY_DATA(entry)) \
 	            ? (EMPTY_POS()) \
-	            : ((ZVEC_AT(FinalStr, ((entry).data_raw.entries), 0)).file_pos)))
+	            : ((TVEC_AT(FinalStr, ((entry).data_raw.entries), 0)).file_pos)))
 
 [[nodiscard]] static MessageStruct parse_font_name_attributes(FinalStr attributes,
                                                               AssFontName* name_result,
@@ -1147,43 +1147,43 @@ typedef struct {
 	return EMPTY_MESSAGE_STRUCT();
 }
 
-ZVEC_DEFINE_VEC_TYPE(char)
+TVEC_DEFINE_VEC_TYPE(char)
 
 [[nodiscard]] static MessageStruct parse_uu_encoded_data(TempDataArray data_raw,
                                                          SizedPtr* result_data) {
 
-	ZVEC_TYPENAME(char) final_data = ZVEC_EMPTY(char);
+	TVEC_TYPENAME(char) final_data = TVEC_EMPTY(char);
 
-	for(size_t i = 0; i < ZVEC_LENGTH(data_raw.entries); ++i) {
-		FinalStr entry = ZVEC_AT(FinalStr, (data_raw.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(data_raw.entries); ++i) {
+		FinalStr entry = TVEC_AT(FinalStr, (data_raw.entries), i);
 
 		char* entry_normalized = get_normalized_string(entry);
 
 		if(!entry_normalized) {
-			ZVEC_FREE(char, &final_data);
+			TVEC_FREE(char, &final_data);
 			return STATIC_MESSAGE_STRUCT("allocation error");
 		}
 
 		size_t normalized_length = strlen(entry_normalized);
 
-		size_t current_arr_size = ZVEC_LENGTH(final_data);
+		size_t current_arr_size = TVEC_LENGTH(final_data);
 
-		ASSERT(ZVEC_RESERVE(char, &final_data, current_arr_size + normalized_length) ==
-		           ZvecResultOk,
+		ASSERT(TVEC_RESERVE(char, &final_data, current_arr_size + normalized_length) ==
+		           TvecResultOk,
 		       "OOM");
 
 		for(size_t j = 0; j < normalized_length; ++j) {
-			ZVEC_PUSH_AND_ASSERT(char, &final_data, entry_normalized[j]);
+			TVEC_PUSH_AND_ASSERT(char, &final_data, entry_normalized[j]);
 		}
 
 		free(entry_normalized);
 	}
 
-	SizedPtr input = { .data = ZVEC_DATA(char, &final_data), .len = ZVEC_LENGTH(final_data) };
+	SizedPtr input = { .data = TVEC_DATA(char, &final_data), .len = TVEC_LENGTH(final_data) };
 
 	SizedPtr decode_result = uu_decode(input);
 
-	ZVEC_FREE(char, &final_data);
+	TVEC_FREE(char, &final_data);
 
 	if(is_ptr_error(decode_result)) {
 #define PROPAGATE_ERROR_IMPL(message) \
@@ -1256,7 +1256,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 [[nodiscard]] static ErrorType parse_fonts(AssFonts* ass_fonts, StrView* data_view,
                                            LineType line_type, Diagnostics* diagnostics) {
 
-	AssFonts fonts = { .entries = ZVEC_EMPTY(AssFontEntry) };
+	AssFonts fonts = { .entries = TVEC_EMPTY(AssFontEntry) };
 
 	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 
@@ -1267,19 +1267,19 @@ ZVEC_DEFINE_VEC_TYPE(char)
 		if(!is_empty_message_struct(font_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, font_process_result, (pos)); \
 		} else { \
-			ZVEC_PUSH_SLOT_AND_ASSERT(AssFontEntry, &(fonts.entries), result_font); \
+			TVEC_PUSH_SLOT_AND_ASSERT(AssFontEntry, &(fonts.entries), result_font); \
 		} \
 	} while(false)
 
 #define FREE_FONT_ENTRY(entry) \
 	do { \
-		ZVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
+		TVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
 	} while(false)
 
 #define FREE_AT_END() \
 	do { \
 		FREE_FONT_ENTRY(temp_entry); \
-		ZVEC_FREE(AssFontEntry, &fonts.entries); \
+		TVEC_FREE(AssFontEntry, &fonts.entries); \
 	} while(false)
 
 	// Note: we collect data, as the font data is over multiple
@@ -1375,7 +1375,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 				// add to the raw data!
 
-				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
+				TVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1428,7 +1428,7 @@ got_new_section_font:
 [[nodiscard]] static ErrorType parse_graphics(AssGraphics* ass_graphics, StrView* data_view,
                                               LineType line_type, Diagnostics* diagnostics) {
 
-	AssGraphics graphics = { .entries = ZVEC_EMPTY(AssGraphicEntry) };
+	AssGraphics graphics = { .entries = TVEC_EMPTY(AssGraphicEntry) };
 
 	TempEncodingEntry temp_entry = EMPTY_TEMP_ENCODE_ENTRY();
 
@@ -1439,19 +1439,19 @@ got_new_section_font:
 		if(!is_empty_message_struct(graphic_process_result)) { \
 			INSERT_SIMPLE_ERROR(diagnostics->entries, graphic_process_result, (pos)); \
 		} else { \
-			ZVEC_PUSH_SLOT_AND_ASSERT(AssGraphicEntry, &(graphics.entries), result_graphic); \
+			TVEC_PUSH_SLOT_AND_ASSERT(AssGraphicEntry, &(graphics.entries), result_graphic); \
 		} \
 	} while(false)
 
 #define FREE_GRAPHIC_ENTRY(entry) \
 	do { \
-		ZVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
+		TVEC_FREE(FinalStr, &((entry).data_raw.entries)); \
 	} while(false)
 
 #define FREE_AT_END() \
 	do { \
 		FREE_GRAPHIC_ENTRY(temp_entry); \
-		ZVEC_FREE(AssGraphicEntry, &(graphics.entries)); \
+		TVEC_FREE(AssGraphicEntry, &(graphics.entries)); \
 	} while(false)
 
 	// Note: we collect data, as the graphics data is over multiple
@@ -1547,7 +1547,7 @@ got_new_section_font:
 
 				// add to the raw data!
 
-				ZVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
+				TVEC_PUSH_SLOT_AND_ASSERT(FinalStr, &(temp_entry.data_raw.entries), line);
 			}
 		}
 
@@ -1706,10 +1706,10 @@ static void free_extra_section_entry(ExtraSectionEntry entry) {
 	return ErrorTypeNone;
 }
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssEventFormat)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AssEventFormat)
 
 [[nodiscard]] static ErrorType
-parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventFormat) * format_result,
+parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventFormat) * format_result,
                              Diagnostics* diagnostics) {
 
 	StrView line_view = get_str_view_from_const_str_view(line);
@@ -1792,19 +1792,19 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 			format = AssEventFormatUnknownField;
 		}
 
-		ZVEC_PUSH_AND_ASSERT(AssEventFormat, format_result, format);
+		TVEC_PUSH_AND_ASSERT(AssEventFormat, format_result, format);
 	}
 
 	return ErrorTypeNone;
 }
 
 [[nodiscard]] static ErrorType parse_event_line_for_events(EventType type, const ConstStrView line,
-                                                           const ZVEC_TYPENAME(AssEventFormat)
+                                                           const TVEC_TYPENAME(AssEventFormat)
                                                                format_spec,
                                                            AssEvents* events_result,
                                                            Diagnostics* diagnostics) {
 
-	size_t field_size = ZVEC_LENGTH(format_spec);
+	size_t field_size = TVEC_LENGTH(format_spec);
 
 	AssEventEntry entry = { .type = type };
 
@@ -1843,7 +1843,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 			return ErrorTypeFatal;
 		}
 
-		AssEventFormat format = ZVEC_AT(AssEventFormat, format_spec, i);
+		AssEventFormat format = TVEC_AT(AssEventFormat, format_spec, i);
 
 		// special handling fot the text field, as it may contain
 		// ","
@@ -2034,7 +2034,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 		return ErrorTypeFatal;
 	}
 
-	ZVEC_PUSH_SLOT_AND_ASSERT(AssEventEntry, &(events_result->entries), entry);
+	TVEC_PUSH_SLOT_AND_ASSERT(AssEventEntry, &(events_result->entries), entry);
 
 	return ErrorTypeNone;
 }
@@ -2043,14 +2043,14 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
                                             ParseSettings settings, LineType line_type,
                                             Diagnostics* diagnostics) {
 
-	AssEvents events = { .entries = ZVEC_EMPTY(AssEventEntry) };
+	AssEvents events = { .entries = TVEC_EMPTY(AssEventEntry) };
 
-	ZVEC_TYPENAME(AssEventFormat) event_format = ZVEC_EMPTY(AssEventFormat);
+	TVEC_TYPENAME(AssEventFormat) event_format = TVEC_EMPTY(AssEventFormat);
 
 #define FREE_AT_END() \
 	do { \
-		ZVEC_FREE(AssEventEntry, &(events.entries)); \
-		ZVEC_FREE(AssEventFormat, &event_format); \
+		TVEC_FREE(AssEventEntry, &(events.entries)); \
+		TVEC_FREE(AssEventFormat, &event_format); \
 	} while(false)
 
 	while(!str_view_starts_with_ascii_or_eof(*data_view, "[")) {
@@ -2086,7 +2086,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(ZVEC_LENGTH(event_format) != 0) {
+				if(TVEC_LENGTH(event_format) != 0) {
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
 					                    STATIC_MESSAGE_STRUCT("multiple format fields detected in "
 					                                          "the events section, this is not "
@@ -2107,7 +2107,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Dialogue")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2129,7 +2129,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Comment")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2151,7 +2151,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Picture")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2173,7 +2173,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Sound")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2195,7 +2195,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Movie")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2217,7 +2217,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Command")) {
 
-				if(ZVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2253,7 +2253,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 					.position = field.file_pos
 				};
 
-				ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
+				TVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &(diagnostics->entries), diagnostic);
 
 				/*** @see keep-going */
 				continue;
@@ -2267,7 +2267,7 @@ parse_format_line_for_events(const ConstStrView line, ZVEC_TYPENAME(AssEventForm
 		}
 	}
 
-	ZVEC_FREE(AssEventFormat, &(event_format));
+	TVEC_FREE(AssEventFormat, &(event_format));
 
 	*ass_events = events;
 
@@ -2329,24 +2329,24 @@ static void free_extra_sections(ExtraSections sections) {
 }
 
 static void free_fonts(AssFonts fonts) {
-	for(size_t i = 0; i < ZVEC_LENGTH(fonts.entries); ++i) {
-		AssFontEntry entry = ZVEC_AT(AssFontEntry, (fonts.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(fonts.entries); ++i) {
+		AssFontEntry entry = TVEC_AT(AssFontEntry, (fonts.entries), i);
 		free_sized_ptr(entry.data);
 	}
-	ZVEC_FREE(AssFontEntry, &(fonts.entries));
+	TVEC_FREE(AssFontEntry, &(fonts.entries));
 }
 
 static void free_graphics(AssGraphics graphics) {
-	for(size_t i = 0; i < ZVEC_LENGTH(graphics.entries); ++i) {
-		AssGraphicEntry entry = ZVEC_AT(AssGraphicEntry, (graphics.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(graphics.entries); ++i) {
+		AssGraphicEntry entry = TVEC_AT(AssGraphicEntry, (graphics.entries), i);
 		free_sized_ptr(entry.data);
 	}
-	ZVEC_FREE(AssGraphicEntry, &(graphics.entries));
+	TVEC_FREE(AssGraphicEntry, &(graphics.entries));
 }
 
 static void free_ass_result(AssResult data) {
-	ZVEC_FREE(AssStyleEntry, &(data.styles.entries));
-	ZVEC_FREE(AssEventEntry, &(data.events.entries));
+	TVEC_FREE(AssStyleEntry, &(data.styles.entries));
+	TVEC_FREE(AssEventEntry, &(data.events.entries));
 
 	free_extra_sections(data.extra_sections);
 	free_fonts(data.fonts);
@@ -2382,7 +2382,7 @@ static void free_ass_result(AssResult data) {
 		return NULL;
 	}
 
-	result->diagnostics = (Diagnostics){ .entries = ZVEC_EMPTY(DiagnosticEntry) };
+	result->diagnostics = (Diagnostics){ .entries = TVEC_EMPTY(DiagnosticEntry) };
 	result->allocated_codepoints =
 	    (Codepoints){ .data = (CodePointsData){ .data_const = NULL, .data_readable = NULL },
 		              .size = 0 };
@@ -2519,10 +2519,10 @@ static void free_ass_result(AssResult data) {
 	AssResult ass_result = { .extra_sections = { 0 },
 		                     .file_props =
 		                         (FileProps){ .file_type = file_type, .line_type = line_type },
-		                     .events = (AssEvents){ .entries = ZVEC_EMPTY(AssEventEntry) },
-		                     .fonts = (AssFonts){ .entries = ZVEC_EMPTY(AssFontEntry) },
-		                     .styles = (AssStyles){ .entries = ZVEC_EMPTY(AssStyleEntry) },
-		                     .graphics = (AssGraphics){ .entries = ZVEC_EMPTY(AssGraphicEntry) } };
+		                     .events = (AssEvents){ .entries = TVEC_EMPTY(AssEventEntry) },
+		                     .fonts = (AssFonts){ .entries = TVEC_EMPTY(AssFontEntry) },
+		                     .styles = (AssStyles){ .entries = TVEC_EMPTY(AssStyleEntry) },
+		                     .graphics = (AssGraphics){ .entries = TVEC_EMPTY(AssGraphicEntry) } };
 
 	ass_result.extra_sections = ZMAP_INIT(ExtraSectionHashMapEntry);
 
@@ -2573,8 +2573,8 @@ static void free_ass_result(AssResult data) {
 	// if we have one error diagnostic, we consider this an error,
 	// so we can collect errors until now, and only now report a
 	// fatal error
-	for(size_t i = 0; i < ZVEC_LENGTH(result->diagnostics.entries); ++i) {
-		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, (result->diagnostics.entries), i);
+	for(size_t i = 0; i < TVEC_LENGTH(result->diagnostics.entries); ++i) {
+		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, (result->diagnostics.entries), i);
 
 		if(entry.severity == DiagnosticSeverityError) {
 			RETURN_ERROR_NO_MESSAGE();

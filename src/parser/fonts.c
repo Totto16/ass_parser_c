@@ -5,7 +5,7 @@
 
 #include <zmap/zmap.h>
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 typedef unsigned char Byte;
 
@@ -13,7 +13,7 @@ typedef unsigned char Byte;
 
 #define VALUE_OFFSET 33
 
-ZVEC_DEFINE_VEC_TYPE(char)
+TVEC_DEFINE_VEC_TYPE(char)
 
 [[nodiscard]] SizedPtr uu_encode(SizedPtr input) {
 
@@ -33,7 +33,7 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 	size_t max_size = ((input_size * 4) + 2) / 3;
 
-	ZVEC_TYPENAME(char) final_chars = ZVEC_INIT_WITH_CAP(char, max_size);
+	TVEC_TYPENAME(char) final_chars = TVEC_INIT_WITH_CAP(char, max_size);
 
 	Byte* input_data = (Byte*)input.data;
 
@@ -50,26 +50,26 @@ ZVEC_DEFINE_VEC_TYPE(char)
 
 		for(size_t j = 0; j < MIN_MACRO(4U, input_size - i + 1); ++j) {
 			char val = (char)(result[j] + VALUE_OFFSET);
-			ZVEC_PUSH_AND_ASSERT(char, &final_chars, val);
+			TVEC_PUSH_AND_ASSERT(char, &final_chars, val);
 		}
 	}
 
 	// make stbds_array into sizedptr
 	// here we can use strdup, as no \0 characters can be in the result
-	char* result = strdup(ZVEC_DATA(char, &final_chars));
+	char* result = strdup(TVEC_DATA(char, &final_chars));
 
 	if(!result) {
-		ZVEC_FREE(char, &final_chars);
+		TVEC_FREE(char, &final_chars);
 		return ptr_error("allocation error");
 	}
 
-	size_t final_length = ZVEC_LENGTH(final_chars);
-	ZVEC_FREE(char, &final_chars);
+	size_t final_length = TVEC_LENGTH(final_chars);
+	TVEC_FREE(char, &final_chars);
 
 	return (SizedPtr){ .data = result, .len = final_length };
 }
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 
 [[nodiscard]] SizedPtr uu_decode(SizedPtr input) {
 
@@ -89,7 +89,7 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 
 	size_t max_size = (input_size * 3) / 4;
 
-	ZVEC_TYPENAME(Byte) final_bytes = ZVEC_INIT_WITH_CAP(Byte, max_size);
+	TVEC_TYPENAME(Byte) final_bytes = TVEC_INIT_WITH_CAP(Byte, max_size);
 
 	char* input_data = (char*)input.data;
 
@@ -107,23 +107,23 @@ ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 
 		for(size_t j = 0; j < MIN_MACRO(3U, input_size - i - 1); ++j) {
 			Byte val = result[j];
-			ZVEC_PUSH_AND_ASSERT(Byte, &final_bytes, val);
+			TVEC_PUSH_AND_ASSERT(Byte, &final_bytes, val);
 		}
 	}
 
 	// make stbds_array into sizedptr
-	size_t final_length = ZVEC_LENGTH(final_bytes);
+	size_t final_length = TVEC_LENGTH(final_bytes);
 
 	Byte* result = malloc(final_length);
 
 	if(!result) {
-		ZVEC_FREE(Byte, &final_bytes);
+		TVEC_FREE(Byte, &final_bytes);
 		return ptr_error("allocation error");
 	}
 
-	memcpy(result, ZVEC_DATA(Byte, &final_bytes), final_length);
+	memcpy(result, TVEC_DATA(Byte, &final_bytes), final_length);
 
-	ZVEC_FREE(Byte, &final_bytes);
+	TVEC_FREE(Byte, &final_bytes);
 
 	return (SizedPtr){ .data = result, .len = final_length };
 }

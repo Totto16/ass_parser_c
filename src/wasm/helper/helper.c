@@ -121,15 +121,15 @@ void set_settings_option(ParseSettings* settings, SettingsOption option, int val
 }
 
 size_t diagnostics_get_length(const Diagnostics* diagnostics) {
-	return ZVEC_LENGTH(diagnostics->entries);
+	return TVEC_LENGTH(diagnostics->entries);
 }
 
 const DiagnosticEntry* diagnostics_get_at(const Diagnostics* const diagnostics, size_t index) {
-	if(index >= ZVEC_LENGTH(diagnostics->entries)) {
+	if(index >= TVEC_LENGTH(diagnostics->entries)) {
 		return NULL;
 	}
 
-	return ZVEC_GET_AT(DiagnosticEntry, &(diagnostics->entries), index);
+	return TVEC_GET_AT(DiagnosticEntry, &(diagnostics->entries), index);
 }
 
 MessageStruct* get_message_from_entry_js(const DiagnosticEntry* entry) {
@@ -166,27 +166,27 @@ size_t file_pos_get_column(const FilePos* pos) {
 }
 
 size_t events_get_length(const AssEvents* events) {
-	return ZVEC_LENGTH(events->entries);
+	return TVEC_LENGTH(events->entries);
 }
 
 const AssEventEntry* events_get_at(const AssEvents* const events, size_t index) {
-	if(index >= ZVEC_LENGTH(events->entries)) {
+	if(index >= TVEC_LENGTH(events->entries)) {
 		return NULL;
 	}
 
-	return ZVEC_GET_AT(AssEventEntry, &(events->entries), index);
+	return TVEC_GET_AT(AssEventEntry, &(events->entries), index);
 }
 
 size_t styles_get_length(const AssStyles* styles) {
-	return ZVEC_LENGTH(styles->entries);
+	return TVEC_LENGTH(styles->entries);
 }
 
 const AssStyleEntry* styles_get_at(const AssStyles* const styles, size_t index) {
-	if(index >= ZVEC_LENGTH(styles->entries)) {
+	if(index >= TVEC_LENGTH(styles->entries)) {
 		return NULL;
 	}
 
-	return ZVEC_GET_AT(AssStyleEntry, &(styles->entries), index);
+	return TVEC_GET_AT(AssStyleEntry, &(styles->entries), index);
 }
 
 const AssScriptInfo* get_script_info_from_ass_result(const AssResult* ass_result) {

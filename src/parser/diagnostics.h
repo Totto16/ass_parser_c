@@ -6,7 +6,7 @@
 #include "../helper/string_view.h"
 
 #include <zmap/zmap.h>
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 #include <stdint.h>
 
@@ -50,10 +50,10 @@ typedef struct {
 	FilePos position;
 } DiagnosticEntry;
 
-ZVEC_DEFINE_VEC_TYPE(DiagnosticEntry)
+TVEC_DEFINE_VEC_TYPE(DiagnosticEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(DiagnosticEntry) entries;
+	TVEC_TYPENAME(DiagnosticEntry) entries;
 } Diagnostics;
 
 #ifdef ASS_PARSER_C_INTERNAL_USAGE
@@ -67,7 +67,7 @@ typedef struct {
 			                                                  .data = { .simple = (message) } }, \
 			                           .severity = (severity_type), \
 			                           .position = (pos) }; \
-		ZVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &entries, diagnostic); \
+		TVEC_PUSH_SLOT_AND_ASSERT(DiagnosticEntry, &entries, diagnostic); \
 	} while(false)
 
 #define INSERT_SIMPLE_WARNING(entries, message, pos) \

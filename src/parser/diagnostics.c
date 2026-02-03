@@ -6,7 +6,7 @@
 #include <zmap/zmap.h>
 #include <stdio.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)
+TVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)
 
 static void free_inner_diagnostic(InnerDiagnostic inner) {
 	switch(inner.type) {
@@ -29,12 +29,12 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 
 void free_diagnostics(Diagnostics diagnostics) {
 
-	for(size_t i = 0; i < ZVEC_LENGTH(diagnostics.entries); ++i) {
-		DiagnosticEntry entry = ZVEC_AT(DiagnosticEntry, diagnostics.entries, i);
+	for(size_t i = 0; i < TVEC_LENGTH(diagnostics.entries); ++i) {
+		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, diagnostics.entries, i);
 
 		free_diagnostic_entry(entry);
 	}
-	ZVEC_FREE(DiagnosticEntry, &diagnostics.entries);
+	TVEC_FREE(DiagnosticEntry, &diagnostics.entries);
 }
 
 [[nodiscard]] static MessageStruct get_message_from_inner_entry(InnerDiagnostic inner) {
