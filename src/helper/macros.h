@@ -5,25 +5,32 @@
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
-#define assert(x) /* NOLINT(readability-identifier-naming) */ \
+#define ASSERT(x, msg) /* NOLINT(readability-identifier-naming) */ \
 	do { \
 		UNUSED((x)); \
+		UNUSED((msg)); \
 	} while(false)
+
 #else
 
-#include <assert.h>
+#include "./assert.h"
+#define ASSERT(cond, message) custom_assert(__FILE__, __LINE__, cond, message)
 
 #endif
 
 #define FORMAT_STRING(to_store, error_statement, format, ...) \
 	{ \
+		if(to_store == NULL) { \
+			fprintf(stderr, "FORMAT_STRING macro gone wrong: '%s' is NULL!\n", #to_store); \
+			error_statement; \
+		} \
 		char* internal_buffer = *to_store; \
 		if(internal_buffer != NULL) { \
 			free(internal_buffer); \
 		} \
 		int to_write = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internal_buffer = (char*)malloc(to_write * sizeof(char)); \
-		if(!internal_buffer) { \
+		if(internal_buffer == NULL) { \
 			fprintf(stderr, "Couldn't allocate memory for %d bytes!\n", to_write); \
 			error_statement; \
 		} \
@@ -31,20 +38,20 @@
 		if(written >= to_write) { \
 			fprintf(stderr, \
 			        "Snprint did write more bytes then it had space in the buffer, available " \
-			        "space:'%d', actually written:'%d'!\n", \
+			        "space: '%d', actually written: '%d'!\n", \
 			        (to_write) - 1, written); \
 			free(internal_buffer); \
 			error_statement; \
 		} \
 		*to_store = internal_buffer; \
-	} \
-	if(*to_store == NULL) { \
-		fprintf(stderr, "snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #to_store); \
-		error_statement; \
 	}
 
 #define FORMAT_STRING_DEFAULT(to_store, format, ...) \
 	FORMAT_STRING(to_store, exit(EXIT_FAILURE), format, __VA_ARGS__)
+
+#define FORMAT_STRING_PROPAGATE_ERROR(to_store, format, ...) \
+	FORMAT_STRING(to_store, PROPAGATE_ERROR_IMPL("string format allocation error"), format, \
+	              __VA_ARGS__)
 
 #ifdef NDEBUG
 #define UNREACHABLE() \
@@ -56,7 +63,23 @@
 
 #define UNREACHABLE() \
 	do { \
-		assert(false && "UNREACHABLE"); \
+		ASSERT(false, "UNREACHABLE"); /*NOLINT(cert-dcl03-c,misc-static-assert)*/ \
+		__builtin_unreachable(); \
 	} while(false)
 
 #endif
+
+#define TVEC_PUSH_SLOT_AND_ASSERT(Name, Vec, Value) \
+	do { \
+		TVEC_ASSERT_SHOULD_USE_PUSH_SLOT(Value); \
+		TVEC_ELEMENT_TYPENAME(Name)* slot = TVEC_PUSH_SLOT(Name, Vec); \
+		ASSERT(slot != NULL, "OOM"); \
+		*slot = Value; \
+	} while(false)
+
+#define TVEC_PUSH_AND_ASSERT(Name, Vec, Value) \
+	do { \
+		TVEC_ASSERT_SHOULD_USE_PUSH(Value); \
+		TvecResult zvec_result = TVEC_PUSH(Name, Vec, Value); \
+		ASSERT(zvec_result == TvecResultOk, "OOM"); \
+	} while(false)

@@ -4,15 +4,37 @@
 
 #include "./helper.h"
 #include "../helper/macros.h"
+#include "./diagnostics.h"
 
 #undef ASS_PARSER_C_INTERNAL_USAGE
 
+#ifndef __WASM__
 #include <math.h>
-#include <stb/ds.h>
-#include <stdio.h>
 
-[[nodiscard]] double parse_str_as_double(ConstStrView value, ErrorStruct* error_ptr,
-                                         Warnings* warnings) {
+#define POW_10(arg) pow(10.0, (double)(arg))
+
+#else
+
+static double pow_10_manual_d(size_t amount) {
+
+	double result = 1.0;
+
+	for(size_t i = 0; i < amount; ++i) {
+		result *= 10.0;
+	}
+
+	return result;
+}
+
+#define POW_10(arg) pow_10_manual_d(arg)
+
+#endif
+
+#include <stdio.h>
+#include <tmap.h>
+
+[[nodiscard]] double parse_str_as_double(ConstStrView value, // NOLINT(misc-no-recursion)
+                                         MessageStruct* message_ptr, Diagnostics* diagnostics) {
 
 	StrView value_view = get_str_view_from_const_str_view(value);
 
@@ -21,7 +43,7 @@
 	if(str_view_starts_with_ascii(value_view, "-")) {
 		final_value = 1.0F;
 		if(!str_view_expect_ascii(&value_view, "-")) {
-			*error_ptr = STATIC_ERROR("implementation error");
+			*message_ptr = STATIC_MESSAGE_STRUCT("implementation error");
 			return 0.0;
 		}
 	}
@@ -30,53 +52,53 @@
 	if(!str_view_get_substring_by_char_delimiter(&value_view, &prefix, '.', false)) {
 
 		size_t num = parse_str_as_unsigned_number(get_const_str_view_from_str_view(value_view),
-		                                          error_ptr, warnings);
+		                                          message_ptr, diagnostics);
 
-		if(error_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
 			return 0.0;
 		}
 
-		*error_ptr = NO_ERROR();
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return (double)num;
 	}
 
-	size_t prefix_num = parse_str_as_unsigned_number(prefix, error_ptr, warnings);
+	size_t prefix_num = parse_str_as_unsigned_number(prefix, message_ptr, diagnostics);
 
-	if(error_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return 0.0;
 	}
 
 	final_value = final_value * (double)prefix_num;
 
 	if(str_view_is_eof(value_view)) {
-		*error_ptr = NO_ERROR();
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return final_value;
 	}
 
 	ConstStrView suffix = {};
-	if(!str_view_get_substring_until_eof(&value_view, &suffix)) {
-		*error_ptr = STATIC_ERROR("implementation error");
+	if(!str_view_get_substring_until_eof(&value_view, &suffix, false, NO_LINE_TYPE)) {
+		*message_ptr = STATIC_MESSAGE_STRUCT("implementation error");
 		return 0.0;
 	}
 
-	size_t suffix_num = parse_str_as_unsigned_number(suffix, error_ptr, warnings);
+	size_t suffix_num = parse_str_as_unsigned_number(suffix, message_ptr, diagnostics);
 
-	if(error_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return 0.0;
 	}
 
 	size_t suffix_power_of_10 = suffix.length;
 
-	final_value = final_value + (double)suffix_num / (pow(10.0, (double)suffix_power_of_10));
+	final_value = final_value + ((double)suffix_num / (POW_10(suffix_power_of_10)));
 
-	*error_ptr = NO_ERROR();
+	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return final_value;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number_with_option(ConstStrView value,
-                                                              ErrorStruct* error_ptr,
-                                                              bool allow_number_truncating,
-                                                              Warnings* warnings) {
+[[nodiscard]] size_t
+parse_str_as_unsigned_number_with_option(ConstStrView value, // NOLINT(misc-no-recursion)
+                                         MessageStruct* message_ptr, bool allow_number_truncating,
+                                         Diagnostics* diagnostics) {
 	size_t result = 0;
 
 	for(size_t i = 0; i < value.length; ++i) {
@@ -87,107 +109,118 @@
 			char* value_name = get_normalized_string(value);
 
 			if(!value_name) {
-				*error_ptr = STATIC_ERROR("allocation error");
+				*message_ptr = STATIC_MESSAGE_STRUCT("allocation error");
 				return 0;
 			}
 
+#define PROPAGATE_ERROR_IMPL(message) \
+	do { \
+		*message_ptr = STATIC_MESSAGE_STRUCT(message); \
+		return 0; \
+	} while(false)
+
 			char* result_buffer = NULL;
-			FORMAT_STRING_DEFAULT(&result_buffer, "error, not a valid decimal number: %s",
-			                      value_name);
+			FORMAT_STRING_PROPAGATE_ERROR(&result_buffer, "error, not a valid decimal number: %s",
+			                              value_name);
 
 			if(allow_number_truncating) {
-				assert(warnings != NULL);
+				ASSERT(diagnostics != NULL, "diagnostics is specified");
 				// check if the number is not empty
 				if(i > 0) {
 
 					// check if its a double
 
-					ErrorStruct local_error = NO_ERROR();
+					MessageStruct local_error = EMPTY_MESSAGE_STRUCT();
 
-					double _unused = parse_str_as_double(value, &local_error, warnings);
-					UNUSED(_unused);
+					double unused = parse_str_as_double(value, &local_error, diagnostics);
+					UNUSED(unused);
 
-					if(local_error.message == NULL) {
+					if(is_empty_message_struct(local_error)) {
 
-						WarningEntry warning = { .type = WarningTypeSimple,
-							                     .data = { .simple = result_buffer } };
+						INSERT_SIMPLE_WARNING(diagnostics->entries,
+						                      DYNAMIC_MESSAGE_STRUCT(result_buffer),
+						                      value.file_pos);
 
-						stbds_arrput(warnings->entries, warning);
-
-						free_error_struct(local_error);
+						free_message_struct(local_error);
 						free(value_name);
 
 						// return the truncated number
-						*error_ptr = NO_ERROR();
+						*message_ptr = EMPTY_MESSAGE_STRUCT();
 						return result;
 					}
 
-					free_error_struct(local_error);
+					free_message_struct(local_error);
 				}
 			}
 
 			free(value_name);
 
-			*error_ptr = DYNAMIC_ERROR(result_buffer);
+			*message_ptr = DYNAMIC_MESSAGE_STRUCT(result_buffer);
 			return 0;
 		}
-		result = (result * 10) + (current_codepoint - '0');
+		result = (result *
+		          10) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		         (current_codepoint - '0');
 	}
 
-	*error_ptr = NO_ERROR();
+	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return result;
 }
 
-[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, ErrorStruct* error_ptr,
-                                                  Warnings* warnings) {
-	return parse_str_as_unsigned_number_with_option(value, error_ptr, false, warnings);
+#undef PROPAGATE_ERROR_IMPL
+
+[[nodiscard]] size_t parse_str_as_unsigned_number(ConstStrView value, // NOLINT(misc-no-recursion)
+                                                  MessageStruct* message_ptr,
+                                                  Diagnostics* diagnostics) {
+	return parse_str_as_unsigned_number_with_option(value, message_ptr, false, diagnostics);
 }
 
-[[nodiscard]] bool parse_str_as_bool(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] bool parse_str_as_bool(ConstStrView value, MessageStruct* message_ptr) {
 
 	if(str_view_eq_ascii(value, "-1")) {
-		*error_ptr = NO_ERROR();
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return true;
 	}
 
 	if(str_view_eq_ascii(value, "0")) {
-		*error_ptr = NO_ERROR();
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return false;
 	}
 
-	*error_ptr = STATIC_ERROR("error, not a valid bool");
+	*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid bool");
 	return false;
 }
 
-[[nodiscard]] bool parse_str_as_str_bool(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] bool parse_str_as_str_bool(ConstStrView value, MessageStruct* message_ptr) {
 
-	if(str_view_eq_ascii(value, "yes")) {
-		*error_ptr = NO_ERROR();
+	if(str_view_eq_ascii_case_insensitive(value, "yes")) {
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return true;
 	}
 
-	if(str_view_eq_ascii(value, "no")) {
-		*error_ptr = NO_ERROR();
+	if(str_view_eq_ascii_case_insensitive(value, "no")) {
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return false;
 	}
 
-	*error_ptr = STATIC_ERROR("error, not a valid str bool");
+	*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid str bool");
 	return false;
 }
 
-[[nodiscard]] AssColor parse_str_as_color(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] AssColor parse_str_as_color(ConstStrView value, MessageStruct* message_ptr) {
 
 	AssColor color = {};
 
-	if(value.length != 10) {
-		*error_ptr = STATIC_ERROR("error, not a valid color, not correct length");
+	if(value.length !=
+	   10) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid color, not correct length");
 		return color;
 	}
 
 	StrView value_view = get_str_view_from_const_str_view(value);
 
 	if(!str_view_expect_ascii(&value_view, "&H")) {
-		*error_ptr = STATIC_ERROR("error, not a valid color, invalid prefix");
+		*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid color, invalid prefix");
 		return color;
 	}
 
@@ -197,7 +230,7 @@
 
 		for(size_t j = 0; j < 2; ++j) {
 
-			int32_t current_codepoint = value_view.start[value_view.offset + (i * 2) + j];
+			int32_t current_codepoint = value_view.start[value_view.position.offset + (i * 2) + j];
 
 			uint8_t current_value = 0;
 
@@ -205,12 +238,16 @@
 				current_value = (current_codepoint - '0');
 			} else if(current_codepoint >= (unsigned char)'a' &&
 			          current_codepoint <= (unsigned char)'f') {
-				current_value = (current_codepoint - 'a') + 10;
+				current_value =
+				    (current_codepoint - 'a') +
+				    10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			} else if(current_codepoint >= (unsigned char)'A' &&
 			          current_codepoint <= (unsigned char)'F') {
-				current_value = (current_codepoint - 'A') + 10;
+				current_value =
+				    (current_codepoint - 'A') +
+				    10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			} else {
-				*error_ptr = STATIC_ERROR("error, not a valid hex color number");
+				*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid hex color number");
 				return color;
 			}
 			component = (component << 4) + current_value;
@@ -234,97 +271,99 @@
 				break;
 			}
 			default: {
-				*error_ptr = STATIC_ERROR("error, not a valid color, implementation error");
+				*message_ptr =
+				    STATIC_MESSAGE_STRUCT("error, not a valid color, implementation error");
 				return color;
 			}
 		}
 	}
 
-	*error_ptr = NO_ERROR();
+	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return color;
 }
 
-[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, ErrorStruct* error_ptr,
-                                                    Warnings* warnings) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
+[[nodiscard]] BorderStyle parse_str_as_border_style(ConstStrView value, MessageStruct* message_ptr,
+                                                    Diagnostics* diagnostics) {
+	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(error_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return BorderStyleOutline;
 	}
 
 	switch(num) {
 		case 1: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return BorderStyleOutline;
 		}
 		case 3: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return BorderStyleOpaqueBox;
 		}
 		default: {
-			*error_ptr = STATIC_ERROR("invalid border style value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("invalid border style value");
 			return BorderStyleOutline;
 		}
 	}
 }
 
-[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value, ErrorStruct* error_ptr,
-                                                        Warnings* warnings) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
+[[nodiscard]] AssAlignment parse_str_as_style_alignment(ConstStrView value,
+                                                        MessageStruct* message_ptr,
+                                                        Diagnostics* diagnostics) {
+	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(error_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return AssAlignmentBL;
 	}
 
 	switch(num) {
 		// bottom
 		case 1: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentBL;
 		}
 		case 2: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentBC;
 		}
 		case 3: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentBR;
 		}
 			// middle
 		case 4: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentML;
 		}
-		case 5: {
-			*error_ptr = NO_ERROR();
+		case 5: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentMC;
 		}
-		case 6: {
-			*error_ptr = NO_ERROR();
+		case 6: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentMR;
 		}
 			// top
-		case 7: {
-			*error_ptr = NO_ERROR();
+		case 7: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTL;
 		}
-		case 8: {
-			*error_ptr = NO_ERROR();
+		case 8: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTC;
 		}
-		case 9: {
-			*error_ptr = NO_ERROR();
+		case 9: { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return AssAlignmentTR;
 		}
 		default: {
-			*error_ptr = STATIC_ERROR("invalid alignment value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("invalid alignment value");
 			return AssAlignmentBL;
 		}
 	}
 }
 
-[[nodiscard]] MarginValue parse_str_as_margin_value(ConstStrView value, ErrorStruct* error_ptr,
-                                                    Warnings* warnings) {
+[[nodiscard]] MarginValue parse_str_as_margin_value(ConstStrView value, MessageStruct* message_ptr,
+                                                    Diagnostics* diagnostics) {
 	MarginValue result = { .is_default = true };
 
 	// spec: 4-figure Margin override. The values are in pixels. All zeroes means the default
@@ -333,33 +372,39 @@
 	// TODO: 0000 is used in older ass files, but is "0" also the default?
 	if(str_view_eq_ascii(value, "0000")) {
 		result.is_default = true;
-		*error_ptr = NO_ERROR();
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 
 		return result;
 	}
 
-	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
-	if(error_ptr->message != NULL) {
+	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
+	if(!is_empty_message_struct(*message_ptr)) {
 		return result;
 	}
 
 	result.is_default = false;
 	result.data.value = num;
-	*error_ptr = NO_ERROR();
+	*message_ptr = EMPTY_MESSAGE_STRUCT();
 
 	return result;
 }
 
-[[nodiscard]] AssTime parse_str_as_time(ConstStrView value, ErrorStruct* error_ptr,
-                                        Warnings* warnings) {
+#define MAX_HUNDRED 100
+#define MAX_SECONDS 60
+#define MAX_MINUTES 60
+#define MAX_HOURS 24
+
+[[nodiscard]] AssTime parse_str_as_time(ConstStrView value, MessageStruct* message_ptr,
+                                        Diagnostics* diagnostics) {
 
 	// spec: in 0:00:00:00 format ie. Hrs:Mins:Secs:hundredths. Note that there is a single digit
 	// for the hours!
 
 	AssTime time = {};
 
-	if(value.length != 10) {
-		*error_ptr = STATIC_ERROR("error, not a valid time, not correct length");
+	if(value.length !=
+	   10) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid time, not correct length");
 		return time;
 	}
 
@@ -370,20 +415,25 @@
 
 		ConstStrView hour_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &hour_str, 1)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get hour value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, couldn't get hour value");
 			return time;
 		}
 
-		size_t num = parse_str_as_unsigned_number(hour_str, error_ptr, warnings);
+		size_t num = parse_str_as_unsigned_number(hour_str, message_ptr, diagnostics);
 
-		if(error_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
+			return time;
+		}
+
+		if(num >= MAX_HOURS) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, hour value to large");
 			return time;
 		}
 
 		time.hour = (uint8_t)num;
 
 		if(!str_view_expect_ascii(&value_view, ":")) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid time, missing ':'");
 			return time;
 		}
 	}
@@ -393,20 +443,25 @@
 
 		ConstStrView min_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &min_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get min value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, couldn't get min value");
 			return time;
 		}
 
-		size_t num = parse_str_as_unsigned_number(min_str, error_ptr, warnings);
+		size_t num = parse_str_as_unsigned_number(min_str, message_ptr, diagnostics);
 
-		if(error_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
+			return time;
+		}
+
+		if(num >= MAX_MINUTES) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, minute value to large");
 			return time;
 		}
 
 		time.min = (uint8_t)num;
 
 		if(!str_view_expect_ascii(&value_view, ":")) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, missing ':'");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, not a valid time, missing ':'");
 			return time;
 		}
 	}
@@ -416,13 +471,18 @@
 
 		ConstStrView sec_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &sec_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get sec value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, couldn't get sec value");
 			return time;
 		}
 
-		size_t num = parse_str_as_unsigned_number(sec_str, error_ptr, warnings);
+		size_t num = parse_str_as_unsigned_number(sec_str, message_ptr, diagnostics);
 
-		if(error_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
+			return time;
+		}
+
+		if(num >= MAX_SECONDS) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, seconds value to large");
 			return time;
 		}
 
@@ -431,7 +491,8 @@
 		if(!str_view_expect_ascii(&value_view, ":")) {
 			// note: specs defines ":" but in the wild we mostly get "."
 			if(!str_view_expect_ascii(&value_view, ".")) {
-				*error_ptr = STATIC_ERROR("error, not a valid time, missing ':' or '.' after secs");
+				*message_ptr =
+				    STATIC_MESSAGE_STRUCT("error, not a valid time, missing ':' or '.' after secs");
 				return time;
 			}
 		}
@@ -442,69 +503,77 @@
 
 		ConstStrView hundred_str = {};
 		if(!str_view_get_substring_by_amount(&value_view, &hundred_str, 2)) {
-			*error_ptr = STATIC_ERROR("error, couldn't get hundred value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, couldn't get hundred value");
 			return time;
 		}
 
-		size_t num = parse_str_as_unsigned_number(hundred_str, error_ptr, warnings);
+		size_t num = parse_str_as_unsigned_number(hundred_str, message_ptr, diagnostics);
 
-		if(error_ptr->message != NULL) {
+		if(!is_empty_message_struct(*message_ptr)) {
+			return time;
+		}
+
+		if(num >= MAX_HUNDRED) {
+			*message_ptr = STATIC_MESSAGE_STRUCT("error, hundred value to large");
 			return time;
 		}
 
 		time.hundred = (uint8_t)num;
 
 		if(!str_view_is_eof(value_view)) {
-			*error_ptr = STATIC_ERROR("error, not a valid time, more data then expected");
+			*message_ptr =
+			    STATIC_MESSAGE_STRUCT("error, not a valid time, more data then expected");
 			return time;
 		}
 	}
 
-	*error_ptr = NO_ERROR();
+	*message_ptr = EMPTY_MESSAGE_STRUCT();
 	return time;
 }
 
-[[nodiscard]] ScriptType parse_str_as_script_type(ConstStrView value, ErrorStruct* error_ptr) {
+[[nodiscard]] ScriptType parse_str_as_script_type(ConstStrView value, MessageStruct* message_ptr) {
 
 	if(str_view_eq_ascii(value, "V4.00") || str_view_eq_ascii(value, "v4.00")) {
-		*error_ptr = NO_ERROR();
-		return ScriptTypeV4;
-	} else if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
-		*error_ptr = NO_ERROR();
-		return ScriptTypeV4Plus;
-	} else {
-		*error_ptr = STATIC_ERROR("invalid script type value");
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
 		return ScriptTypeV4;
 	}
+
+	if(str_view_eq_ascii(value, "V4.00+") || str_view_eq_ascii(value, "v4.00+")) {
+		*message_ptr = EMPTY_MESSAGE_STRUCT();
+		return ScriptTypeV4Plus;
+	}
+
+	*message_ptr = STATIC_MESSAGE_STRUCT("invalid script type value");
+	return ScriptTypeV4;
 }
 
-[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, ErrorStruct* error_ptr,
-                                                Warnings* warnings) {
-	size_t num = parse_str_as_unsigned_number(value, error_ptr, warnings);
+[[nodiscard]] WrapStyle parse_str_as_wrap_style(ConstStrView value, MessageStruct* message_ptr,
+                                                Diagnostics* diagnostics) {
+	size_t num = parse_str_as_unsigned_number(value, message_ptr, diagnostics);
 
-	if(error_ptr->message != NULL) {
+	if(!is_empty_message_struct(*message_ptr)) {
 		return WrapStyleSmart;
 	}
 
 	switch(num) {
 		case 0: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return WrapStyleSmart;
 		}
 		case 1: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return WrapStyleEOL;
 		}
 		case 2: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return WrapStyleNoWrap;
 		}
 		case 3: {
-			*error_ptr = NO_ERROR();
+			*message_ptr = EMPTY_MESSAGE_STRUCT();
 			return WrapStyleSmartLow;
 		}
 		default: {
-			*error_ptr = STATIC_ERROR("invalid wrap style value");
+			*message_ptr = STATIC_MESSAGE_STRUCT("invalid wrap style value");
 			return WrapStyleSmart;
 		}
 	}

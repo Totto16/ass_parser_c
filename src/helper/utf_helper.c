@@ -2,15 +2,22 @@
 
 #include "./utf_helper.h"
 
+#include <utf8proc.h>
+
+#ifdef ASS_PARSER_HAVE_ICONV
 #include <errno.h>
 #include <iconv.h>
-#include <utf8proc.h>
+#endif
 
 CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 
 	if(ptr.data == NULL && ptr.len == 0) {
-		return (CodepointsResult){ .has_error = false,
-			                       .data = { .result = (Codepoints){ .size = 0, .data = NULL } } };
+		return (CodepointsResult){
+			.has_error = false,
+			.data = { .result = (Codepoints){ .size = 0,
+			                                  .data = (CodePointsData){ .data_const = NULL,
+			                                                            .data_readable = NULL } } }
+		};
 	}
 
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * ptr.len);
@@ -19,9 +26,16 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 		return (CodepointsResult){ .has_error = true, .data = { .error = "failed malloc" } };
 	}
 
+	// this is fine, as this enum is a flag / mask enum, 0 means no option is enabled
+	utf8proc_option_t options =
+	    (utf8proc_option_t)0; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+
 	utf8proc_ssize_t result = utf8proc_decompose(
-	    ptr.data, ptr.len, buffer, ptr.len,
-	    0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
+	    ptr.data,
+	    ptr.len, // NOLINT(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
+	    buffer,
+	    ptr.len, // NOLINT(cppcoreguidelines-narrowing-conversions,bugprone-narrowing-conversions)
+	    options);
 
 	if(result < 0) {
 		free(buffer);
@@ -40,10 +54,14 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 		buffer = new_buffer;
 	}
 
-	Codepoints utf8_data = { .size = result, .data = buffer };
+	Codepoints utf8_data = {
+		.size = result, .data = (CodePointsData){ .data_const = buffer, .data_readable = buffer }
+	};
 
 	return (CodepointsResult){ .has_error = false, .data = { .result = utf8_data } };
 }
+
+#ifdef ASS_PARSER_HAVE_ICONV
 
 #define CHUNK_SIZE_CONVERSION (1 << 14)
 
@@ -122,7 +140,22 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 	return result_ptr;
 }
 
-[[nodiscard]] CodepointsResult get_codepoints_from_format(SizedPtr ptr, const char* format) {
+#else
+
+#include <platform.h>
+
+static SizedPtr convert_to_utf8_from_format(SizedPtr ptr, const char* format) {
+
+	SizedPtr result = {};
+
+	platform_string_conversion(ptr.data, ptr.len, format, &result.data, &result.len);
+
+	return result;
+}
+
+#endif
+
+[[nodiscard]] static CodepointsResult get_codepoints_from_format(SizedPtr ptr, const char* format) {
 	SizedPtr converted_result = convert_to_utf8_from_format(ptr, format);
 
 	if(is_ptr_error(converted_result)) {
@@ -143,18 +176,21 @@ CodepointsResult get_codepoints_from_utf8(SizedPtr ptr) {
 }
 
 [[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian) {
-	return get_codepoints_from_format(ptr, big_endian ? "UTF-16BE" : "UTF-16LE");
+	return get_codepoints_from_format(ptr, big_endian ? "UTF-32BE" : "UTF-32LE");
 }
 
-void free_codepoints(Codepoints data) {
-	if(data.data != NULL) {
-		free(data.data);
+void free_codepoints(Codepoints codepoints) {
+	if(codepoints.data.data_readable != NULL) {
+		free(codepoints.data.data_readable);
 	}
 }
 
 #define CHUNK_SIZE_NORMALIZE 256
 
-char* get_normalized_string_from_codepoints(Codepoints codepoints) {
+char* get_normalized_string_from_codepoints(RawCodepoints codepoints) {
+	if(codepoints.data == NULL) {
+		return NULL;
+	}
 
 	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);

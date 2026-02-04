@@ -1,8 +1,12 @@
 
 lib_src_files += files(
-    'io.c',
-    'io.h',
+    'assert.c',
+    'assert.h',
+    'decl.h'
+,
     'macros.h',
+    'message_struct.c',
+    'message_struct.h',
     'sized_ptr.c',
     'sized_ptr.h',
     'string_view.c',
@@ -11,10 +15,22 @@ lib_src_files += files(
     'utf_helper.h',
 )
 
+if not is_wasm
+    lib_src_files += files('io.c', 'io.h')
+endif
+
 
 
 install_headers(
-    files('io.h', 'sized_ptr.h', 'string_view.h', 'utf_helper.h'),
+    files(
+        'assert.h',
+        'decl.h',
+        'io.h',
+        'message_struct.h',
+        'sized_ptr.h',
+        'string_view.h',
+        'utf_helper.h',
+    ),
     install_dir: install_include_dir / 'helper',
     preserve_path: true,
 )

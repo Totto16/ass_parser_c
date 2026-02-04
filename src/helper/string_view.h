@@ -2,17 +2,29 @@
 
 #pragma once
 
+#include "../helper/message_struct.h"
 #include "./utf_helper.h"
 
 typedef struct {
-	int32_t* start;
+	size_t line;
+	size_t column;
+} FilePos;
+
+typedef struct {
 	size_t offset;
+	FilePos file_pos;
+} StrViewPos;
+
+typedef struct {
+	const int32_t* start;
 	size_t length;
+	StrViewPos position;
 } StrView;
 
 typedef struct {
-	int32_t* start;
+	const int32_t* start;
 	size_t length;
+	FilePos file_pos;
 } ConstStrView;
 
 typedef enum : uint8_t {
@@ -21,11 +33,25 @@ typedef enum : uint8_t {
 	LineTypeCr,
 } LineType;
 
+#define ENUM_ANNOT_LineType ENUM_ANNOT_C(LineType, uint8_t)
+
+#define NO_LINE_TYPE ((LineType)LineTypeCr)
+
+#define EMPTY_POS_VAL ((size_t)-1)
+
+#define EMPTY_POS() ((FilePos){ .line = EMPTY_POS_VAL, .column = EMPTY_POS_VAL })
+
+[[nodiscard]] PUBLIC("is_empty_pos") CATEGORY_LITERAL bool is_empty_pos(FilePos pos);
+
 [[nodiscard]] StrView str_view_from_data(Codepoints data);
 
 [[nodiscard]] bool str_view_advance(StrView* str_view, size_t len);
 
+[[nodiscard]] bool str_view_advance_from_end(StrView* str_view, size_t len);
+
 [[nodiscard]] bool str_view_starts_with_ascii(StrView str_view, const char* ascii_str);
+
+[[nodiscard]] bool str_view_ends_with_ascii(StrView str_view, const char* ascii_str);
 
 [[nodiscard]] bool str_view_expect_ascii(StrView* str_view, const char* ascii_str);
 
@@ -35,11 +61,15 @@ typedef enum : uint8_t {
 
 [[nodiscard]] bool str_view_eq_ascii(ConstStrView const_str_view, const char* ascii_str);
 
+[[nodiscard]] bool str_view_eq_ascii_case_insensitive(ConstStrView const_str_view,
+                                                      const char* ascii_str);
+
 [[nodiscard]] bool str_view_eq_str_view(ConstStrView const_str_view1, ConstStrView const_str_view2);
 
 [[nodiscard]] bool str_view_is_eof(StrView str_view);
 
-[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result);
+[[nodiscard]] bool str_view_get_substring_until_eof(StrView* str_view, ConstStrView* result,
+                                                    bool process_newlines, LineType line_type);
 
 [[nodiscard]] bool str_view_skip_optional_whitespace(StrView* str_view);
 
@@ -56,4 +86,4 @@ typedef enum : uint8_t {
 [[nodiscard]] bool str_view_get_substring_until_eol(StrView* str_view, ConstStrView* result,
                                                     LineType line_type, bool allow_eof);
 
-[[nodiscard]] LineType get_line_type(ConstStrView str_view, char** error_ptr);
+[[nodiscard]] LineType get_line_type(ConstStrView str_view, MessageStruct* msg_ptr);

@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-[[nodiscard]] bool is_file_a_directory(FILE* file) {
+[[nodiscard]] static bool is_file_a_directory(FILE* file) {
 	if(!file) {
 		return false;
 	}
@@ -30,7 +30,12 @@
 		return false;
 	}
 
+#pragma GCC diagnostic push
+#if (defined(__GNUC__) && defined(__clang__))
+#pragma GCC diagnostic ignored "-Wdeprecated-octal-literals"
+#endif
 	return S_ISDIR(stat_struct.st_mode);
+#pragma GCC diagnostic pop
 }
 
 [[nodiscard]] static SizedPtr read_entire_file_raw(FILE* file) {

@@ -1,0 +1,28 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"isolatedModules": false,
+		"lib": [
+			"ES2022",
+		],
+		"types": [
+			"node"
+		],
+		"checkJs": true,
+		"allowJs": true,
+		"composite": true
+	},
+	"exclude": [
+		"node_modules/"
+	],
+	"include": [
+		"scripts/**/*.ts",
+		"scripts/**/*.js"
+	],
+	"ts-node": {
+		"compilerOptions": {
+			"module": "CommonJS",
+		},
+		"files": true
+	}
+}

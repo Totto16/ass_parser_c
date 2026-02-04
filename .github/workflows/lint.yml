@@ -24,13 +24,13 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 20
-          echo "CC=clang-20" >> "$GITHUB_ENV"
+          sudo ./llvm.sh 21
+          echo "CC=clang-21" >> "$GITHUB_ENV"
 
       - name: Prepare compile_commands.json
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build -y --no-install-recommends
+          sudo apt-get install ninja-build libfontconfig-dev -y --no-install-recommends
 
           meson setup build -Dbuildtype=release --fatal-meson-warnings
 
@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: file
-          version: 20
+          version: 21
           database: build
           files-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
           lines-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
@@ -49,7 +49,7 @@ jobs:
           tidy-checks: ''
           step-summary: true
           file-annotations: true
-          ignore: subprojects|build|src/thirdparty
+          ignore: subprojects|build|src/thirdparty|src/parser/helper.h
 
       - name: Fail CI run if linter checks failed
         if: steps.linter.outputs.checks-failed != 0

@@ -1,0 +1,45 @@
+{
+	"extends": "@tsconfig/strictest/tsconfig.json",
+	"compilerOptions": {
+		"noPropertyAccessFromIndexSignature": false,
+		"noImplicitOverride": true,
+		"outDir": "./dist/",
+		"noImplicitAny": true,
+		"module": "esnext",
+		"sourceRoot": ".",
+		"baseUrl": ".",
+		"target": "es6",
+		"lib": [
+			"ES2022",
+			"dom"
+		],
+		"sourceMap": true,
+		"checkJs": false,
+		"allowJs": false,
+		"strict": true,
+		"strictNullChecks": true,
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"noUnusedLocals": false,
+	},
+	"exclude": [
+		"node_modules/"
+	],
+	"include": [
+		"src/**/*.ts",
+		"webpack.config.ts",
+		"eslint.config.ts"
+	],
+	"references": [
+		{
+			"path": "./tsconfig.script.json"
+		}
+	],
+	"ts-node": {
+		"compilerOptions": {
+			"module": "CommonJS",
+		},
+		"files": true
+	}
+}

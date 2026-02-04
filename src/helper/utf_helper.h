@@ -8,9 +8,19 @@
 #include "./sized_ptr.h"
 
 typedef struct {
-	int32_t* data;
+	const int32_t* data_const;
+	int32_t* data_readable;
+} CodePointsData;
+
+typedef struct {
 	uint64_t size;
+	CodePointsData data;
 } Codepoints;
+
+typedef struct {
+	uint64_t size;
+	const int32_t* data;
+} RawCodepoints;
 
 typedef struct {
 	bool has_error;
@@ -26,6 +36,6 @@ typedef struct {
 
 [[nodiscard]] CodepointsResult get_codepoints_from_utf32(SizedPtr ptr, bool big_endian);
 
-void free_codepoints(Codepoints data);
+void free_codepoints(Codepoints codepoints);
 
-[[nodiscard]] char* get_normalized_string_from_codepoints(Codepoints codepoints);
+[[nodiscard]] char* get_normalized_string_from_codepoints(RawCodepoints codepoints);
