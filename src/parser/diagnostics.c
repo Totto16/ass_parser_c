@@ -3,8 +3,8 @@
 
 #include "../helper/macros.h"
 
-#include <tmap.h>
 #include <stdio.h>
+#include <tmap.h>
 
 TVEC_IMPLEMENT_VEC_TYPE(DiagnosticEntry)
 
@@ -29,7 +29,7 @@ static void free_diagnostic_entry(DiagnosticEntry entry) {
 
 void free_diagnostics(Diagnostics diagnostics) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(diagnostics.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(DiagnosticEntry, diagnostics.entries); ++i) {
 		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, diagnostics.entries, i);
 
 		free_diagnostic_entry(entry);

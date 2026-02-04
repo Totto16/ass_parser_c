@@ -166,11 +166,11 @@ size_t file_pos_get_column(const FilePos* pos) {
 }
 
 size_t events_get_length(const AssEvents* events) {
-	return TVEC_LENGTH(events->entries);
+	return TVEC_LENGTH(AssEventEntry, events->entries);
 }
 
 const AssEventEntry* events_get_at(const AssEvents* const events, size_t index) {
-	if(index >= TVEC_LENGTH(events->entries)) {
+	if(index >= TVEC_LENGTH(AssEventEntry, events->entries)) {
 		return NULL;
 	}
 
@@ -178,11 +178,11 @@ const AssEventEntry* events_get_at(const AssEvents* const events, size_t index) 
 }
 
 size_t styles_get_length(const AssStyles* styles) {
-	return TVEC_LENGTH(styles->entries);
+	return TVEC_LENGTH(AssStyleEntry, styles->entries);
 }
 
 const AssStyleEntry* styles_get_at(const AssStyles* const styles, size_t index) {
-	if(index >= TVEC_LENGTH(styles->entries)) {
+	if(index >= TVEC_LENGTH(AssStyleEntry, styles->entries)) {
 		return NULL;
 	}
 

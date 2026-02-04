@@ -344,7 +344,7 @@ parse_format_line_for_styles(const ConstStrView line, TVEC_TYPENAME(AssStyleForm
 
 	StrView line_view = get_str_view_from_const_str_view(line);
 
-	size_t field_size = TVEC_LENGTH(format_spec);
+	size_t field_size = TVEC_LENGTH(AssStyleFormat, format_spec);
 
 	AssStyleEntry entry = {};
 
@@ -609,7 +609,7 @@ parse_format_line_for_styles(const ConstStrView line, TVEC_TYPENAME(AssStyleForm
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(TVEC_LENGTH(style_format) != 0) {
+				if(TVEC_LENGTH(AssStyleFormat, style_format) != 0) {
 					INSERT_SIMPLE_ERROR(
 					    diagnostics->entries,
 					    STATIC_MESSAGE_STRUCT(
@@ -631,7 +631,7 @@ parse_format_line_for_styles(const ConstStrView line, TVEC_TYPENAME(AssStyleForm
 
 			} else if(str_view_eq_ascii(field, "Style")) {
 
-				if(TVEC_LENGTH(style_format) == 0) {
+				if(TVEC_LENGTH(AssStyleFormat, style_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(
@@ -767,7 +767,7 @@ TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(FinalStr)
 
 			// check for duplicate fields
 			bool found_field = false;
-			for(size_t i = 0; i < TVEC_LENGTH(field_names); ++i) {
+			for(size_t i = 0; i < TVEC_LENGTH(FinalStr, field_names); ++i) {
 				FinalStr field_str = TVEC_AT(FinalStr, field_names, i);
 
 				if(str_view_eq_str_view(field_str, field)) {
@@ -1006,7 +1006,7 @@ typedef struct {
 	                          (FinalStr){ .start = 0, .length = 0, .file_pos = EMPTY_POS() }, \
 	                      .data_raw = (TempDataArray){ .entries = TVEC_EMPTY(FinalStr) } })
 
-#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (TVEC_LENGTH((entry).data_raw.entries) == 0)
+#define IS_EMPTY_ENCODE_ENTRY_DATA(entry) (TVEC_LENGTH(FinalStr, (entry).data_raw.entries) == 0)
 
 #define IS_EMPTY_ENCODE_NAME(entry) ((entry).name_raw.length == 0)
 
@@ -1154,7 +1154,7 @@ TVEC_DEFINE_VEC_TYPE(char)
 
 	TVEC_TYPENAME(char) final_data = TVEC_EMPTY(char);
 
-	for(size_t i = 0; i < TVEC_LENGTH(data_raw.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(FinalStr, data_raw.entries); ++i) {
 		FinalStr entry = TVEC_AT(FinalStr, (data_raw.entries), i);
 
 		char* entry_normalized = get_normalized_string(entry);
@@ -1166,7 +1166,7 @@ TVEC_DEFINE_VEC_TYPE(char)
 
 		size_t normalized_length = strlen(entry_normalized);
 
-		size_t current_arr_size = TVEC_LENGTH(final_data);
+		size_t current_arr_size = TVEC_LENGTH(char, final_data);
 
 		ASSERT(TVEC_RESERVE(char, &final_data, current_arr_size + normalized_length) ==
 		           TvecResultOk,
@@ -1179,7 +1179,7 @@ TVEC_DEFINE_VEC_TYPE(char)
 		free(entry_normalized);
 	}
 
-	SizedPtr input = { .data = TVEC_DATA(char, &final_data), .len = TVEC_LENGTH(final_data) };
+	SizedPtr input = { .data = TVEC_DATA(char, &final_data), .len = TVEC_LENGTH(char, final_data) };
 
 	SizedPtr decode_result = uu_decode(input);
 
@@ -1804,7 +1804,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
                                                            AssEvents* events_result,
                                                            Diagnostics* diagnostics) {
 
-	size_t field_size = TVEC_LENGTH(format_spec);
+	size_t field_size = TVEC_LENGTH(AssEventFormat, format_spec);
 
 	AssEventEntry entry = { .type = type };
 
@@ -2086,7 +2086,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			if(str_view_eq_ascii(field, "Format")) {
 
-				if(TVEC_LENGTH(event_format) != 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) != 0) {
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
 					                    STATIC_MESSAGE_STRUCT("multiple format fields detected in "
 					                                          "the events section, this is not "
@@ -2107,7 +2107,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Dialogue")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2129,7 +2129,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Comment")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2151,7 +2151,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Picture")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2173,7 +2173,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Sound")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2195,7 +2195,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Movie")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2217,7 +2217,7 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 			} else if(str_view_eq_ascii(field, "Command")) {
 
-				if(TVEC_LENGTH(event_format) == 0) {
+				if(TVEC_LENGTH(AssEventFormat, event_format) == 0) {
 					FREE_AT_END();
 
 					INSERT_SIMPLE_ERROR(diagnostics->entries,
@@ -2328,7 +2328,7 @@ static void free_extra_sections(ExtraSections sections) {
 }
 
 static void free_fonts(AssFonts fonts) {
-	for(size_t i = 0; i < TVEC_LENGTH(fonts.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssFontEntry, fonts.entries); ++i) {
 		AssFontEntry entry = TVEC_AT(AssFontEntry, (fonts.entries), i);
 		free_sized_ptr(entry.data);
 	}
@@ -2336,7 +2336,7 @@ static void free_fonts(AssFonts fonts) {
 }
 
 static void free_graphics(AssGraphics graphics) {
-	for(size_t i = 0; i < TVEC_LENGTH(graphics.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssGraphicEntry, graphics.entries); ++i) {
 		AssGraphicEntry entry = TVEC_AT(AssGraphicEntry, (graphics.entries), i);
 		free_sized_ptr(entry.data);
 	}
@@ -2572,7 +2572,7 @@ static void free_ass_result(AssResult data) {
 	// if we have one error diagnostic, we consider this an error,
 	// so we can collect errors until now, and only now report a
 	// fatal error
-	for(size_t i = 0; i < TVEC_LENGTH(result->diagnostics.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(DiagnosticEntry, result->diagnostics.entries); ++i) {
 		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, (result->diagnostics.entries), i);
 
 		if(entry.severity == DiagnosticSeverityError) {

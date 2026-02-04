@@ -202,7 +202,7 @@ embedded_fonts_find_fonts_by_family_name(AssFonts ass_fonts, const char* font_na
 		TVEC_FREE(AssFontName, names); \
 	} while(false)
 
-	for(size_t i = 0; i < TVEC_LENGTH(ass_fonts.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssFontEntry, ass_fonts.entries); ++i) {
 		AssFontEntry entry = TVEC_AT(AssFontEntry, (ass_fonts.entries), i);
 
 		char* received_name = get_normalized_string(entry.name.name);
@@ -329,7 +329,7 @@ static FontResultObject find_fonts_by_family_name(AssFonts ass_fonts, const char
 
 #endif
 
-	for(size_t i = 0; i < TVEC_LENGTH(embedded_result); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssFontName, embedded_result); ++i) {
 		FontHandle handle = {
 			.type = FontHandleTypeEmbedded,
 			.data = { .embedded = { .font_name = TVEC_AT(AssFontName, embedded_result, i) } }
@@ -567,7 +567,7 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
 [[nodiscard]] static FontSearchResult
 find_type_for_fonts(const char* font_name, FontResultOk fonts_result, FontStyleType font_type,
                     DetailedFontValidateSettings settings, bool strict_errors) {
-	for(size_t i = 0; i < TVEC_LENGTH(fonts_result.handles); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(FontHandle, fonts_result.handles); ++i) {
 
 		FontHandle handle = TVEC_AT(FontHandle, (fonts_result.handles), i);
 
@@ -652,7 +652,7 @@ static void validate_font(AssFonts ass_fonts, const char* style_name, const char
 
 	FontResultOk ok_res = result.data.ok;
 
-	if(TVEC_LENGTH(ok_res.handles) == 0) {
+	if(TVEC_LENGTH(FontHandle, ok_res.handles) == 0) {
 
 #define PROPAGATE_ERROR_IMPL(message) \
 	do { \
@@ -782,7 +782,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	StyleToFontHM hm_style_to_font = TMAP_INIT(StyleToFontHMEntry);
 
-	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssStyleEntry, ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* style_name = get_normalized_string(entry.name);
@@ -851,7 +851,7 @@ static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
 	*used_fonts = TMAP_INIT(UsedFontHMEntry);
 
-	for(size_t i = 0; i < TVEC_LENGTH(ass_result.events.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssEventEntry, ass_result.events.entries); ++i) {
 		AssEventEntry entry = TVEC_AT(AssEventEntry, (ass_result.events.entries), i);
 
 		if(entry.type != EventTypeComment && entry.type != EventTypeDialogue) {
@@ -974,7 +974,7 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 		return;
 	}
 
-	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssStyleEntry, ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		char* font_name = get_normalized_string(entry.fontname);
@@ -1052,7 +1052,7 @@ static void validate_style_angle(double angle, FilePos file_pos, bool allow_vali
 static void validate_styles(AssResult ass_result, bool allow_validation_errors,
                             Diagnostics* diagnostics) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(ass_result.styles.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AssStyleEntry, ass_result.styles.entries); ++i) {
 		AssStyleEntry entry = TVEC_AT(AssStyleEntry, (ass_result.styles.entries), i);
 
 		// TODO: validate windows encoding

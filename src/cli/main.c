@@ -93,7 +93,7 @@ static void print_uu_conversion_usage(bool is_subcommand) {
 	// TODO
 
 	(void)(is_subcommand);
-	//TODO: COMMAND_UU_CONVERSION;
+	// TODO: COMMAND_UU_CONVERSION;
 }
 
 // prints the usage, if argc is not the right amount!
@@ -406,7 +406,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 
 	Diagnostics diagnostics = get_diagnostics_from_result(result);
 
-	size_t diagnostics_length = TVEC_LENGTH(diagnostics.entries);
+	size_t diagnostics_length = TVEC_LENGTH(DiagnosticEntry, diagnostics.entries);
 
 	for(size_t i = 0; i < diagnostics_length; ++i) {
 		DiagnosticEntry entry = TVEC_AT(DiagnosticEntry, diagnostics.entries, i);

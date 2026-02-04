@@ -63,7 +63,7 @@ TVEC_DEFINE_VEC_TYPE(char)
 		return ptr_error("allocation error");
 	}
 
-	size_t final_length = TVEC_LENGTH(final_chars);
+	size_t final_length = TVEC_LENGTH(char, final_chars);
 	TVEC_FREE(char, &final_chars);
 
 	return (SizedPtr){ .data = result, .len = final_length };
@@ -112,7 +112,7 @@ TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Byte)
 	}
 
 	// make stbds_array into sizedptr
-	size_t final_length = TVEC_LENGTH(final_bytes);
+	size_t final_length = TVEC_LENGTH(Byte, final_bytes);
 
 	Byte* result = malloc(final_length);
 
