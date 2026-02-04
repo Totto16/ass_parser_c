@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #ifdef ASS_PARSER_HAVE_FONTCONFIG
-#include <fontconfig/fontconfig.h>
+	#include <fontconfig/fontconfig.h>
 #endif
 
 typedef enum : uint8_t {
@@ -131,10 +131,10 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 		};
 	}
 
-#define FREE_AT_END() \
-	do { \
-		FcPatternDestroy(pattern); \
-	} while(false)
+	#define FREE_AT_END() \
+		do { \
+			FcPatternDestroy(pattern); \
+		} while(false)
 
 	if(!FcPatternAddString(pattern, FC_FAMILY, (const FcChar8*)font_name)) {
 		FREE_AT_END();
@@ -155,12 +155,12 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 			                                               "fontconfig: error in set build") } };
 	}
 
-#undef FREE_AT_END
-#define FREE_AT_END() \
-	do { \
-		FcPatternDestroy(pattern); \
-		FcObjectSetDestroy(object_set); \
-	} while(false)
+	#undef FREE_AT_END
+	#define FREE_AT_END() \
+		do { \
+			FcPatternDestroy(pattern); \
+			FcObjectSetDestroy(object_set); \
+		} while(false)
 
 	FcConfig* config = NULL; // use the default one
 
@@ -182,7 +182,7 @@ static FontConfigFontResultObject fontconfig_find_fonts_by_family_name(const cha
 		                                               .font_list = font_list } } };
 }
 
-#undef FREE_AT_END
+	#undef FREE_AT_END
 
 #endif
 
@@ -514,11 +514,11 @@ fontconfig_find_type_for_fonts(const char* font_name, FcPattern* font, FontStyle
 			}
 			default: {
 
-#define PROPAGATE_ERROR_IMPL(message) \
-	do { \
-		return (FontSearchResult){ .type = FontSearchResultTypeError, \
-			                       .data = { .error = STATIC_MESSAGE_STRUCT(message) } }; \
-	} while(false)
+	#define PROPAGATE_ERROR_IMPL(message) \
+		do { \
+			return (FontSearchResult){ .type = FontSearchResultTypeError, \
+				                       .data = { .error = STATIC_MESSAGE_STRUCT(message) } }; \
+		} while(false)
 
 				char* result_buffer = NULL;
 				FORMAT_STRING_PROPAGATE_ERROR(&result_buffer,
@@ -564,10 +564,9 @@ embedded_find_type_for_fonts(const char* font_name, AssFontName name, FontStyleT
 	return (FontSearchResult){ .type = FontSearchResultTypeNotFound };
 }
 
-[[nodiscard]] static FontSearchResult find_type_for_fonts(const char* font_name, FontResultOk fonts_result,
-                                                   FontStyleType font_type,
-                                                   DetailedFontValidateSettings settings,
-                                                   bool strict_errors) {
+[[nodiscard]] static FontSearchResult
+find_type_for_fonts(const char* font_name, FontResultOk fonts_result, FontStyleType font_type,
+                    DetailedFontValidateSettings settings, bool strict_errors) {
 	for(size_t i = 0; i < TVEC_LENGTH(fonts_result.handles); ++i) {
 
 		FontHandle handle = TVEC_AT(FontHandle, (fonts_result.handles), i);
@@ -729,15 +728,13 @@ typedef TMAP_TYPENAME_MAP(StyleToFontHMEntry) StyleToFontHM;
 
 static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 
-	size_t hm_total_length = TMAP_CAPACITY(*style_to_font_hm);
+	TMAP_TYPENAME_ITER(StyleToFontHMEntry)
+	iter = TMAP_ITER_INIT(StyleToFontHMEntry, style_to_font_hm);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const TMAP_TYPENAME_ENTRY(StyleToFontHMEntry)* hm_entry =
-		    TMAP_GET_ENTRY_AT(StyleToFontHMEntry, style_to_font_hm, i);
+	TMAP_TYPENAME_ENTRY(StyleToFontHMEntry) value;
 
-		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
-			free(hm_entry->key);
-		}
+	while(TMAP_ITER_NEXT(StyleToFontHMEntry, &iter, &value)) {
+		free(value.key);
 	}
 
 	TMAP_FREE(StyleToFontHMEntry, style_to_font_hm);
@@ -747,13 +744,13 @@ static void free_style_to_font_hm(StyleToFontHM* style_to_font_hm) {
 typedef struct {
 } MonoState;
 
-#define MONOSTATE MonoState
-#define MONOSTATE_VALUE ((MonoState){})
+	#define MONOSTATE MonoState
+	#define MONOSTATE_VALUE ((MonoState){})
 
 #else
 
-#define MONOSTATE bool
-#define MONOSTATE_VALUE true
+	#define MONOSTATE bool
+	#define MONOSTATE_VALUE true
 
 #endif
 
@@ -763,15 +760,13 @@ typedef TMAP_TYPENAME_MAP(UsedFontHMEntry) UsedFontsHM;
 
 static void free_used_fonts_hm(UsedFontsHM* used_fonts_hm) {
 
-	size_t hm_total_length = TMAP_CAPACITY(*used_fonts_hm);
+	TMAP_TYPENAME_ITER(UsedFontHMEntry)
+	iter = TMAP_ITER_INIT(UsedFontHMEntry, used_fonts_hm);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const TMAP_TYPENAME_ENTRY(UsedFontHMEntry)* hm_entry =
-		    TMAP_GET_ENTRY_AT(UsedFontHMEntry, used_fonts_hm, i);
+	TMAP_TYPENAME_ENTRY(UsedFontHMEntry) value;
 
-		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
-			free(hm_entry->key);
-		}
+	while(TMAP_ITER_NEXT(UsedFontHMEntry, &iter, &value)) {
+		free(value.key);
 	}
 
 	TMAP_FREE(UsedFontHMEntry, used_fonts_hm);
@@ -959,18 +954,18 @@ static void validate_fonts_impl(AssResult ass_result, bool allow_validation_erro
 	UsedFontsHM* used_fonts = get_used_fonts(ass_result, allow_validation_errors, diagnostics);
 
 #ifdef ASS_PARSER_HAVE_FONTCONFIG
-#define FREE_AT_END() \
-	do { \
-		free_used_fonts_hm(used_fonts); \
-		free(used_fonts); \
-		FcFini(); \
-	} while(false)
+	#define FREE_AT_END() \
+		do { \
+			free_used_fonts_hm(used_fonts); \
+			free(used_fonts); \
+			FcFini(); \
+		} while(false)
 #else
-#define FREE_AT_END() \
-	do { \
-		free_used_fonts_hm(used_fonts); \
-		free(used_fonts); \
-	} while(false)
+	#define FREE_AT_END() \
+		do { \
+			free_used_fonts_hm(used_fonts); \
+			free(used_fonts); \
+		} while(false)
 #endif
 
 	if(used_fonts == NULL) {

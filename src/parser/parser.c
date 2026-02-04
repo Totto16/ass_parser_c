@@ -3,7 +3,7 @@
 
 #include "./parser.h"
 #ifndef __WASM__
-#include "../helper/io.h"
+	#include "../helper/io.h"
 #endif
 
 #include "../helper/macros.h"
@@ -206,9 +206,9 @@ struct AssParseResultImpl {
 }
 
 #if defined(__clang__)
-#define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
+	#define ENUM_EXTENSIBILITY_CLOSED __attribute__((enum_extensibility(closed)))
 #else
-#define ENUM_EXTENSIBILITY_CLOSED
+	#define ENUM_EXTENSIBILITY_CLOSED
 #endif
 
 typedef enum ENUM_EXTENSIBILITY_CLOSED : bool {
@@ -1575,14 +1575,14 @@ got_new_section_graphic:
 #undef FREE_AT_END
 
 static void free_extra_section_entry(ExtraSectionEntry entry) {
-	size_t hm_total_length = TMAP_CAPACITY(entry);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const SectionFieldEntry* hm_entry = TMAP_GET_ENTRY_AT(SectionFieldEntry, &entry, i);
+	TMAP_TYPENAME_ITER(SectionFieldEntry)
+	iter = TMAP_ITER_INIT(SectionFieldEntry, &entry);
 
-		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
-			free(hm_entry->key);
-		}
+	TMAP_TYPENAME_ENTRY(SectionFieldEntry) value;
+
+	while(TMAP_ITER_NEXT(SectionFieldEntry, &iter, &value)) {
+		free(value.key);
 	}
 
 	TMAP_FREE(SectionFieldEntry, &entry);
@@ -2313,16 +2313,15 @@ parse_format_line_for_events(const ConstStrView line, TVEC_TYPENAME(AssEventForm
 
 static void free_extra_sections(ExtraSections sections) {
 
-	size_t hm_total_length = TMAP_CAPACITY(sections);
+	TMAP_TYPENAME_ITER(ExtraSectionHashMapEntry)
+	iter = TMAP_ITER_INIT(ExtraSectionHashMapEntry, &sections);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const ExtraSectionHashMapEntry* hm_entry =
-		    TMAP_GET_ENTRY_AT(ExtraSectionHashMapEntry, &sections, i);
+	TMAP_TYPENAME_ENTRY(ExtraSectionHashMapEntry) value;
 
-		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
-			free_extra_section_entry(hm_entry->value);
-			free(hm_entry->key);
-		}
+	while(TMAP_ITER_NEXT(ExtraSectionHashMapEntry, &iter, &value)) {
+
+		free_extra_section_entry(value.value);
+		free(value.key);
 	}
 
 	TMAP_FREE(ExtraSectionHashMapEntry, &sections);
